@@ -63,6 +63,14 @@ public class MyRandom {
         MyRandom.random = random;
     }
 
+    /**
+     * Sets a deterministic seed. Replaces the RNG with a seeded {@code Random}.
+     * @param seed the seed value
+     */
+    public static void setSeed(long seed) {
+        setRandom(new Random(seed));
+    }
+
     public static int[] splitIntoRandomGroups(final int value, final int numGroups) {
         int[] groups = new int[numGroups];
         
