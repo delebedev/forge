@@ -42,6 +42,9 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     public final static String FlagPrefix = "#";
     public static final String FlagSeparator = "\t";
 
+    /** Suppress noisy card-init warnings (unassigned sets, upcoming editions). */
+    public static boolean quietInit = false;
+
     // need this to obtain cardReference by name+set+artindex
     private final ListMultimap<String, PaperCard> allCardsByName = Multimaps.newListMultimap(new TreeMap<>(String.CASE_INSENSITIVE_ORDER), Lists::newArrayList);
     private final Map<String, PaperCard> uniqueCardsByName = Maps.newTreeMap(String.CASE_INSENSITIVE_ORDER);
@@ -487,7 +490,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
             System.out.printf("Totally %d cards not implemented: %s\n", allMissingCards.size(), StringUtils.join(allMissingCards, " | "));
         }
 
-        if (upcomingSet != null) {
+        if (upcomingSet != null && !quietInit) {
             System.err.println("Upcoming set " + upcomingSet + " dated in the future. All `upcoming` cards will be added to this set with unknown rarity.");
         }
 
@@ -497,11 +500,11 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
                     if (upcomingSet != null && cr.getPath() != null && cr.getPath().contains("upcoming/")) {
                         addCard(new PaperCard(cr, upcomingSet.getCode(), CardRarity.Unknown));
                     } else if (enableUnknownCards && !this.filtered.contains(cr.getName())) {
-                        System.err.println("The card " + cr.getName() + " was not assigned to any set. Adding it to UNKNOWN set... to fix see res/editions/ folder. ");
+                        if (!quietInit) System.err.println("The card " + cr.getName() + " was not assigned to any set. Adding it to UNKNOWN set... to fix see res/editions/ folder. ");
                         addCard(new PaperCard(cr, CardEdition.UNKNOWN_CODE, CardRarity.Special));
                     }
                 } else {
-                    System.err.println("The custom card " + cr.getName() + " was not assigned to any set. Adding it to custom USER set, and will try to load custom art from USER edition.");
+                    if (!quietInit) System.err.println("The custom card " + cr.getName() + " was not assigned to any set. Adding it to custom USER set, and will try to load custom art from USER edition.");
                     addCard(new PaperCard(cr, "USER", CardRarity.Special));
                 }
             }
