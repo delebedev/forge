@@ -93,7 +93,7 @@ public class EndureEffect extends TokenEffectBase {
 
             triggerList.triggerChangesZoneAll(game, sa);
 
-            game.fireEvent(new GameEventTokenCreated());
+            game.fireEvent(new GameEventTokenCreated(List.copyOf(triggerList.getCreatedTokens())));
 
             if (combatChanged.isTrue()) {
                 game.updateCombatForView();
