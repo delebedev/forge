@@ -1,5 +1,6 @@
 package forge.game.ability.effects;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.mutable.MutableBoolean;
@@ -71,7 +72,7 @@ public class AmassEffect extends TokenEffectBase {
 
             triggerList.triggerChangesZoneAll(game, sa);
 
-            game.fireEvent(new GameEventTokenCreated());
+            game.fireEvent(new GameEventTokenCreated(List.copyOf(triggerList.getCreatedTokens())));
 
             if (combatChanged.isTrue()) {
                 game.updateCombatForView();

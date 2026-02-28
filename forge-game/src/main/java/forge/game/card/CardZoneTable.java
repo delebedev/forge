@@ -202,6 +202,10 @@ public class CardZoneTable extends ForwardingTable<ZoneType, ZoneType, CardColle
         return Iterables.concat(values());
     }
 
+    public CardCollectionView getCreatedTokens() {
+        return createdTokens;
+    }
+
     public void addToken(Card c, boolean firstTime) {
         createdTokens.add(c);
         if (firstTime) {
