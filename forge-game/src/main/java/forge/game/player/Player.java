@@ -1074,6 +1074,7 @@ public class Player extends GameEntity implements Comparable<Player> {
                 for (Card c : toGrave) {
                     Card moved = getGame().getAction().moveToGraveyard(c, cause, params);
                     moved.setSurveilled(true);
+                    getGame().fireEvent(new GameEventCardSurveiled(moved, cause != null ? cause.getHostCard() : null));
                     numToGrave++;
                 }
             }
