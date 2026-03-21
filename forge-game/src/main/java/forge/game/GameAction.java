@@ -2159,7 +2159,7 @@ public class GameAction {
         //for animation
         c.updateWasDestroyed(true);
         // Play the Destroy sound
-        game.fireEvent(new GameEventCardDestroyed());
+        game.fireEvent(new GameEventCardDestroyed(c, sa != null ? sa.getHostCard() : null));
 
         final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(c);
         runParams.put(AbilityKey.Causer, activator);
