@@ -6,10 +6,34 @@ import forge.game.spellability.SpellAbilityView;
 import forge.game.spellability.StackItemView;
 import forge.game.spellability.TargetChoices;
 
-public record GameEventSpellAbilityCast(SpellAbilityView sa, StackItemView si, int stackIndex, String targetDescription) implements GameEvent {
+import java.util.ArrayList;
+import java.util.List;
+
+public record GameEventSpellAbilityCast(
+    SpellAbilityView sa,
+    StackItemView si,
+    int stackIndex,
+    String targetDescription,
+    List<ManaPaymentInfo> manaPayments
+) implements GameEvent {
+
+    /** Mana globe used to pay for this spell. */
+    public record ManaPaymentInfo(int sourceCardId, byte color) {}
 
     public GameEventSpellAbilityCast(SpellAbility sa, SpellAbilityStackInstance si, int stackIndex) {
-        this(SpellAbilityView.get(sa), StackItemView.get(si), stackIndex, computeTargetDescription(sa));
+        this(SpellAbilityView.get(sa), StackItemView.get(si), stackIndex,
+             computeTargetDescription(sa), extractManaPayments(sa));
+    }
+
+    private static List<ManaPaymentInfo> extractManaPayments(SpellAbility sa) {
+        List<ManaPaymentInfo> payments = new ArrayList<>();
+        for (var mana : sa.getPayingMana()) {
+            var source = mana.getSourceCard();
+            if (source != null) {
+                payments.add(new ManaPaymentInfo(source.getId(), mana.getColor()));
+            }
+        }
+        return List.copyOf(payments);
     }
 
     private static String computeTargetDescription(SpellAbility sa) {
