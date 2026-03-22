@@ -33,6 +33,8 @@ import forge.game.ability.SpellAbilityEffect;
 import forge.game.ability.effects.ManaEffect;
 import forge.game.card.Card;
 import forge.game.card.CardUtil;
+import forge.game.card.CardView;
+import forge.game.event.GameEventManaAbilityActivated;
 import forge.game.cost.Cost;
 import forge.game.mana.Mana;
 import forge.game.mana.ManaPool;
@@ -194,6 +196,7 @@ public class AbilityManaPart implements java.io.Serializable {
         }
 
         manaPool.add(this.lastManaProduced);
+        game.fireEvent(new GameEventManaAbilityActivated(CardView.get(source), afterReplace));
 
         final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(source);
         runParams.put(AbilityKey.Player, player);

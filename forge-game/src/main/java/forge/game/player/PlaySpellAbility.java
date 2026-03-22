@@ -23,6 +23,7 @@ import forge.card.CardType;
 import forge.card.mana.ManaCost;
 import forge.game.Game;
 import forge.game.GameActionUtil;
+import forge.game.event.GameEventSpellMovedToStack;
 import forge.game.GameObject;
 import forge.game.ability.AbilityKey;
 import forge.game.ability.AbilityUtils;
@@ -625,6 +626,7 @@ public class PlaySpellAbility {
                 zonePosition = fromZone.getCards().indexOf(c);
             }
             ability.setHostCard(game.getAction().moveToStack(c, ability));
+            game.fireEvent(new GameEventSpellMovedToStack(CardView.get(ability.getHostCard())));
             ability.changeText();
         }
 
