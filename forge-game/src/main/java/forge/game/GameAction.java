@@ -990,7 +990,6 @@ public class GameAction {
     }
 
     public final void controllerChangeZoneCorrection(final Card c) {
-        System.out.println("Correcting zone for " + c.toString());
         final Zone oldBattlefield = game.getZoneOf(c);
 
         if (oldBattlefield == null || oldBattlefield.is(ZoneType.Stack)) {
@@ -1030,6 +1029,8 @@ public class GameAction {
 
         c.setCameUnderControlSinceLastUpkeep(true);
         c.handleChangedControllerSprocketReset();
+
+        game.fireEvent(new GameEventControllerChanged(c, original, controller));
 
         final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(c);
         runParams.put(AbilityKey.OriginalController, original);
