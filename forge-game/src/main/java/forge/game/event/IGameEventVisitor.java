@@ -63,6 +63,7 @@ public interface IGameEventVisitor<T> {
     T visit(GameEventAddLog event);
     T visit(GameEventSpellMovedToStack event);
     T visit(GameEventControllerChanged event);
+    T visit(GameEventExtrinsicKeywordAdded event);
 
     // This is base class for all visitors.
     class Base<T> implements IGameEventVisitor<T>{
@@ -128,5 +129,6 @@ public interface IGameEventVisitor<T> {
         public T visit(GameEventAddLog event) { return null; }
         public T visit(GameEventSpellMovedToStack event) { return null; }
         public T visit(GameEventControllerChanged event) { return null; }
+        public T visit(GameEventExtrinsicKeywordAdded event) { return null; }
     }
 }
