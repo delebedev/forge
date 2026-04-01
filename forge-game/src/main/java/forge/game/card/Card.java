@@ -5083,6 +5083,12 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         final KeywordsChange newCks = new KeywordsChange(kws, removeKeywords, removeAllKeywords);
         changedCardKeywords.put(timestamp, st == null ? 0l : st.getId(), newCks);
 
+        // Fire events after state mutation so subscribers see consistent keyword state
+        final long staticId = st == null ? 0L : st.getId();
+        for (KeywordInterface ki : kws) {
+            game.fireEvent(new GameEventExtrinsicKeywordAdded(this, ki.getOriginal(), timestamp, staticId));
+        }
+
         if (updateView) {
             updateKeywords();
         }
