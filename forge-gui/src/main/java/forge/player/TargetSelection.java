@@ -33,7 +33,6 @@ import forge.game.spellability.TargetRestrictions;
 import forge.game.staticability.StaticAbilityMustTarget;
 import forge.game.zone.Zone;
 import forge.game.zone.ZoneType;
-import forge.gamemodes.match.input.InputSelectTargets;
 import forge.util.Aggregates;
 import forge.util.IterableUtil;
 import forge.util.TextUtil;
@@ -183,10 +182,10 @@ public class TargetSelection {
         PlayerView playerView = controller.getLocalPlayerView();
         PlayerZoneUpdates playerZoneUpdates = controller.getGui().openZones(playerView, validTargets.stream().map(c -> c.getZone().getZoneType()).collect(Collectors.toSet()), playersWithValidTargets, true);
         if (!zones.contains(ZoneType.Stack)) {
-            InputSelectTargets inp = new InputSelectTargets(controller, validTargets, ability, mandatory, numTargets, divisionValues, filter, mustTargetFiltered);
-            inp.showAndWait();
-            choiceResult = !inp.hasCancelled();
-            bTargetingDone = inp.hasPressedOk();
+            TargetSelectionResult result = controller.selectTargetsInteractively(
+                    validTargets, ability, mandatory, numTargets, divisionValues, filter, mustTargetFiltered);
+            choiceResult = result.isChosen();
+            bTargetingDone = result.isDone();
             controller.getGui().restoreOldZones(playerView, playerZoneUpdates);
         } else {
             // for every other case an all-purpose GuiChoose
