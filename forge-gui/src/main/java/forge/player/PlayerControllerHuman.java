@@ -3479,4 +3479,19 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         return FModel.getPreferences().getPrefBoolean(FPref.UI_ORDER_HAND);
     }
 
+    /**
+     * Seam: Interactive target selection for spells/abilities.
+     * Desktop default uses {@link forge.gamemodes.match.input.InputSelectTargets}.
+     * Downstream consumers can override for non-interactive target resolution.
+     */
+    protected TargetSelectionResult selectTargetsInteractively(
+            List<Card> validTargets, SpellAbility sa, boolean mandatory,
+            Integer numTargets, Collection<Integer> divisionValues,
+            java.util.function.Predicate<GameObject> filter, boolean mustTargetFiltered) {
+        InputSelectTargets inp = new InputSelectTargets(this, validTargets, sa, mandatory,
+                numTargets, divisionValues, filter, mustTargetFiltered);
+        inp.showAndWait();
+        return new TargetSelectionResult(!inp.hasCancelled(), inp.hasPressedOk());
+    }
+
 }
