@@ -154,7 +154,7 @@ public class GameRules {
     }
 
     public boolean isUseSharedTurns() {
-        return useSharedTeamLife;
+        return useSharedTurns;
     }
 
     public void setUseSharedTurns(boolean useSharedTurns) {
