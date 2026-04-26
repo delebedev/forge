@@ -2060,6 +2060,17 @@ public class FDeckEditor extends TabPageScreen<FDeckEditor> {
         }
 
         protected void addPerCardItems(FDropDownMenu menu, PaperCard card) {
+            Deck currentDeck = parentScreen.getDeck();
+            if (currentDeck != null) {
+                // Add key card toggle option
+                boolean isKeyCard = currentDeck.getKeyCards().stream().anyMatch(name -> name.equalsIgnoreCase(card.getName()));
+                String keyCardLabel = isKeyCard ? Forge.getLocalizer().getMessage("lblRemoveKeyCard") : Forge.getLocalizer().getMessage("lblAddKeyCard");
+                
+                menu.addItem(new FMenuItem(keyCardLabel, Forge.hdbuttons ? FSkinImage.HDPREFERENCE : FSkinImage.SETTINGS, e -> {
+                    toggleCardKeyCard(currentDeck, card, isKeyCard);
+                }));
+            }
+
             int markedColorCount = card.getRules().getSetColorID();
             if (markedColorCount > 0) {
                 menu.addItem(new FMenuItem(Forge.getLocalizer().getMessage("lblColorIdentity"), Forge.hdbuttons ? FSkinImage.HDPREFERENCE : FSkinImage.SETTINGS, e -> {
@@ -2143,6 +2154,24 @@ public class FDeckEditor extends TabPageScreen<FDeckEditor> {
             }).handleEvent(e);
         }
 
+        private void toggleCardKeyCard(final Deck deck, final PaperCard card, boolean isCurrentlyKeyCard) {
+            String cardName = card.getName();
+            
+            if (isCurrentlyKeyCard) {
+                // Remove from key cards
+                deck.removeKeyCard(cardName);
+            } else {
+                // Add to key cards
+                deck.addKeyCard(cardName);
+            }
+            
+            // Mark deck as modified so it will be saved
+            parentScreen.getDeckController().notifyModelChanged();
+            
+            // Refresh the view to show updated status
+            cardManager.refresh();
+        }
+
         private boolean isPartnerCommander(final PaperCard card) {
             if (!parentScreen.isCommanderEditor() || parentScreen.getDeck().getCommanders().isEmpty()) {
                 return false;
@@ -2196,6 +2225,7 @@ public class FDeckEditor extends TabPageScreen<FDeckEditor> {
                 draft.postDraftActions();
                 hideTab(); //hide this tab page when finished drafting
                 parentScreen.completeDraft();
+                return; // pool is null; do not fall through to cardManager.setPool(pool) below
             }
 
             this.draftingFaceDown = getDraftPlayer().hasArchdemonCurse();

@@ -34,7 +34,6 @@ import forge.game.ability.effects.RollDiceEffect;
 import forge.game.card.*;
 import forge.game.event.*;
 import forge.game.keyword.*;
-import forge.game.keyword.KeywordCollection.KeywordCollectionView;
 import forge.game.mana.ManaPool;
 import forge.game.phase.PhaseHandler;
 import forge.game.phase.PhaseType;
@@ -1039,8 +1038,8 @@ public class Player extends GameEntity implements Comparable<Player> {
         updateKeywordCardAbilityText();
     }
 
-    public final KeywordCollectionView getKeywords() {
-        return keywords.getView();
+    public final KeywordCollection getKeywords() {
+        return keywords;
     }
 
     @Override
@@ -1629,18 +1628,7 @@ public class Player extends GameEntity implements Comparable<Player> {
         game.fireEvent(new GameEventShuffle(this));
     }
 
-    public final boolean playLand(final Card land, final boolean ignoreZoneAndTiming, SpellAbility cause) {
-        // Dakkon Blackblade Avatar will use a similar effect
-        if (canPlayLand(land, ignoreZoneAndTiming, cause)) {
-            playLandNoCheck(land, null);
-            return true;
-        }
-
-        game.getStack().unfreezeStack();
-        return false;
-    }
-
-    public final Card playLandNoCheck(final Card land, SpellAbility cause) {
+    public final Card playLand(final Card land, SpellAbility cause) {
         land.setController(this, 0);
         if (land.isFaceDown()) {
             land.turnFaceUp(null);
@@ -3058,8 +3046,7 @@ public class Player extends GameEntity implements Comparable<Player> {
     }
 
     public void initCommanderColor(Card cmd) {
-        if (cmd.getStaticAbilities().stream().anyMatch(stAb -> stAb.hasParam("Description") && stAb.getParam("Description")
-                .contains("If CARDNAME is your commander, choose a color before the game begins."))) {
+        if (cmd.getRules().getAddsWildCardColor()) {
             Player p = cmd.getController();
             String prompt = Localizer.getInstance().getMessage("lblChooseAColorFor", cmd.getName());
             SpellAbility cmdColorsa = new SpellAbility.EmptySa(ApiType.ChooseColor, cmd, p);

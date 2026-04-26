@@ -50,7 +50,7 @@ public abstract class ImageFetcher {
             // the wrong frame.
             addScryfallUrl(c, face, useArtCrop, downloadUrls);
 
-            List<PaperCard> clones = StaticData.instance().getCommonCards().getAllCards(c.getName());
+            List<PaperCard> clones = StaticData.instance().getCommonCards().getAllCardsNoAlt(c.getName());
             for (PaperCard pc : clones) {
                 if (c.getEdition().equalsIgnoreCase(pc.getEdition())) {
                     continue;
@@ -106,9 +106,17 @@ public abstract class ImageFetcher {
         if (imageKey.startsWith(ImageKeys.BOOSTER_PREFIX)) {
             final ArrayList<String> downloadUrls = new ArrayList<>();
             final String filename = imageKey.substring(ImageKeys.BOOSTER_PREFIX.length());
-            // TODO Update image server or alternative hosting
-            downloadUrls.add("https://downloads.cardforge.org/images/products/boosters/" + filename);
-            System.out.println("Fetching from " + downloadUrls);
+            // Look up the download URL from booster-images.txt
+            for (String line : FileUtil.readFile(ForgeConstants.IMAGE_LIST_QUEST_BOOSTERS_FILE)) {
+                if (line.endsWith("/" + filename)) {
+                    downloadUrls.add(line);
+                    break;
+                }
+            }
+            if (downloadUrls.isEmpty()) {
+                System.err.println("No booster image URL found for: " + filename);
+                return;
+            }
 
 
             FileUtil.ensureDirectoryExists(ForgeConstants.CACHE_BOOSTER_PICS_DIR);
@@ -213,7 +221,7 @@ public abstract class ImageFetcher {
                     }
                     downloadUrls.add(setDownload.toString());
                 } else {
-                    List<PaperCard> clones = StaticData.instance().getCommonCards().getAllCards(paperCard.getName());
+                    List<PaperCard> clones = StaticData.instance().getCommonCards().getAllCardsNoAlt(paperCard.getName());
                     for (PaperCard pc : clones) {
                         if (clones.size() > 1) {//clones only
                             if (!paperCard.getEdition().equalsIgnoreCase(pc.getEdition())) {
@@ -272,6 +280,15 @@ public abstract class ImageFetcher {
                     || destFile.exists())
                 return;
 
+            // token-images.txt lets mods route specific tokens to hosted URLs.
+            for (org.apache.commons.lang3.tuple.Pair<String, String> pair :
+                    FileUtil.readNameUrlFile(ForgeConstants.IMAGE_LIST_TOKENS_FILE)) {
+                if (filename.equalsIgnoreCase(pair.getLeft())) {
+                    downloadUrls.add(pair.getRight());
+                    break;
+                }
+            }
+
             if (tempdata.length < 2) {
                 if (!"planechase".equals(tempdata[0]))
                     System.err.println("Token image key is malformed: " + imageKey);
@@ -281,9 +298,13 @@ public abstract class ImageFetcher {
 
             // Load the paper token from filename + edition
             CardEdition edition = StaticData.instance().getEditions().get(setCode);
-            if (edition == null || edition.getType() == CardEdition.Type.CUSTOM_SET)
-                return; //Custom set token, skip fetching.
-
+            if (edition == null || edition.getType() == CardEdition.Type.CUSTOM_SET) {
+                // Custom/unknown set (e.g. TDLS/Duelist): rely on the URL map above.
+                if (downloadUrls.isEmpty()) return;
+                ImageKeys.missingCards.add(filename);
+                setupObserver(destFile.getAbsolutePath(), callback, downloadUrls);
+                return;
+            }
             // PaperToken pt = StaticData.instance().getAllTokens().getToken(tokenName, setCode);
             Collection<CardEdition.EditionEntry> allTokens = edition.getTokens().get(tokenName);
 
