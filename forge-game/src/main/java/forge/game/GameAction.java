@@ -1905,6 +1905,10 @@ public class GameAction {
                 return false;
             }
 
+            if (zoneFrom.is(ZoneType.Exile) && c.getCurrentStateName() == CardStateName.PreparedSpell) {
+                return false;
+            }
+
             if (!zoneFrom.is(ZoneType.Battlefield)) {
                 zoneFrom.remove(c);
                 checkAgain = true;
