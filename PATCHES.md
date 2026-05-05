@@ -19,3 +19,6 @@ Changes on top of upstream Card-Forge/forge. Update this file when adding or rem
 ## Utilities
 - `MyRandom.setSeed()` + shuffle routing — deterministic replay support
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
+
+## Engine fixes
+- `EndureEffect` — set `tokenSpawningAbility` on the Spirit token, mirroring `TokenEffectBase` / `AmassEffect` / `CopyPermanentEffect` / `ReplaceTokenEffect`. Without it, `Card.tokenSpawningAbility` is null on Endure-spawned tokens.
