@@ -81,6 +81,11 @@ public class EndureEffect extends TokenEffectBase {
                 result.setBaseToughnessString(num);
                 result.setBaseToughness(amount);
 
+                // Mirror TokenEffectBase.makeTokenTableInternal / AmassEffect:
+                // record the SA that spawned this token so consumers walking
+                // Card.tokenSpawningAbility can trace back to the source.
+                result.setTokenSpawningAbility(sa);
+
                 tokenTable.put(pl, result, 1);
             }
         }
