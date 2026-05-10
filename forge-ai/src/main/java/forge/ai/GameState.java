@@ -1351,6 +1351,11 @@ public abstract class GameState {
                     c.setExiledBy(c.getController());
                 } else if (info.startsWith("IsCommander")) {
                     player.addCommander(c);
+                } else if (info.startsWith("CommanderCast:")) {
+                    int castCount = Integer.parseInt(info.substring("CommanderCast:".length()));
+                    for (int i = 0; i < castCount; i++) {
+                        player.incCommanderCast(c);
+                    }
                 } else if (info.startsWith("IsRingBearer")) {
                     c.setRingBearer(true);
                     player.setRingBearer(c);
