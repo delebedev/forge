@@ -1571,7 +1571,14 @@ public class AiController {
         //update LivingEndPlayer
         useLivingEnd = IterableUtil.any(player.getZone(ZoneType.Library), CardPredicates.nameEquals("Living End"));
 
-        SpellAbility chosenSa = chooseSpellAbilityToPlayFromList(saList, true);
+        SpellAbility forgeChoice = chooseSpellAbilityToPlayFromList(saList, true);
+        ResearchNeuralReranker.Result neuralChoice = ResearchNeuralReranker.choose(game, player, saList, forgeChoice);
+        ResearchPolicyReranker.Result policyChoice = neuralChoice.used ? ResearchPolicyReranker.Result.fallback()
+                : ResearchPolicyReranker.choose(game, saList);
+        SpellAbility chosenSa = neuralChoice.used ? ResearchPolicySearch.choose(game, player, neuralChoice.choice, forgeChoice)
+                : policyChoice.used ? policyChoice.choice : forgeChoice;
+        ResearchDecisionLogger.logPriorityDecision(game, player, saList, chosenSa, policyChoice.used, policyChoice.score,
+                policyChoice.seen, neuralChoice.used, neuralChoice.score, neuralChoice.margin);
 
         if (topOwnedByAI && !mustRespond && chosenSa != ComputerUtilAbility.getFirstCopySASpell(saList)) {
             return null; // not planning to copy the spell and not marked as something the AI would respond to
