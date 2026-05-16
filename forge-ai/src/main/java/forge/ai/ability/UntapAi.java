@@ -167,7 +167,7 @@ public class UntapAi extends SpellAbilityAi {
                 if (combat == null) {
                     return false;
                 }
-                list = CardLists.filter(list, c -> isAttackingAi(c, ai, combat));
+                list = CardLists.filter(list, c -> combat.isAttacking(c, ai));
                 if (list.isEmpty()) {
                     return false;
                 }
@@ -379,7 +379,7 @@ public class UntapAi extends SpellAbilityAi {
         }
 
         CardCollection list = CardLists.getTargetableCards(activeCombat.getAttackers(), sa);
-        list = CardLists.filter(list, c -> isAttackingAi(c, ai, activeCombat));
+        list = CardLists.filter(list, c -> activeCombat.isAttacking(c, ai));
 
         if (list.isEmpty()) {
             return false;

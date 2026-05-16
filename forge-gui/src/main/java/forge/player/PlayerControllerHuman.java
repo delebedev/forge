@@ -29,6 +29,7 @@ import forge.game.keyword.KeywordInterface;
 import forge.game.mana.Mana;
 import forge.game.mana.ManaConversionMatrix;
 import forge.game.mana.ManaCostBeingPaid;
+import forge.game.phase.PhaseType;
 import forge.game.player.*;
 import forge.game.player.actions.SelectCardAction;
 import forge.game.player.actions.SelectPlayerAction;
@@ -47,6 +48,8 @@ import forge.game.zone.PlayerZone;
 import forge.game.zone.Zone;
 import forge.game.zone.ZoneType;
 import forge.gamemodes.match.NextGameDecision;
+import forge.gamemodes.match.YieldController;
+import forge.gamemodes.match.YieldUpdate;
 import forge.gamemodes.match.input.*;
 import forge.util.IHasForgeLog;
 import forge.gui.FThreads;
@@ -70,6 +73,7 @@ import forge.trackable.TrackableCollection;
 import forge.util.*;
 import forge.util.collect.FCollection;
 import forge.util.collect.FCollectionView;
+
 import io.sentry.Sentry;
 import org.apache.commons.lang3.Range;
 import org.apache.commons.lang3.StringUtils;
@@ -98,14 +102,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     private IGuiGame gui;
 
-    // Inlined server-side mirror used only when this controller serves a remote network
-    // player (gui instanceof RemoteClientGuiGame). Two scope buckets so the host doesn't
-    // need to know the client's UI_AUTO_YIELD_MODE: the client tells us which bucket via
-    // the isAbilityScope flag on setShouldAutoYield.
-    private final Set<String> remoteCardYields = Sets.newHashSet();
-    private final Set<String> remoteAbilityYields = Sets.newHashSet();
-    private final Map<Integer, Boolean> remoteTriggerDecisions = Maps.newTreeMap();
-    private boolean remoteAutoYieldsDisabled;
+    private final YieldController yieldController = new YieldController(this);
 
     protected final InputQueue inputQueue;
     protected final InputProxy inputProxy;
@@ -133,6 +130,10 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     public final void setGui(final IGuiGame gui) {
         this.gui = gui;
+    }
+
+    public YieldController getYieldController() {
+        return yieldController;
     }
 
     public final InputQueue getInputQueue() {
@@ -455,7 +456,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             }
 
             final boolean useUiPointAtCard =
-                    FModel.getPreferences().getPrefBoolean(FPref.UI_SELECT_FROM_CARD_DISPLAYS) && !GuiBase.getInterface().isLibgdxPort() ?
+                    FModel.getPreferences().getPrefBoolean(FPref.UI_SELECT_FROM_CARD_DISPLAYS) && !getGui().isLibgdxPort() ?
                             (cz.is(ZoneType.Battlefield) || cz.is(ZoneType.Hand) || cz.is(ZoneType.Library) ||
                                     cz.is(ZoneType.Graveyard) || cz.is(ZoneType.Exile) || cz.is(ZoneType.Flashback) ||
                                     cz.is(ZoneType.Command) || cz.is(ZoneType.Sideboard)) :
@@ -778,12 +779,9 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     public boolean confirmTrigger(final WrappedAbility wrapper) {
         final SpellAbility sa = wrapper.getWrappedAbility();
         final Trigger regtrig = wrapper.getTrigger();
-        if (shouldAlwaysAcceptTrigger(regtrig.getId())) {
-            return true;
-        }
-        if (shouldAlwaysDeclineTrigger(regtrig.getId())) {
-            return false;
-        }
+        AutoYieldStore.TriggerDecision decision = getTriggerDecision(wrapper.yieldKey());
+        if (decision == AutoYieldStore.TriggerDecision.ACCEPT) return true;
+        if (decision == AutoYieldStore.TriggerDecision.DECLINE) return false;
 
         // triggers with costs can always be declined by not paying the cost
         if (sa.hasParam("Cost") && !sa.getParam("Cost").equals("0")) {
@@ -810,7 +808,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 buildQuestion.append("\n").append(localizer.getMessage("lblTriggeredby")).append(": ").append(tos.get(AbilityKey.Card));
             }
         }
-        if (GuiBase.getInterface().isLibgdxPort()) {
+        if (getGui().isLibgdxPort()) {
             CardView cardView;
             SpellAbilityView spellAbilityView = wrapper.getView();
             if (spellAbilityView != null) //updated view
@@ -818,9 +816,8 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             else
                 cardView = wrapper.getCardView();
             return this.getGui().confirm(cardView, buildQuestion.toString().replaceAll("\n", " "));
-        } else {
-            return InputConfirm.confirm(this, wrapper, buildQuestion.toString());
         }
+        return InputConfirm.confirm(this, wrapper, buildQuestion.toString());
     }
 
     @Override
@@ -972,8 +969,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         CardCollection toTop = null;
 
         tempShowCards(topN);
-        if (FModel.getPreferences().getPrefBoolean(FPref.UI_SELECT_FROM_CARD_DISPLAYS) &&
-                (!GuiBase.getInterface().isLibgdxPort()) && (!GuiBase.isNetPlay(getGui()))) { //prevent crash for desktop vs mobile port it will crash the netplay since mobile doesnt have manipulatecardlist, send the alternate below
+        if (FModel.getPreferences().getPrefBoolean(FPref.UI_SELECT_FROM_CARD_DISPLAYS) && !getGui().isLibgdxPort()) {
             CardCollectionView cardList = player.getCardsIn(ZoneType.Library);
             ImmutablePair<CardCollection, CardCollection> result =
                     arrangeForMove(localizer.getMessage("lblMoveCardstoToporBbottomofLibrary"), cardList, topN, true, true);
@@ -1440,7 +1436,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     @Override
     public boolean confirmReplacementEffect(final ReplacementEffect replacementEffect, final SpellAbility effectSA,
                                             GameEntity affected, final String question) {
-        if (GuiBase.getInterface().isLibgdxPort()) {
+        if (getGui().isLibgdxPort()) {
             CardView cardView;
             SpellAbilityView spellAbilityView = effectSA == null ? null : effectSA.getView();
             if (spellAbilityView != null) //updated view
@@ -1505,7 +1501,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             int delay = 0;
             if (stack.isEmpty()) {
                 // make sure to briefly pause at phases you're not set up to skip
-                if (!getGui().isUiSetToSkipPhase(getGame().getPhaseHandler().getPlayerTurn().getView(),
+                if (!isUiSetToSkipPhase(getGame().getPhaseHandler().getPlayerTurn().getView(),
                         getGame().getPhaseHandler().getPhase())) {
                     delay = FControlGamePlayback.phasesDelay;
                 }
@@ -1525,8 +1521,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         }
 
         if (stack.isEmpty()) {
-            if (getGui().isUiSetToSkipPhase(getGame().getPhaseHandler().getPlayerTurn().getView(),
-                    getGame().getPhaseHandler().getPhase())) {
+            if (isUiSetToSkipPhase(getGame().getPhaseHandler().getPlayerTurn().getView(), getGame().getPhaseHandler().getPhase())) {
                 netLog.trace("Returning null (skipPhase) for player {}", player.getName());
                 return null; // avoid prompt for input if stack is empty and
                 // player is set to skip the current phase
@@ -1561,7 +1556,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     public CardCollection chooseCardsToDiscardToMaximumHandSize(final int nDiscard) {
         final int max = player.getMaxHandSize();
 
-        if (GuiBase.getInterface().isLibgdxPort()) {
+        if (getGui().isLibgdxPort()) {
             tempShowCards(player.getCardsIn(ZoneType.Hand));
             GameEntityViewMap<Card, CardView> gameCacheDiscard = GameEntityView.getMap(player.getCardsIn(ZoneType.Hand));
             List<CardView> views = getGui().many(String.format(localizer.getMessage("lblChooseMinCardToDiscard"), nDiscard),
@@ -1709,7 +1704,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         if (sa != null && sa.isManaAbility()) {
             getGame().fireEvent(new GameEventAddLog(GameLogEntryType.LAND, message));
         } else {
-            if (sa != null && sa.getHostCard() != null && GuiBase.getInterface().isLibgdxPort()) {
+            if (sa != null && sa.getHostCard() != null && getGui().isLibgdxPort()) {
                 CardView cardView;
                 IPaperCard iPaperCard = sa.getHostCard().getPaperCard();
                 if (iPaperCard != null)
@@ -1868,7 +1863,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public boolean confirmPayment(final CostPart costPart, final String question, SpellAbility sa) {
-        if (GuiBase.getInterface().isLibgdxPort()) {
+        if (getGui().isLibgdxPort()) {
             CardView cardView;
             try {
                 cardView = CardView.getCardForUi(ImageUtil.getPaperCardFromImageKey(sa.getView().getHostCard().getCurrentState().getTrackableImageKey()));
@@ -2218,7 +2213,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public void revealAISkipCards(final String message, final Map<Player, Map<DeckSection, List<? extends PaperCard>>> unplayable) {
-        if (GuiBase.getInterface().isLibgdxPort()) {
+        if (getGui().isLibgdxPort()) {
             //restore old functionality for mobile version since list of card names can't be zoomed to display the cards
             for (Player p : unplayable.keySet()) {
                 final Map<DeckSection, List<? extends PaperCard>> removedUnplayableCards = unplayable.get(p);
@@ -2365,7 +2360,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 // ensure prompt updated if needed
                 currentInput.showMessageInitial();
             }
-            if (gui.isNetGame()) {
+            if (getGui().isNetGame()) {
                 // Flush events to remote clients — the undo modifies game state
                 // (untaps lands, etc.) after the prompt is shown, and without this
                 // the updated state sits in the forwarder buffer until the next action.
@@ -3010,7 +3005,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 f = lastAdded;
                 quantity = 1;
             } else {
-                List<CardFaceView> choices = carddb.getAllFaces().stream().map(CardFaceView::new).collect(Collectors.toList());
+                List<CardFaceView> choices = carddb.streamAllFaces().map(CardFaceView::new).collect(Collectors.toList());
                 Collections.sort(choices);
                 f = getGui().oneOrNone(localizer.getMessage("lblNameTheCard"), choices);
                 if (f != null) {
@@ -3341,23 +3336,6 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         }
     }
 
-    public boolean mayAutoPass() {
-        return getGui().mayAutoPass(getLocalPlayerView());
-    }
-
-    public void autoPassUntilEndOfTurn() {
-        getGui().autoPassUntilEndOfTurn(getLocalPlayerView());
-    }
-
-    @Override
-    public void autoPassCancel() {
-        if (getGui() == null) {
-            return;
-        }
-
-        getGui().autoPassCancel(getLocalPlayerView());
-    }
-
     @Override
     public void awaitNextInput() {
         getGui().awaitNextInput();
@@ -3490,123 +3468,120 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         // No-op for local games - resync is only used for network play
     }
 
-    private boolean isRemoteClient() {
+    public boolean isRemoteClient() {
         return gui instanceof forge.gamemodes.net.server.RemoteClientGuiGame;
     }
 
-    private AutoYieldStore localStore() {
-        return ((LobbyPlayerHuman) getLobbyPlayer()).getYieldStore();
+    public boolean mayAutoPass() {
+        return yieldController.shouldAutoYield();
     }
 
-    private boolean activeModeIsInstall() {
-        return ForgeConstants.AUTO_YIELD_PER_ABILITY_INSTALL.equals(
-                FModel.getPreferences().getPref(FPref.UI_AUTO_YIELD_MODE));
+    public void autoPassUntilEndOfTurn() {
+        yieldController.setAutoPassUntilEOTWithoutInterruptions(true);
+        getGui().updateAutoPassPrompt();
     }
 
-    private AutoYieldStore.Tier activeTier() {
-        String mode = FModel.getPreferences().getPref(FPref.UI_AUTO_YIELD_MODE);
-        if (ForgeConstants.AUTO_YIELD_PER_CARD.equals(mode))            return AutoYieldStore.Tier.GAME;
-        if (ForgeConstants.AUTO_YIELD_PER_ABILITY_SESSION.equals(mode)) return AutoYieldStore.Tier.SESSION;
-        return AutoYieldStore.Tier.MATCH;
+    @Override
+    public void autoPassCancel() {
+        if (!mayAutoPass()) {
+            return;
+        }
+        yieldController.setAutoPassUntilEOTWithoutInterruptions(false);
+        PlayerView playerView = getLocalPlayerView();
+        getGui().showPromptMessage(playerView, "");
+        getGui().updateButtons(playerView, false, false, false);
+        getGui().awaitNextInput();
     }
 
     @Override
     public boolean shouldAutoYield(final String key) {
-        if (isRemoteClient()) {
-            if (remoteAutoYieldsDisabled) return false;
-            if (remoteCardYields.contains(key)) return true;
-            return remoteAbilityYields.contains(AutoYieldStore.abilitySuffix(key));
-        }
-        if (localStore().isDisabled()) return false;
-        if (activeModeIsInstall()) {
-            return PersistentYieldStore.get().contains(AutoYieldStore.abilitySuffix(key));
-        }
-        boolean abilityScope = activeTier() != AutoYieldStore.Tier.GAME;
-        String storageKey = abilityScope ? AutoYieldStore.abilitySuffix(key) : key;
-        return localStore().shouldYield(activeTier(), storageKey);
+        return yieldController.shouldAutoYield(key);
     }
-
     @Override
     public void setShouldAutoYield(final String key, final boolean autoYield, final boolean isAbilityScope) {
-        if (isRemoteClient()) {
-            Set<String> bucket = isAbilityScope ? remoteAbilityYields : remoteCardYields;
-            if (autoYield) bucket.add(key); else bucket.remove(key);
-            return;
-        }
-        String storageKey = isAbilityScope ? AutoYieldStore.abilitySuffix(key) : key;
-        if (activeModeIsInstall()) {
-            PersistentYieldStore.get().setYield(storageKey, autoYield);
-            return;
-        }
-        localStore().setYield(activeTier(), storageKey, autoYield);
-    }
-
-    @Override
-    public Iterable<String> getAutoYields() {
-        if (isRemoteClient()) {
-            return com.google.common.collect.Iterables.concat(remoteCardYields, remoteAbilityYields);
-        }
-        if (activeModeIsInstall()) return PersistentYieldStore.get().getYields();
-        return localStore().getYields(activeTier());
-    }
-
-    @Override
-    public void clearAutoYields() {
-        if (isRemoteClient()) {
-            remoteCardYields.clear();
-            remoteAbilityYields.clear();
-            remoteTriggerDecisions.clear();
-            return;
-        }
-        localStore().onGameEnd(getGame() == null || getGame().getView().isMatchOver());
+        yieldController.setShouldAutoYield(key, autoYield, isAbilityScope);
     }
 
     @Override
     public boolean getDisableAutoYields() {
-        return isRemoteClient() ? remoteAutoYieldsDisabled : localStore().isDisabled();
+        return yieldController.getDisableAutoYields();
     }
-
     @Override
     public void setDisableAutoYields(final boolean disable) {
-        if (isRemoteClient()) remoteAutoYieldsDisabled = disable;
-        else localStore().setDisabled(disable);
+        yieldController.setDisableAutoYields(disable);
     }
 
     @Override
-    public boolean shouldAlwaysAcceptTrigger(final int trigger) {
-        if (isRemoteClient()) return Boolean.TRUE.equals(remoteTriggerDecisions.get(trigger));
-        return localStore().getTriggerDecision(trigger) == AutoYieldStore.TriggerDecision.ACCEPT;
+    public AutoYieldStore.TriggerDecision getTriggerDecision(final String key) {
+        return yieldController.getTriggerDecision(key);
     }
 
     @Override
-    public boolean shouldAlwaysDeclineTrigger(final int trigger) {
-        if (isRemoteClient()) return Boolean.FALSE.equals(remoteTriggerDecisions.get(trigger));
-        return localStore().getTriggerDecision(trigger) == AutoYieldStore.TriggerDecision.DECLINE;
-    }
+    public void setTriggerDecision(final String key, final AutoYieldStore.TriggerDecision decision, final boolean isAbilityScope) {
+        yieldController.setTriggerDecision(key, decision, isAbilityScope);
 
-    @Override
-    public void setShouldAlwaysAcceptTrigger(final int trigger) {
-        if (isRemoteClient()) remoteTriggerDecisions.put(trigger, Boolean.TRUE);
-        else localStore().setTriggerDecision(trigger, AutoYieldStore.TriggerDecision.ACCEPT);
-        if (isPromptingForTrigger(trigger)) selectButtonOk();
-    }
-
-    @Override
-    public void setShouldAlwaysDeclineTrigger(final int trigger) {
-        if (isRemoteClient()) remoteTriggerDecisions.put(trigger, Boolean.FALSE);
-        else localStore().setTriggerDecision(trigger, AutoYieldStore.TriggerDecision.DECLINE);
-        if (isPromptingForTrigger(trigger)) selectButtonCancel();
-    }
-
-    private boolean isPromptingForTrigger(final int trigger) {
-        if (!(inputQueue.getInput() instanceof InputConfirm)) return false;
+        if (!(inputQueue.getInput() instanceof InputConfirm)) return;
         final SpellAbilityStackInstance top = getGame().getStack().peek();
-        return top != null && top.isStateTrigger(trigger);
+        if (top == null || !top.isTrigger()) return;
+        final String topKey = top.getSpellAbility().yieldKey();
+        if (key.equals(topKey) || key.equals(forge.player.AutoYieldStore.abilitySuffix(topKey))) {
+            if (decision == AutoYieldStore.TriggerDecision.ACCEPT) selectButtonOk();
+            else if (decision == AutoYieldStore.TriggerDecision.DECLINE) selectButtonCancel();
+        }
     }
 
     @Override
-    public void setShouldAlwaysAskTrigger(final int trigger) {
-        if (isRemoteClient()) remoteTriggerDecisions.remove(trigger);
-        else localStore().setTriggerDecision(trigger, AutoYieldStore.TriggerDecision.ASK);
+    public boolean getDisableAutoTriggers() {
+        return yieldController.getDisableAutoTriggers();
+    }
+    @Override
+    public void setDisableAutoTriggers(final boolean disable) {
+        yieldController.setDisableAutoTriggers(disable);
+    }
+
+    public boolean isUiSetToSkipPhase(final PlayerView turnPlayer, final PhaseType phase) {
+        if (isRemoteClient()) {
+            return yieldController.isSkippingPhase(turnPlayer, phase);
+        }
+        return getGui().isUiSetToSkipPhase(turnPlayer, phase);
+    }
+
+    @Override
+    public void applyYieldUpdate(final YieldUpdate update) {
+        boolean activatedYield = false;
+        if (update instanceof YieldUpdate.SetMarker u) {
+            yieldController.setMarker(u.phaseOwner(), u.phase(), u.atOrPastAtClick());
+            activatedYield = true;
+        } else if (update instanceof YieldUpdate.ClearMarker) {
+            yieldController.clearMarker();
+        } else if (update instanceof YieldUpdate.StackYield u) {
+            yieldController.setAutoPassUntilStackEmpty(u.active());
+            activatedYield = u.active();
+        } else if (update instanceof YieldUpdate.TriggerDecision u) {
+            yieldController.applyTriggerDecisionFromWire(u.storageKey(), u.decision());
+        } else if (update instanceof YieldUpdate.CardAutoYield u) {
+            yieldController.applyAutoYieldFromWire(u.cardKey(), u.active());
+        } else if (update instanceof YieldUpdate.SkipPhase u) {
+            yieldController.setSkipPhase(u.turnPlayer(), u.phase(), u.skip());
+        } else if (update instanceof YieldUpdate.SetDisableYields u) {
+            yieldController.setDisableAutoYields(u.disabled());
+        } else if (update instanceof YieldUpdate.SetDisableTriggers u) {
+            yieldController.setDisableAutoTriggers(u.disabled());
+        } else if (update instanceof YieldUpdate.SeedFromClient u) {
+            yieldController.applyClientSeed(u.snapshot());
+        }
+        if (activatedYield) {
+            // Switch the cancel button + prompt to "Yielding until X" so the user can disarm.
+            // Otherwise the previous InputPassPriority "End Turn" label would persist and ESC
+            // would skip the click on the client.
+            // Skip when a forced input is active: it deliberately disables Cancel, and repainting
+            // would re-enable it as a "cancel yield" button that actually drops the input.
+            Input currentInput = inputProxy.getInput();
+            if (currentInput == null
+                    || currentInput instanceof InputPassPriority
+                    || currentInput instanceof InputLockUI) {
+                getGui().updateAutoPassPrompt();
+            }
+        }
     }
 }

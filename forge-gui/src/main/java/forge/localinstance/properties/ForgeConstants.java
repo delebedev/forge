@@ -31,6 +31,7 @@ public final class ForgeConstants {
     public static final String GITHUB_RELEASES_ATOM             = GITHUB_FORGE_URL + "releases.atom";
     public static final String GITHUB_COMMITS_ATOM              = GITHUB_FORGE_URL + "commits/master.atom";
     public static final String GITHUB_SNAPSHOT_URL              = GITHUB_FORGE_URL + "releases/download/daily-snapshots/";
+    public static final String NETWORK_PLAY_WIKI_URL            = GITHUB_FORGE_URL + "wiki/network-play";
     public static final String RELEASE_URL                      = "https://releases.cardforge.org/";
     public static final String PATH_SEPARATOR                   = File.separator;
     public static final String ASSETS_DIR                       = GuiBase.getInterface().getAssetsDir();
@@ -345,11 +346,11 @@ public final class ForgeConstants {
     public static final String DISP_CURRENT_COLORS_MULTI_OR_CHANGED = "Multi+Changed";
     public static final String DISP_CURRENT_COLORS_NEVER = "Never";
 
-    // Constants for Auto-Yield Mode
-    public static final String AUTO_YIELD_PER_CARD = "Per Card (Each Game)";
-    public static final String AUTO_YIELD_PER_ABILITY = "Per Ability (Each Match)";
-    public static final String AUTO_YIELD_PER_ABILITY_SESSION = "Per Ability (Each Session)";
-    public static final String AUTO_YIELD_PER_ABILITY_INSTALL = "Per Ability (Each Install)";
+    // Constants for Auto-Decision Mode (auto-yield + auto-trigger persistence scope)
+    public static final String AUTO_DECISION_PER_CARD = "Per Card (Each Game)";
+    public static final String AUTO_DECISION_PER_ABILITY = "Per Ability (Each Match)";
+    public static final String AUTO_DECISION_PER_ABILITY_SESSION = "Per Ability (Each Session)";
+    public static final String AUTO_DECISION_PER_ABILITY_INSTALL = "Per Ability (Each Install)";
 
     // Constants for Graveyard Ordering
     public static final String GRAVEYARD_ORDERING_NEVER = "Never";
