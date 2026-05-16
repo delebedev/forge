@@ -13,12 +13,33 @@ import java.util.List;
 final class ResearchDecisionLogger {
     private static final String LOG_PATH = System.getenv("FORGE_AI_DECISION_LOG");
     private static final String RUN_ID = System.getenv("FORGE_AI_RUN_ID");
-    private static final String GAME_ID = System.getenv("FORGE_AI_GAME_ID");
+    private static final String GAME_ID_BASE = System.getenv("FORGE_AI_GAME_ID");
     private static final String SEED = System.getenv("FORGE_AI_SEED");
     private static final String PILOT = System.getenv("FORGE_AI_PILOT");
     private static final String OPPONENT = System.getenv("FORGE_AI_OPPONENT");
 
+    // Tracks game index across calls in a single JVM (for batch mode `-n N`).
+    // Increments when we observe a new Game instance.
+    private static int gameIndex = -1;
+    private static int lastGameIdentity = 0;
+
     private ResearchDecisionLogger() {
+    }
+
+    private static synchronized int gameIndexFor(Game game) {
+        int identity = System.identityHashCode(game);
+        if (identity != lastGameIdentity) {
+            gameIndex++;
+            lastGameIdentity = identity;
+        }
+        return gameIndex;
+    }
+
+    private static String gameIdFor(Game game) {
+        if (GAME_ID_BASE == null) {
+            return null;
+        }
+        return GAME_ID_BASE + "-g" + gameIndexFor(game);
     }
 
     static void logPriorityDecision(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
@@ -46,7 +67,7 @@ final class ResearchDecisionLogger {
         appendField(sb, "schema", "priority_decision_v1");
         appendField(sb, "kind", "priority");
         appendField(sb, "run_id", RUN_ID);
-        appendField(sb, "game_id", GAME_ID);
+        appendField(sb, "game_id", gameIdFor(game));
         appendField(sb, "seed", SEED);
         appendField(sb, "pilot", PILOT);
         appendField(sb, "opponent", OPPONENT);
