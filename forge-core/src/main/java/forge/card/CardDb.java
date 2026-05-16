@@ -1082,10 +1082,6 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
         return getAllCardsNoAlt(cardName).stream().filter(predicate).collect(Collectors.toCollection(ArrayList::new));
     }
 
-    public List<PaperCard> getAllCardsNoAlt(final String cardName, Predicate<PaperCard> predicate){
-        return getAllCardsNoAlt(cardName).stream().filter(predicate).collect(Collectors.toCollection(ArrayList::new));
-    }
-
     // Do I want a foiled version of these cards?
     @Override
     public Collection<PaperCard> getAllCards(CardEdition edition) {

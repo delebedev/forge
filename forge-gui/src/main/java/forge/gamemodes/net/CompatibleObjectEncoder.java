@@ -72,8 +72,6 @@ public class CompatibleObjectEncoder extends MessageToByteEncoder<Serializable> 
 
         boolean replace = shouldReplaceTrackables(msg);
 
-        boolean replace = shouldReplaceTrackables(msg);
-
         try {
             byteOut.write(LENGTH_PLACEHOLDER);
             objectOut = new CObjectOutputStream(new LZ4BlockOutputStream(byteOut), replace, tracker, consumerId, false);

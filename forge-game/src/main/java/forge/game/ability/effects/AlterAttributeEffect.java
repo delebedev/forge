@@ -11,7 +11,6 @@ import forge.game.ability.AbilityKey;
 import forge.game.ability.SpellAbilityEffect;
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
-import forge.game.card.CardCopyService;
 import forge.game.event.GameEventAddLog;
 import forge.game.event.GameEventCardPlotted;
 import forge.game.player.Player;
