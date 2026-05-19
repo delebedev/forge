@@ -23,3 +23,4 @@ Changes on top of upstream Card-Forge/forge. Update this file when adding or rem
 
 ## Engine fixes
 - `EndureEffect` — set `tokenSpawningAbility` on the Spirit token, mirroring `TokenEffectBase` / `AmassEffect` / `CopyPermanentEffect` / `ReplaceTokenEffect`. Without it, `Card.tokenSpawningAbility` is null on Endure-spawned tokens.
+- Commander replacement effects — include graveyard and exile destinations for non-Oathbreaker commander command-zone replacement. Without it, normal commander deaths and exile moves skip the replacement decision.
