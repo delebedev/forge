@@ -23,3 +23,5 @@ Changes on top of upstream Card-Forge/forge. Update this file when adding or rem
 
 ## Engine fixes
 - `EndureEffect` — set `tokenSpawningAbility` on the Spirit token, mirroring `TokenEffectBase` / `AmassEffect` / `CopyPermanentEffect` / `ReplaceTokenEffect`. Without it, `Card.tokenSpawningAbility` is null on Endure-spawned tokens.
+- Commander replacement effects — include graveyard and exile destinations for non-Oathbreaker commander command-zone replacement. Without it, normal commander deaths and exile moves skip the replacement decision.
+- `PARADIGM` keyword — fire the free exile-copy trigger at the beginning of upkeep instead of the first main phase, matching the keyword's intended timing. Touches the `ParadigmTrigger` phase in `CardFactoryUtil` and the reminder text in `Keyword.java`.
