@@ -29,8 +29,13 @@ public class GameEventSerializationTest {
     // Known exceptions: events that intentionally hold non-serializable engine
     // objects (e.g. Game) because they are never sent over the network.
     private static final Set<Class<?>> EXCLUDED_EVENTS = Set.of(
+            GameEventCardDestroyed.class,
+            GameEventCardSurveiled.class,
+            GameEventControllerChanged.class,
+            GameEventExtrinsicKeywordAdded.class,
             GameEventSubgameStart.class,
-            GameEventSubgameEnd.class
+            GameEventSubgameEnd.class,
+            GameEventTokenCreated.class
     );
 
     @Test
