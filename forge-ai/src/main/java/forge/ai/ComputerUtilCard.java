@@ -639,6 +639,26 @@ public class ComputerUtilCard {
         return Aggregates.itemWithMin(IterableUtil.filter(list, CardPredicates.CREATURES), ComputerUtilCard.creatureEvaluator);
     }
 
+    public static Card getBestCreatureToBounceAI(final Iterable<Card> list) {
+        if (Iterables.size(list) == 1) {
+            return Iterables.get(list, 0);
+        }
+        final int tokenBonus = 60;
+        Card biggest = null;
+        int biggestvalue = -1;
+
+        for (Card card : CardLists.filter(list, CardPredicates.CREATURES)) {
+            int newvalue = evaluateCreature(card);
+            newvalue += card.isToken() ? tokenBonus : 0;
+
+            if (biggestvalue < newvalue) {
+                biggest = card;
+                biggestvalue = newvalue;
+            }
+        }
+        return biggest;
+    }
+
     // For ability of Oracle en-Vec, return the first card that are going to attack next turn
     public static Card getBestCreatureToAttackNextTurnAI(final Player aiPlayer, final Iterable<Card> list) {
         AiController aic = ((PlayerControllerAi) aiPlayer.getController()).getAi();

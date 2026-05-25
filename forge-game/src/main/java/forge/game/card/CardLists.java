@@ -261,9 +261,9 @@ public class CardLists {
         return result;
     }
 
-    public static CardCollection canSubsequentlyTarget(CardCollection list, SpellAbility source) {
+    public static CardCollection canSubsequentlyTarget(Iterable<Card> list, SpellAbility source) {
         if (source.getTargets().isEmpty()) {
-            return list;
+            return list instanceof CardCollection cards ? cards : new CardCollection(list);
         }
 
         return CardLists.filter(list, source::canTarget);
