@@ -1,7 +1,6 @@
 package forge.screens.settings;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;

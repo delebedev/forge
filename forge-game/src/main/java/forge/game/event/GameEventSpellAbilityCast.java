@@ -6,6 +6,7 @@ import forge.game.spellability.SpellAbilityView;
 import forge.game.spellability.StackItemView;
 import forge.game.spellability.TargetChoices;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,7 +19,7 @@ public record GameEventSpellAbilityCast(
 ) implements GameEvent {
 
     /** Mana globe used to pay for this spell. */
-    public record ManaPaymentInfo(int sourceCardId, byte color) {}
+    public record ManaPaymentInfo(int sourceCardId, byte color) implements Serializable {}
 
     public GameEventSpellAbilityCast(SpellAbility sa, SpellAbilityStackInstance si, int stackIndex) {
         this(SpellAbilityView.get(sa), StackItemView.get(si), stackIndex,

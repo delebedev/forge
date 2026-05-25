@@ -8,7 +8,9 @@ import java.io.IOException;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.JSeparator;
 
+import forge.gui.FDraftOverlay;
 import forge.gui.FNetOverlay;
 import forge.localinstance.properties.ForgeConstants;
 import forge.util.Localizer;
@@ -26,10 +28,12 @@ public final class OnlineMenu {
         menu.add(getMenuItem_OpenNetworkLogs());
         menu.add(new JSeparator());
         menu.add(chatItem);
+        menu.add(draftItem);
         return menu;
     }
 
     public static final JCheckBoxMenuItem chatItem;
+    public static final JCheckBoxMenuItem draftItem;
 
     static {
         chatItem = new JCheckBoxMenuItem(Localizer.getInstance().getMessage("lblShowChatPanel"));
@@ -39,6 +43,15 @@ public final class OnlineMenu {
             }
             else {
                 FNetOverlay.SINGLETON_INSTANCE.hide();
+            }
+        });
+        draftItem = new JCheckBoxMenuItem(Localizer.getInstance().getMessage("lblShowDraftPanel"));
+        draftItem.addActionListener(e -> {
+            if (((JMenuItem)e.getSource()).isSelected()) {
+                FDraftOverlay.SINGLETON_INSTANCE.show();
+            }
+            else {
+                FDraftOverlay.SINGLETON_INSTANCE.hide();
             }
         });
     }
@@ -52,26 +65,6 @@ public final class OnlineMenu {
     private static JMenuItem getMenuItem_JoinGame() {
         JMenuItem menuItem = new JMenuItem(Localizer.getInstance().getMessage("lblJoinGame"));
         menuItem.addActionListener(e -> CSubmenuOnlineLobby.SINGLETON_INSTANCE.joinGame());
-        return menuItem;
-    }
-
-    private static JMenuItem getMenuItem_OpenNetworkLogs() {
-        JMenuItem menuItem = new JMenuItem(Localizer.getInstance().getMessage("lblOpenNetworkLogs"));
-        menuItem.addActionListener(e -> {
-            File dir = new File(ForgeConstants.NETWORK_LOGS_DIR);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-            try {
-                if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-                    Runtime.getRuntime().exec("rundll32 url.dll,FileProtocolHandler " + dir.getCanonicalPath());
-                } else {
-                    Desktop.getDesktop().open(dir);
-                }
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        });
         return menuItem;
     }
 
