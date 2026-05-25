@@ -15,6 +15,7 @@ Changes on top of upstream Card-Forge/forge. Update this file when adding or rem
 ## Seams
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
 - `TargetSelectionResult` — result type for the seam
+- `DraftPickStrategy` — injectable booster-draft bot pick strategy
 
 ## Utilities
 - `MyRandom.setSeed()` + shuffle routing — deterministic replay support
