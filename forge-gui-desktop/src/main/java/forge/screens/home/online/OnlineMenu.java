@@ -9,6 +9,7 @@ import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 
+import forge.gui.FDraftOverlay;
 import forge.gui.FNetOverlay;
 import forge.localinstance.properties.ForgeConstants;
 import forge.util.Localizer;
@@ -26,10 +27,12 @@ public final class OnlineMenu {
         menu.add(getMenuItem_OpenNetworkLogs());
         menu.add(new JSeparator());
         menu.add(chatItem);
+        menu.add(draftItem);
         return menu;
     }
 
     public static final JCheckBoxMenuItem chatItem;
+    public static final JCheckBoxMenuItem draftItem;
 
     static {
         chatItem = new JCheckBoxMenuItem(Localizer.getInstance().getMessage("lblShowChatPanel"));
@@ -39,6 +42,15 @@ public final class OnlineMenu {
             }
             else {
                 FNetOverlay.SINGLETON_INSTANCE.hide();
+            }
+        });
+        draftItem = new JCheckBoxMenuItem(Localizer.getInstance().getMessage("lblShowDraftPanel"));
+        draftItem.addActionListener(e -> {
+            if (((JMenuItem)e.getSource()).isSelected()) {
+                FDraftOverlay.SINGLETON_INSTANCE.show();
+            }
+            else {
+                FDraftOverlay.SINGLETON_INSTANCE.hide();
             }
         });
     }

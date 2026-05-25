@@ -4943,7 +4943,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     public final void addChangedCardTraitsByText(Collection<SpellAbility> spells,
             Collection<Trigger> trigger, Collection<ReplacementEffect> replacements, Collection<StaticAbility> statics, long timestamp, long staticId) {
         changedCardTraitsByText.put(timestamp, staticId, new CardTraitChanges(
-            spells, null, trigger, replacements, statics, e -> true
+            spells, trigger, replacements, statics, e -> true
         ));
 
         // setting card traits via text, does overwrite any other word change effects?
@@ -4952,16 +4952,16 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         updateChangedText();
     }
 
-    public final ICardTraitChanges addChangedCardTraits(Collection<SpellAbility> spells, Collection<SpellAbility> removedAbilities,
+    public final ICardTraitChanges addChangedCardTraits(Collection<SpellAbility> spells,
             Collection<Trigger> trigger, Collection<ReplacementEffect> replacements, Collection<StaticAbility> statics,
             Predicate<CardTraitBase> remove, long timestamp, long staticId) {
-        return addChangedCardTraits(spells, removedAbilities, trigger, replacements, statics, remove, timestamp, staticId, true);
+        return addChangedCardTraits(spells, trigger, replacements, statics, remove, timestamp, staticId, true);
     }
-    public final ICardTraitChanges addChangedCardTraits(Collection<SpellAbility> spells, Collection<SpellAbility> removedAbilities,
+    public final ICardTraitChanges addChangedCardTraits(Collection<SpellAbility> spells,
             Collection<Trigger> trigger, Collection<ReplacementEffect> replacements, Collection<StaticAbility> statics,
             Predicate<CardTraitBase> remove, long timestamp, long staticId, boolean updateView) {
         CardTraitChanges result = new CardTraitChanges(
-            spells, removedAbilities, trigger, replacements, statics, remove
+            spells, trigger, replacements, statics, remove
         );
         return addChangedCardTraits(result, timestamp, staticId, updateView);
     }
@@ -5238,7 +5238,6 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     public final void updateKeywordsCache() {
         updateKeywordsCache(getCurrentState());
     }
-
     public final void updateKeywordsCache(final CardState state) {
         KeywordCollection keywords = new KeywordCollection();
 
@@ -5296,9 +5295,6 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     // Hidden Keywords will be returned without the indicator HIDDEN
     public final Iterable<String> getHiddenExtrinsicKeywords() {
         return Iterables.concat(this.hiddenExtrinsicKeywords.values());
-    }
-    public final Table<Long, Long, List<String>> getHiddenExtrinsicKeywordsTable() {
-        return hiddenExtrinsicKeywords;
     }
 
     public final void addHiddenExtrinsicKeywords(long timestamp, long staticId, Iterable<String> keywords) {
@@ -8113,6 +8109,9 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         this.changedCardColorsCharacterDefining.putAll(in.changedCardColorsCharacterDefining);
 
         setChangedCardKeywords(in.getChangedCardKeywords());
+        for (Table.Cell<Long, Long, List<String>> kw : in.hiddenExtrinsicKeywords.cellSet()) {
+            hiddenExtrinsicKeywords.put(kw.getRowKey(), kw.getColumnKey(), kw.getValue());
+        }
 
         this.changedCardTypes.putAll(in.changedCardTypes);
         this.changedCardTypesCharacterDefining.putAll(in.changedCardTypesCharacterDefining);
