@@ -59,6 +59,7 @@ public class BoosterDraft implements IBoosterDraft {
     int podSize;
     private final List<LimitedPlayer> players = new ArrayList<>();
     private LimitedPlayer localPlayer;
+    private final DraftPickStrategy draftPickStrategy;
     private boolean readyForComputerPick = false;
 
     private IDraftLog draftLog = null;
@@ -350,13 +351,18 @@ public class BoosterDraft implements IBoosterDraft {
     }
 
     protected BoosterDraft(final LimitedPoolType draftType, int numPlayers) {
+        this(draftType, numPlayers, new DefaultDraftPickStrategy());
+    }
+
+    protected BoosterDraft(final LimitedPoolType draftType, int numPlayers, DraftPickStrategy draftPickStrategy) {
         this.draftFormat = draftType;
         this.podSize = numPlayers;
+        this.draftPickStrategy = draftPickStrategy;
 
         localPlayer = new LimitedPlayer(0, this);
         players.add(localPlayer);
         for (int i = 1; i < this.podSize; i++) {
-            players.add(new LimitedPlayerAI(i, this));
+            players.add(new LimitedPlayerAI(i, this, draftPickStrategy));
         }
     }
 
@@ -373,7 +379,7 @@ public class BoosterDraft implements IBoosterDraft {
 
         // Resize players list if it was already generated
         while (this.players.size() < this.podSize) {
-            this.players.add(new LimitedPlayerAI(this.players.size(), this));
+            this.players.add(new LimitedPlayerAI(this.players.size(), this, draftPickStrategy));
         }
         while (this.players.size() > this.podSize) {
             this.players.remove(this.players.size() - 1);
@@ -400,7 +406,7 @@ public class BoosterDraft implements IBoosterDraft {
             if (shouldBeHuman && current instanceof LimitedPlayerAI) {
                 players.set(seat, new LimitedPlayer(seat, this));
             } else if (!shouldBeHuman && !(current instanceof LimitedPlayerAI)) {
-                players.set(seat, new LimitedPlayerAI(seat, this));
+                players.set(seat, new LimitedPlayerAI(seat, this, draftPickStrategy));
             }
         }
         // Keep localPlayer consistent with whatever occupies seat 0 now.
