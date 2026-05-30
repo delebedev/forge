@@ -307,19 +307,11 @@ public class BoosterDraft implements IBoosterDraft {
     }
 
     public static BoosterDraft createDraft(final LimitedPoolType draftType, final CardBlock block, final String[] boosters) {
-        return createDraft(draftType, block, boosters, (Integer) null);
+        return createDraft(draftType, block, boosters, null);
     }
 
     public static BoosterDraft createDraft(final LimitedPoolType draftType, final CardBlock block, final String[] boosters, Integer numPlayers) {
-        return createDraft(draftType, block, boosters, numPlayers, new DefaultDraftPickStrategy());
-    }
-
-    public static BoosterDraft createDraft(final LimitedPoolType draftType, final CardBlock block, final String[] boosters, DraftPickStrategy draftPickStrategy) {
-        return createDraft(draftType, block, boosters, null, draftPickStrategy);
-    }
-
-    public static BoosterDraft createDraft(final LimitedPoolType draftType, final CardBlock block, final String[] boosters, Integer numPlayers, DraftPickStrategy draftPickStrategy) {
-        final BoosterDraft draft = new BoosterDraft(draftType, N_PLAYERS, draftPickStrategy);
+        final BoosterDraft draft = new BoosterDraft(draftType);
 
         String setCode = boosters[0];
         CardEdition edition = FModel.getMagicDb().getEditions().get(setCode);
@@ -365,12 +357,12 @@ public class BoosterDraft implements IBoosterDraft {
     protected BoosterDraft(final LimitedPoolType draftType, int numPlayers, DraftPickStrategy draftPickStrategy) {
         this.draftFormat = draftType;
         this.podSize = numPlayers;
-        this.draftPickStrategy = Objects.requireNonNull(draftPickStrategy, "draftPickStrategy");
+        this.draftPickStrategy = draftPickStrategy;
 
         localPlayer = new LimitedPlayer(0, this);
         players.add(localPlayer);
         for (int i = 1; i < this.podSize; i++) {
-            players.add(new LimitedPlayerAI(i, this, this.draftPickStrategy));
+            players.add(new LimitedPlayerAI(i, this, draftPickStrategy));
         }
     }
 
@@ -387,7 +379,7 @@ public class BoosterDraft implements IBoosterDraft {
 
         // Resize players list if it was already generated
         while (this.players.size() < this.podSize) {
-            this.players.add(new LimitedPlayerAI(this.players.size(), this, this.draftPickStrategy));
+            this.players.add(new LimitedPlayerAI(this.players.size(), this, draftPickStrategy));
         }
         while (this.players.size() > this.podSize) {
             this.players.remove(this.players.size() - 1);
@@ -414,7 +406,7 @@ public class BoosterDraft implements IBoosterDraft {
             if (shouldBeHuman && current instanceof LimitedPlayerAI) {
                 players.set(seat, new LimitedPlayer(seat, this));
             } else if (!shouldBeHuman && !(current instanceof LimitedPlayerAI)) {
-                players.set(seat, new LimitedPlayerAI(seat, this, this.draftPickStrategy));
+                players.set(seat, new LimitedPlayerAI(seat, this, draftPickStrategy));
             }
         }
         // Keep localPlayer consistent with whatever occupies seat 0 now.
