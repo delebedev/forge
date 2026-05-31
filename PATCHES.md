@@ -11,6 +11,7 @@ Changes on top of upstream Card-Forge/forge. Update this file when adding or rem
 - `GameEventSpellMovedToStack` — new, fired on stack entry
 - `GameEventControllerChanged` — new, fired on controller change
 - `GameEventExtrinsicKeywordAdded` — new, fired on keyword grants
+- `GameEventFlipCoin` — enriched with flipper, source ability, and result
 
 ## Seams
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection

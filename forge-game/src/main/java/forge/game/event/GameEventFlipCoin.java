@@ -1,6 +1,19 @@
 package forge.game.event;
 
-public record GameEventFlipCoin() implements GameEvent {
+import forge.game.player.Player;
+import forge.game.player.PlayerView;
+import forge.game.spellability.SpellAbility;
+import forge.game.spellability.SpellAbilityView;
+
+public record GameEventFlipCoin(PlayerView player, SpellAbilityView sa, boolean won) implements GameEvent {
+
+    public GameEventFlipCoin() {
+        this((PlayerView) null, (SpellAbilityView) null, false);
+    }
+
+    public GameEventFlipCoin(final Player player, final SpellAbility sa, final boolean won) {
+        this(PlayerView.get(player), SpellAbilityView.get(sa), won);
+    }
 
     @Override
     public <T> T visit(IGameEventVisitor<T> visitor) {
