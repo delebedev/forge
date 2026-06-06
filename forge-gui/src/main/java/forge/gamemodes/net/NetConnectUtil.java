@@ -14,7 +14,6 @@ import forge.gui.GuiBase;
 import forge.gui.interfaces.IGuiGame;
 import forge.gui.interfaces.ILobbyView;
 import forge.gui.util.SOptionPane;
-import forge.interfaces.ILobbyListener;
 import forge.interfaces.IUpdateable;
 import forge.localinstance.properties.ForgeConstants;
 import forge.localinstance.properties.ForgePreferences.FPref;
