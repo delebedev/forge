@@ -338,44 +338,4 @@ public abstract class TrackableObject implements IIdentifiable, Serializable {
         return null;
     }
 
-    /**
-     * Register a consumer for per-consumer dirty tracking.
-     */
-    public void registerConsumer(int consumerId) {
-        if (consumers == null) {
-            consumers = new HashMap<>();
-        }
-        consumers.putIfAbsent(consumerId, EnumSet.noneOf(TrackableProperty.class));
-    }
-
-    /**
-     * Unregister a consumer. Removes its dirty set.
-     * Nulls the map if empty to avoid overhead in offline games.
-     */
-    public void unregisterConsumer(int consumerId) {
-        if (consumers != null) {
-            consumers.remove(consumerId);
-            if (consumers.isEmpty()) {
-                consumers = null;
-            }
-        }
-    }
-
-    /**
-     * Get and clear dirty properties for a specific consumer.
-     * Returns a snapshot copy; the consumer's dirty set is cleared.
-     */
-    public EnumSet<TrackableProperty> getAndClearDirtyProps(int consumerId) {
-        if (consumers == null) {
-            return EnumSet.noneOf(TrackableProperty.class);
-        }
-        EnumSet<TrackableProperty> dirtySet = consumers.get(consumerId);
-        if (dirtySet == null || dirtySet.isEmpty()) {
-            return EnumSet.noneOf(TrackableProperty.class);
-        }
-        EnumSet<TrackableProperty> copy = EnumSet.copyOf(dirtySet);
-        dirtySet.clear();
-        return copy;
-    }
-
 }
