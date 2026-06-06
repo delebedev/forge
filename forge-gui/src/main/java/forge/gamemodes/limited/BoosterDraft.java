@@ -59,7 +59,6 @@ public class BoosterDraft implements IBoosterDraft {
     int podSize;
     private final List<LimitedPlayer> players = new ArrayList<>();
     private LimitedPlayer localPlayer;
-    private final DraftPickStrategy draftPickStrategy;
     private boolean readyForComputerPick = false;
 
     private IDraftLog draftLog = null;
@@ -406,7 +405,7 @@ public class BoosterDraft implements IBoosterDraft {
             if (shouldBeHuman && current instanceof LimitedPlayerAI) {
                 players.set(seat, new LimitedPlayer(seat, this));
             } else if (!shouldBeHuman && !(current instanceof LimitedPlayerAI)) {
-                players.set(seat, new LimitedPlayerAI(seat, this, draftPickStrategy));
+                players.set(seat, new LimitedPlayerAI(seat, this));
             }
         }
         // Keep localPlayer consistent with whatever occupies seat 0 now.

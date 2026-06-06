@@ -30,37 +30,6 @@ public class NetConnectUtil {
     private NetConnectUtil() { }
 
     /**
-     * Base listener that forwards the four draft-specific callbacks to the given
-     * {@link ILobbyView}. Host-side and client-side listeners share the same draft
-     * forwarding logic; subclasses only need to override the non-draft methods.
-     */
-    private static abstract class DraftForwardingLobbyListener implements ILobbyListener {
-        private final ILobbyView view;
-
-        DraftForwardingLobbyListener(final ILobbyView view) {
-            this.view = view;
-        }
-
-        @Override
-        public void draftPackArrived(int seatIndex, List<forge.item.PaperCard> pack,
-                int packNumber, int pickNumber, int timerDurationSeconds) {
-            view.onDraftPackArrived(seatIndex, pack, packNumber, pickNumber, timerDurationSeconds);
-        }
-        @Override
-        public void draftSeatPicked(int seatIndex, int[] seatQueueDepths) {
-            view.onDraftSeatPicked(seatIndex, seatQueueDepths);
-        }
-        @Override
-        public void draftAutoPicked(int seatIndex, forge.item.PaperCard card, int packNumber, int pickInPack) {
-            view.onDraftAutoPicked(seatIndex, card, packNumber, pickInPack);
-        }
-        @Override
-        public void receiveEventPool(String eventId, forge.deck.Deck pool) {
-            view.onReceiveEventPool(eventId, pool);
-        }
-    }
-
-    /**
      * Prompt for the server address to join. Returns null if cancelled, or the address string.
      */
     public static String getJoinServerUrl() {
@@ -123,6 +92,7 @@ public class NetConnectUtil {
                 return null;
             }
         });
+        server.setDraftHandler(view.getDraftHandler());
         chatInterface.setGameClient(new IRemote() {
             @Override
             public void send(final NetEvent event) {
@@ -230,6 +200,7 @@ public class NetConnectUtil {
                 return lobby;
             }
         });
+        client.setDraftHandler(view.getDraftHandler());
         view.setPlayerChangeListener((index, event) -> client.send(event));
 
         NetworkLogConfig.activateNetworkLogging();

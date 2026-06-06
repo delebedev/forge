@@ -43,9 +43,6 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     public static final String FlagSeparator = "\t";
     public static final Comparator<CardRules> CARD_RULES_NAME_COMPARATOR = Comparator.comparing(CardRules::getPreInitName, String.CASE_INSENSITIVE_ORDER);
 
-    /** Suppress noisy card-init warnings (unassigned sets, upcoming editions). */
-    public static boolean quietInit = false;
-
     // need this to obtain cardReference by name+set+artindex
     private final ListMultimap<String, PaperCard> allCardsByName = Multimaps.newListMultimap(new TreeMap<>(String.CASE_INSENSITIVE_ORDER), Lists::newArrayList);
     private final Map<String, CardRules> rulesByPrimaryName;

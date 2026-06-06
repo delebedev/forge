@@ -222,7 +222,7 @@ public class FlipCoinEffect extends SpellAbilityEffect {
             outcome = wonOrHeads ? Localizer.getInstance().getMessage("lblWin") : Localizer.getInstance().getMessage("lblLose");
         }
 
-        flipper.getGame().fireEvent(new GameEventFlipCoin(flipper, sa, wonOrHeads));
+        flipper.getGame().fireEvent(new GameEventFlipCoin());
         flipper.getGame().getAction().notifyOfValue(sa, flipper, outcome, null);
 
         flipper.flip();
