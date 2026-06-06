@@ -47,6 +47,7 @@ java -Xmx4096m -jar ../forge-gui-desktop/target/forge-gui-desktop-*-jar-with-dep
 - Commit messages: no references to downstream consumers, client protocols, or proprietary software. Frame as generic engine improvements.
 - Upstream PRs to Card-Forge/forge require explicit approval. Don't open without asking.
 - Update `PATCHES.md` when adding or removing fork-local patches.
+- For fork-local integration patches: open a PR against the fork's `stable` branch first, include the `PATCHES.md` entry in that PR, merge it, then update consuming submodules to the merged `stable` hash and rebuild their local Forge jars.
 - Merge strategy: squash if PR is one logical change; rebase if commits are independently meaningful.
 
 ## Testing (reference only — we don't run tests in this fork)
