@@ -52225,7 +52225,7 @@
       }
     ],
     "spawnRate": 0.4
-  },   
+  },
   {
     "name": "Grand Nemesis",
     "sprite": "sprites/enemy/aberration/challenger.atlas",
@@ -52285,7 +52285,7 @@
       }
     ],
     "spawnRate": 0.2
-  },   
+  },
   {
     "name": "Archelos",
     "sprite": "sprites/enemy/beast/reptile/turtle.atlas",
