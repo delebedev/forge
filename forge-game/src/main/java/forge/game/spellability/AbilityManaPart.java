@@ -201,6 +201,7 @@ public class AbilityManaPart implements java.io.Serializable {
         }
 
         manaPool.addMana(this.lastManaProduced);
+        game.fireEvent(new GameEventManaAbilityActivated(CardView.get(source), afterReplace));
 
         final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(source);
         runParams.put(AbilityKey.Player, player);
