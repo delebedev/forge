@@ -12,10 +12,16 @@ public interface ILobbyView extends IUpdateable {
 
     default void onDraftPackArrived(int seatIndex, List<PaperCard> pack,
             int packNumber, int pickNumber, int timerDurationSeconds) { }
-    /** Fires for every pod seat (including the viewing player) so views can refresh queue depths uniformly. */
+
+    /** Fires for every pod seat so views can refresh queue depths uniformly. */
     default void onDraftSeatPicked(int seatIndex, int[] seatQueueDepths) { }
+
     /** Fires when the pick timer expires and the server auto-selects a card. */
     default void onDraftAutoPicked(int seatIndex, PaperCard card, int packNumber, int pickInPack) { }
+
     /** Fires once at the end of the draft with the player's pool. */
     default void onReceiveEventPool(String eventId, Deck pool) { }
+
+    /** Implementations that participate in network draft/sealed return their handler; others return null. */
+    default IDraftEventHandler getDraftHandler() { return null; }
 }

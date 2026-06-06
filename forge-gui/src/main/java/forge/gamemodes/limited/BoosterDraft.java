@@ -406,7 +406,7 @@ public class BoosterDraft implements IBoosterDraft {
             if (shouldBeHuman && current instanceof LimitedPlayerAI) {
                 players.set(seat, new LimitedPlayer(seat, this));
             } else if (!shouldBeHuman && !(current instanceof LimitedPlayerAI)) {
-                players.set(seat, new LimitedPlayerAI(seat, this, draftPickStrategy));
+                players.set(seat, new LimitedPlayerAI(seat, this));
             }
         }
         // Keep localPlayer consistent with whatever occupies seat 0 now.

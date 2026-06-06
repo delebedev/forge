@@ -30,9 +30,7 @@ public class NetConnectUtil {
     private NetConnectUtil() { }
 
     /**
-     * Base listener that forwards the four draft-specific callbacks to the given
-     * {@link ILobbyView}. Host-side and client-side listeners share the same draft
-     * forwarding logic; subclasses only need to override the non-draft methods.
+     * Base listener that forwards draft callbacks to the active lobby view.
      */
     private static abstract class DraftForwardingLobbyListener implements ILobbyListener {
         private final ILobbyView view;
@@ -46,14 +44,17 @@ public class NetConnectUtil {
                 int packNumber, int pickNumber, int timerDurationSeconds) {
             view.onDraftPackArrived(seatIndex, pack, packNumber, pickNumber, timerDurationSeconds);
         }
+
         @Override
         public void draftSeatPicked(int seatIndex, int[] seatQueueDepths) {
             view.onDraftSeatPicked(seatIndex, seatQueueDepths);
         }
+
         @Override
         public void draftAutoPicked(int seatIndex, forge.item.PaperCard card, int packNumber, int pickInPack) {
             view.onDraftAutoPicked(seatIndex, card, packNumber, pickInPack);
         }
+
         @Override
         public void receiveEventPool(String eventId, forge.deck.Deck pool) {
             view.onReceiveEventPool(eventId, pool);
@@ -123,6 +124,7 @@ public class NetConnectUtil {
                 return null;
             }
         });
+        server.setDraftHandler(view.getDraftHandler());
         chatInterface.setGameClient(new IRemote() {
             @Override
             public void send(final NetEvent event) {
@@ -230,6 +232,7 @@ public class NetConnectUtil {
                 return lobby;
             }
         });
+        client.setDraftHandler(view.getDraftHandler());
         view.setPlayerChangeListener((index, event) -> client.send(event));
 
         NetworkLogConfig.activateNetworkLogging();
