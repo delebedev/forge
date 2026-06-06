@@ -755,14 +755,6 @@ public final class CMatchUI
     }
 
     @Override
-    public void setHighlighted(final Iterable<GameEntityView> entities, final boolean b) {
-        super.setHighlighted(entities, b);
-        if (isSelecting()) {
-            FThreads.invokeInEdtNowOrLater(FloatingZone::refreshSelectionPrompts);
-        }
-    }
-
-    @Override
     public void refreshField() {
         super.refreshField();
         FThreads.invokeInEdtNowOrLater(() -> {

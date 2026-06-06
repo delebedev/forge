@@ -65,19 +65,6 @@ public class CLobby implements IDraftEventHandler {
             boolean showConformance,
             boolean conformanceEnabled) { }
 
-    public enum LobbyMode { CONSTRUCTED, LIMITED }
-
-    /** Desktop event-panel render contract: shared text content + desktop widget visibility. */
-    public record EventPanelContents(
-            String formatText,
-            String productText,
-            String timerText,
-            String dateText,
-            String statusText,
-            boolean showDismissX,
-            boolean showConformance,
-            boolean conformanceEnabled) { }
-
     private final VLobby view;
     private LobbyMode currentMode = LobbyMode.CONSTRUCTED;
     private boolean suppressModeListener;
