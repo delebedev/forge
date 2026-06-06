@@ -14,6 +14,7 @@ import forge.gui.GuiBase;
 import forge.gui.interfaces.IGuiGame;
 import forge.gui.interfaces.ILobbyView;
 import forge.gui.util.SOptionPane;
+import forge.interfaces.ILobbyListener;
 import forge.interfaces.IUpdateable;
 import forge.localinstance.properties.ForgeConstants;
 import forge.localinstance.properties.ForgePreferences.FPref;
@@ -27,6 +28,38 @@ import java.util.List;
 
 public class NetConnectUtil {
     private NetConnectUtil() { }
+
+    /**
+     * Base listener that forwards draft callbacks to the active lobby view.
+     */
+    private static abstract class DraftForwardingLobbyListener implements ILobbyListener {
+        private final ILobbyView view;
+
+        DraftForwardingLobbyListener(final ILobbyView view) {
+            this.view = view;
+        }
+
+        @Override
+        public void draftPackArrived(int seatIndex, List<forge.item.PaperCard> pack,
+                int packNumber, int pickNumber, int timerDurationSeconds) {
+            view.onDraftPackArrived(seatIndex, pack, packNumber, pickNumber, timerDurationSeconds);
+        }
+
+        @Override
+        public void draftSeatPicked(int seatIndex, int[] seatQueueDepths) {
+            view.onDraftSeatPicked(seatIndex, seatQueueDepths);
+        }
+
+        @Override
+        public void draftAutoPicked(int seatIndex, forge.item.PaperCard card, int packNumber, int pickInPack) {
+            view.onDraftAutoPicked(seatIndex, card, packNumber, pickInPack);
+        }
+
+        @Override
+        public void receiveEventPool(String eventId, forge.deck.Deck pool) {
+            view.onReceiveEventPool(eventId, pool);
+        }
+    }
 
     /**
      * Prompt for the server address to join. Returns null if cancelled, or the address string.

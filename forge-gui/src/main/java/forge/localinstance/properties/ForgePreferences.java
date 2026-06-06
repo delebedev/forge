@@ -342,10 +342,7 @@ public class ForgePreferences extends PreferencesStore<ForgePreferences.FPref> {
         SHORTCUT_PANELTABS("17 84"),
         SHORTCUT_CARDOVERLAYS("17 79"),
 
-        LAST_IMPORTED_CUBE_ID(""),
-
-        PROMPT_FOR_AUTOSELL ("true"),
-        ADV_COMMANDER_AUTOSELL_VARIANT("true");
+        LAST_IMPORTED_CUBE_ID("");
 
         private final String strDefaultVal;
 
