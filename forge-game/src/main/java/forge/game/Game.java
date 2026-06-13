@@ -1240,7 +1240,7 @@ public class Game {
 
     public int getCounterAddedThisTurn(CounterType cType, String validPlayer, String validCard, Card source, Player sourceController, CardTraitBase ctb) {
         int result = 0;
-        Set<CounterType> types = null;
+        Set<CounterType> types;
         if (cType == null) {
             types = countersAddedThisTurn.rowKeySet();
         } else if (!countersAddedThisTurn.containsRow(cType)) {
@@ -1263,7 +1263,7 @@ public class Game {
     }
     public int getCounterAddedThisTurn(CounterType cType, Card card) {
         int result = 0;
-        Set<CounterType> types = null;
+        Set<CounterType> types;
         if (cType == null) {
             types = countersAddedThisTurn.rowKeySet();
         } else if (!countersAddedThisTurn.containsRow(cType)) {

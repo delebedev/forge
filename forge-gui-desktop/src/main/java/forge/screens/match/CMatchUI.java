@@ -75,7 +75,6 @@ import forge.gui.FThreads;
 import forge.gui.GuiBase;
 import forge.gui.GuiChoose;
 import forge.gui.GuiDialog;
-import forge.gui.interfaces.IGuiGame.OrderResult;
 import forge.gui.GuiUtils;
 import forge.gui.MenuScroller;
 import forge.gui.SOverlayUtils;
@@ -750,7 +749,6 @@ public final class CMatchUI
                 updateCardsNetSafe(p.getCards(ZoneType.Hand));
             }
             FloatingZone.refreshAll();
-            FloatingZone.clearAllHotkeyAffordance();
         });
     }
 

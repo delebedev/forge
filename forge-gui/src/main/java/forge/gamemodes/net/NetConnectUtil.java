@@ -30,38 +30,6 @@ public class NetConnectUtil {
     private NetConnectUtil() { }
 
     /**
-     * Base listener that forwards draft callbacks to the active lobby view.
-     */
-    private static abstract class DraftForwardingLobbyListener implements ILobbyListener {
-        private final ILobbyView view;
-
-        DraftForwardingLobbyListener(final ILobbyView view) {
-            this.view = view;
-        }
-
-        @Override
-        public void draftPackArrived(int seatIndex, List<forge.item.PaperCard> pack,
-                int packNumber, int pickNumber, int timerDurationSeconds) {
-            view.onDraftPackArrived(seatIndex, pack, packNumber, pickNumber, timerDurationSeconds);
-        }
-
-        @Override
-        public void draftSeatPicked(int seatIndex, int[] seatQueueDepths) {
-            view.onDraftSeatPicked(seatIndex, seatQueueDepths);
-        }
-
-        @Override
-        public void draftAutoPicked(int seatIndex, forge.item.PaperCard card, int packNumber, int pickInPack) {
-            view.onDraftAutoPicked(seatIndex, card, packNumber, pickInPack);
-        }
-
-        @Override
-        public void receiveEventPool(String eventId, forge.deck.Deck pool) {
-            view.onReceiveEventPool(eventId, pool);
-        }
-    }
-
-    /**
      * Prompt for the server address to join. Returns null if cancelled, or the address string.
      */
     public static String getJoinServerUrl() {
@@ -106,7 +74,7 @@ public class NetConnectUtil {
         // updateLobbyState; calling it again here would broadcast a duplicate LobbyUpdateEvent.
         view.setPlayerChangeListener(server::updateSlot);
 
-        server.setLobbyListener(new DraftForwardingLobbyListener(view) {
+        server.setLobbyListener(new ILobbyListener() {
             @Override
             public void update(final GameLobbyData state, final int slot) {
                 // NO-OP, lobby connected directly
@@ -213,7 +181,7 @@ public class NetConnectUtil {
         final ClientGameLobby lobby = new ClientGameLobby();
         final ILobbyView view =  onlineLobby.setLobby(lobby);
         lobby.setListener(view);
-        client.addLobbyListener(new DraftForwardingLobbyListener(view) {
+        client.addLobbyListener(new ILobbyListener() {
             @Override
             public void message(final String source, final String message, final ChatMessage.MessageType type) {
                 chatInterface.addMessage(new ChatMessage(source, message, type));
