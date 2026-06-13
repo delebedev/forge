@@ -973,7 +973,7 @@ public abstract class ItemManager<T extends InventoryItem> extends FContainer im
         if(allowGroupIdentical == allowGroupIdentical0) {
             return;
         }
-
+            
         allowGroupIdentical = allowGroupIdentical0;
         if (pool != null) {
             updateView(false, null);

@@ -111,7 +111,7 @@ public abstract class PreferencesStore<T extends Enum<T> & PreferencesStore.IPre
 
         return val;
     }
-
+    
     public final void togglePrefBoolean(final T q0) {
         setPref(q0, !getPrefBoolean(q0));
     }
