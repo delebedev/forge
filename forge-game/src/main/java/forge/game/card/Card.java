@@ -6096,6 +6096,12 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         this.hasBeenDealtDeathtouchDamage = hasBeenDealtDeatchtouchDamage;
     }
 
+    public final void healDamage() {
+        setDamage(0);
+        setHasBeenDealtDeathtouchDamage(false);
+        clearAssignedDamage();
+    }
+
     public final boolean hasBeenDealtExcessDamageThisTurn() {
         return hasBeenDealtExcessDamageThisTurn;
     }
@@ -7758,7 +7764,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     public void addAbilityResolved(SpellAbility ability) {
         numberAbilityResolved.add(ability);
     }
-    public List<Player> getAbilityResolvedThisTurnActivators(SpellAbility ability) {
+    public Multiset<Player> getAbilityResolvedThisTurnActivators(SpellAbility ability) {
         return numberAbilityResolved.getActivators(ability);
     }
 
