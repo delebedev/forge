@@ -122,13 +122,17 @@ public class TokenEffect extends TokenEffectBase {
             useZoneTable = true;
         }
 
+        int amount = AbilityUtils.calculateAmount(host, sa.getParamOrDefault("TokenAmount", "1"), sa);
+        if (amount < 1) {
+            return;
+        }
+
         // Snapshot token count before this resolve — shared tables (useZoneTable=true)
         // accumulate across loop iterations, so we only report newly created tokens.
         final int tokensBefore = triggerList.getCreatedTokens().size();
 
         makeTokenTable(getDefinedPlayersOrTargeted(sa, "TokenOwner"), sa.getParam("TokenScript").split(","),
-                AbilityUtils.calculateAmount(host, sa.getParamOrDefault("TokenAmount", "1"), sa),
-                false, triggerList, combatChanged, sa);
+                amount, false, triggerList, combatChanged, sa);
 
         if (!useZoneTable) {
             triggerList.triggerChangesZoneAll(game, sa);
