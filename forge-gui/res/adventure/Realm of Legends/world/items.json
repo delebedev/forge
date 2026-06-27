@@ -5107,7 +5107,7 @@
   },
   {
     "name": "Manaforce Mace",
-    "description": "Equip +3. +X/+X equal to domain",
+    "description": "Equip 3. +X/+X equal to domain",
     "equipmentSlot": "Right",
     "iconName": "ManaforceMace",
     "effect": {

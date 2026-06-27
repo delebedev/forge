@@ -203,6 +203,7 @@ public class PlaySpellAbility {
                     || part instanceof CostEnlist
                     || part instanceof CostExileFromStack
                     || part instanceof CostPutCounter
+                    || part instanceof CostPutCounterYou
                     || part instanceof CostRemoveCounter
                     || part instanceof CostRemoveAnyCounter
                     || part instanceof CostMill
