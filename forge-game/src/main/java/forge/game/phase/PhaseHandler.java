@@ -836,7 +836,24 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
         game.getTriggerHandler().clearThisTurnDelayedTrigger();
 
         Player next = getNextActivePlayer();
+        int notInGameAttempts = 0;
+        // At most one attempt is needed per player that has left the game before a
+        // still-in-game player is found. If we exceed the number of registered
+        // players without success, no player can begin a turn (game already over,
+        // or an inconsistent state where a player carries a loss outcome but was
+        // not removed). Either way, continuing would spin the game thread at 100%
+        // CPU forever, so break out — forcing the game over if it is not already.
+        final int maxNotInGameAttempts = game.getRegisteredPlayers().size();
         while (!next.isInGame()) {
+            if (game.isGameOver()) {
+                return next;
+            }
+            if (++notInGameAttempts > maxNotInGameAttempts) {
+                engineLog.warn("handleNextTurn: no in-game player to advance to after {} attempts "
+                        + "(turn {}); forcing game over to avoid a runaway loop.", notInGameAttempts, turn);
+                game.setGameOver(GameEndReason.Draw);
+                return next;
+            }
             next = getNextActivePlayer();
         }
 
@@ -859,7 +876,18 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
         return next;
     }
 
+    // Upper bound on consecutive begin-turn replacements ("skip this turn") resolved
+    // while advancing to the next active player. Legitimate skip effects expire after
+    // a small number of turns; a replacement that never expires (e.g. a malformed
+    // effect that fails to decrement/exile itself) would otherwise recurse without
+    // bound and spin the game thread at 100% CPU. Well beyond any real game.
+    private static final int MAX_BEGIN_TURN_SKIPS = 100;
+
     private Player getNextActivePlayer() {
+        return getNextActivePlayer(0);
+    }
+
+    private Player getNextActivePlayer(final int skipDepth) {
         ExtraTurn extraTurn = !extraTurns.isEmpty() ? extraTurns.pop() : null;
         Player nextPlayer = extraTurn != null ? extraTurn.getPlayer() : game.getNextPlayerAfter(playerTurn);
         // The bottom of the extra turn stack is the normal turn
@@ -873,10 +901,25 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
         repRunParams.put(AbilityKey.ExtraTurn, isExtraTurn);
         ReplacementResult repres = game.getReplacementHandler().run(ReplacementType.BeginTurn, repRunParams);
         if (repres != ReplacementResult.NotReplaced) {
+            // Bail out if the game ended while resolving begin-turn replacements
+            // (e.g. externally aborted). A replacement that keeps re-firing would
+            // otherwise recurse without bound and spin the game thread.
+            if (game.isGameOver()) {
+                return nextPlayer;
+            }
             if (extraTurn == null) {
                 setPlayerTurn(nextPlayer);
             }
-            return getNextActivePlayer();
+            if (skipDepth >= MAX_BEGIN_TURN_SKIPS) {
+                // A begin-turn replacement kept firing without ever being consumed.
+                // Stop skipping and let this player take their turn instead of
+                // spinning forever.
+                engineLog.warn("getNextActivePlayer: begin-turn replacement kept firing past {} skips "
+                        + "(turn {}, player {}); proceeding without further skips.",
+                        MAX_BEGIN_TURN_SKIPS, turn, nextPlayer);
+                return nextPlayer;
+            }
+            return getNextActivePlayer(skipDepth + 1);
         }
 
         nextPlayer.setExtraTurn(isExtraTurn);
