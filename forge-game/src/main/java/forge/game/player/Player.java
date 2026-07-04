@@ -947,13 +947,13 @@ public class Player extends GameEntity implements Comparable<Player> {
     }
 
     @Override
-    public void setCounters(Map<CounterType, Integer> allCounters) {
+    public void setCounters(Multiset<CounterType> allCounters) {
         counters = allCounters;
         view.updateCounters(this);
         getGame().fireEvent(new GameEventPlayerCounters(this, null, 0, 0));
 
         // create Radiation Effect for GameState
-        if (counters.getOrDefault(CounterEnumType.RAD, 0) > 0) {
+        if (counters.count(CounterEnumType.RAD) > 0) {
             this.createRadiationEffect(null);
         } else {
             this.removeRadiationEffect();
@@ -1366,7 +1366,7 @@ public class Player extends GameEntity implements Comparable<Player> {
         }
         return result;
     }
-    public final CardCollectionView getCardsIn(final ZoneType[] zones) {
+    public final CardCollectionView getCardsIn(final ZoneType... zones) {
         final CardCollection result = new CardCollection();
         for (final ZoneType z : zones) {
             result.addAll(getCardsIn(z));
@@ -2088,10 +2088,6 @@ public class Player extends GameEntity implements Comparable<Player> {
 
     public final boolean hasMetalcraft() {
         return CardLists.count(getCardsIn(ZoneType.Battlefield), CardPredicates.ARTIFACTS) >= 3;
-    }
-
-    public final boolean hasDesert() {
-        return getCardsIn(Arrays.asList(ZoneType.Battlefield, ZoneType.Graveyard)).anyMatch(CardPredicates.isType("Desert"));
     }
 
     public final boolean hasThreshold() {

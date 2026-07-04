@@ -1218,6 +1218,7 @@ DD1-19 U Wren's Run Vanquisher @Paolo Parente
 DD1-26 U Wirewood Lodge @Anthony S. Waters
 DD1-33 U Akki Coalflinger @Nottsuo
 DD1-44 U Mogg Fanatic @Brom
+DD1-54 U Boggart Shenanigans @Warren Mahy
 DD1-58 U Goblin Burrows @David Martin
 DD2-6 U Willbender @Eric Peterson
 DD2-10 U Fledgling Mawcor @Kev Walker
