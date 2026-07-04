@@ -338,11 +338,6 @@ public class CountersPutAi extends CountersAi {
             return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
         }
 
-        if (ph.is(PhaseType.COMBAT_DECLARE_BLOCKERS) &&
-                (sa.hasParam("Adapt") || sourceName.equals("Psychic Frog"))) {
-            return doCombatAdaptLogic(source, amount, game.getCombat());
-        }
-
         if ("Fight".equals(logic) || "PowerDmg".equals(logic)) {
             int nPump = 0;
             if (type.equals("P1P1")) {
