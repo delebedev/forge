@@ -111,7 +111,7 @@ public class GameAction {
             zoneTo.add(c, position, CardCopyService.getLKICopy(c));
             checkStaticAbilities();
             game.getTriggerHandler().registerActiveTrigger(c, true);
-            game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo));
+            game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo, cause, params, game.costPaymentStack.peek()));
             return c;
         }
 
@@ -590,7 +590,7 @@ public class GameAction {
         }
 
         // play the change zone sound
-        game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo));
+        game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo, cause, params, game.costPaymentStack.peek()));
 
         game.getTriggerHandler().clearActiveTriggers(copied, null);
         game.getTriggerHandler().registerActiveTrigger(copied, false);
@@ -2167,7 +2167,7 @@ public class GameAction {
         //for animation
         c.updateWasDestroyed(true);
         // Play the Destroy sound
-        game.fireEvent(new GameEventCardDestroyed(c, sa != null ? sa.getHostCard() : null));
+        game.fireEvent(new GameEventCardDestroyed(c, sa));
 
         final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(c);
         runParams.put(AbilityKey.Causer, activator);
