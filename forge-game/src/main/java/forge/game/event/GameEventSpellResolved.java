@@ -3,10 +3,18 @@ package forge.game.event;
 import forge.game.spellability.SpellAbility;
 import forge.game.spellability.SpellAbilityView;
 
-public record GameEventSpellResolved(SpellAbilityView spell, boolean hasFizzled, String stackDescription) implements GameEvent {
+public record GameEventSpellResolved(
+        SpellAbilityView spell,
+        boolean hasFizzled,
+        String stackDescription,
+        GameEventZoneChangeCause cause) implements GameEvent {
+
+    public GameEventSpellResolved(SpellAbilityView spell, boolean hasFizzled, String stackDescription) {
+        this(spell, hasFizzled, stackDescription, null);
+    }
 
     public GameEventSpellResolved(SpellAbility spell, boolean hasFizzled) {
-        this(SpellAbilityView.get(spell), hasFizzled, spell.getStackDescription());
+        this(SpellAbilityView.get(spell), hasFizzled, spell.getStackDescription(), GameEventZoneChangeCause.from(spell));
     }
 
     @Override

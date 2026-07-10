@@ -2279,7 +2279,7 @@ public class Player extends GameEntity implements Comparable<Player> {
 
     public final void addSacrificedThisTurn(final Card cpy, final SpellAbility source) {
         // Play the Sacrifice sound
-        game.fireEvent(new GameEventCardSacrificed(CardView.get(cpy)));
+        game.fireEvent(new GameEventCardSacrificed(cpy, source, game.costPaymentStack.peek()));
 
         sacrificedThisTurn.add(cpy);
 

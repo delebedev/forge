@@ -15,15 +15,25 @@ public record GameEventSpellAbilityCast(
     StackItemView si,
     int stackIndex,
     String targetDescription,
-    List<ManaPaymentInfo> manaPayments
+    List<ManaPaymentInfo> manaPayments,
+    GameEventZoneChangeCause cause
 ) implements GameEvent {
 
     /** Mana globe used to pay for this spell. */
     public record ManaPaymentInfo(int sourceCardId, byte color) implements Serializable {}
 
+    public GameEventSpellAbilityCast(
+            SpellAbilityView sa,
+            StackItemView si,
+            int stackIndex,
+            String targetDescription,
+            List<ManaPaymentInfo> manaPayments) {
+        this(sa, si, stackIndex, targetDescription, manaPayments, null);
+    }
+
     public GameEventSpellAbilityCast(SpellAbility sa, SpellAbilityStackInstance si, int stackIndex) {
         this(SpellAbilityView.get(sa), StackItemView.get(si), stackIndex,
-             computeTargetDescription(sa), extractManaPayments(sa));
+             computeTargetDescription(sa), extractManaPayments(sa), GameEventZoneChangeCause.from(sa));
     }
 
     private static List<ManaPaymentInfo> extractManaPayments(SpellAbility sa) {
