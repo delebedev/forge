@@ -73,14 +73,6 @@ public abstract class GameEntityView extends TrackableObject {
         return getAllAttachedCards().isEmpty();
     }
 
-    protected void updateAttachedCards(GameEntity e) {
-        if (!e.getAllAttachedCards().isEmpty()) {
-            set(TrackableProperty.AttachedCards, CardView.getCollection(e.getAllAttachedCards()));
-        } else {
-            set(TrackableProperty.AttachedCards, null);
-        }
-    }
-
     public Multiset<CounterType> getCounters() {
         return get(TrackableProperty.Counters);
     }
@@ -103,4 +95,5 @@ public abstract class GameEntityView extends TrackableObject {
         set(TrackableProperty.Counters, e.getCounters());
         flagAsChanged(TrackableProperty.Counters);
     }
+
 }
