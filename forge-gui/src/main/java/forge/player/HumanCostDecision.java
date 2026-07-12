@@ -751,11 +751,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         }
 
         if (cost.from == ZoneType.Hand) {
-            final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, c, c, list, ability);
-            inp.setMessage(Localizer.getInstance().getMessage("lblPutNCardsFromYourZone", "%d", cost.from.getTranslatedName()));
-            inp.setCancelAllowed(true);
-            inp.showAndWait();
-            return inp.hasCancelled() ? null : PaymentDecision.card(inp.getSelected());
+            final CardCollectionView selected = chooseCardsForCostExact(list, cost, c, true,
+                    Localizer.getInstance().getMessage("lblPutNCardsFromYourZone", "%d", cost.from.getTranslatedName()));
+            return selected == null ? null : PaymentDecision.card(selected);
         }
 
         if (cost.sameZone) {
