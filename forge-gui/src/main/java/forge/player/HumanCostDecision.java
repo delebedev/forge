@@ -562,15 +562,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         if (list.size() < c) {
             return null;
         }
-        final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, c, c, list, ability);
-        inp.setMessage(Localizer.getInstance().getMessage("lblSelectACostToExert", cost.getDescriptiveType(), "%d"));
-        inp.setCancelAllowed(true);
-        inp.showAndWait();
-        if (inp.hasCancelled()) {
-            return null;
-        }
-
-        return PaymentDecision.card(inp.getSelected());
+        final CardCollectionView selected = chooseCardsForCostExact(list, cost, c, true,
+                Localizer.getInstance().getMessage("lblSelectACostToExert", cost.getDescriptiveType(), "%d"));
+        return selected == null ? null : PaymentDecision.card(selected);
 
     }
 
