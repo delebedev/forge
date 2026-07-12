@@ -13,7 +13,6 @@ import forge.game.ability.AbilityUtils;
 import forge.game.card.*;
 import forge.game.cost.*;
 import forge.game.player.*;
-import forge.game.spellability.OptionalCost;
 import forge.game.spellability.SpellAbility;
 import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.zone.ZoneType;
@@ -99,9 +98,7 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return hand.contains(lastDrawn) ? PaymentDecision.card(lastDrawn) : null;
         }
 
-        int c = ((ability.isJumpstart() && discardType.equals("Card"))
-                || (ability.isOptionalCostPaid(OptionalCost.Retrace) && discardType.equals("Land")))
-                ? 1 : cost.getAbilityAmount(ability);
+        int c = cost.getAbilityAmount(ability);
 
         if (discardType.equals("Random")) {
             CardCollectionView randomSubset = new CardCollection(Aggregates.random(hand, c));
