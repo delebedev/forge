@@ -31,5 +31,4 @@ accessors to mutable `Card` references require migration.
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
 
 ## Engine fixes
-- `PreparedSpell` stack entry — clear prepared-copy state after moving a prepared copy to the stack. Without it, the next spell can reuse stale prepared-copy metadata.
 - `EndureEffect` — set `tokenSpawningAbility` on the Spirit token, mirroring `TokenEffectBase` / `AmassEffect` / `CopyPermanentEffect` / `ReplaceTokenEffect`. Without it, `Card.tokenSpawningAbility` is null on Endure-spawned tokens.
