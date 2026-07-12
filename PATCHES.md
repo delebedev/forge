@@ -25,6 +25,7 @@ accessors to mutable `Card` references require migration.
 - `TargetSelectionResult` — result type for the seam
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
 - `HumanCostDecision` sacrifice, discard, return, unattach, ordinary tap, untap, and ordinary exile selection — routes exact-count choices through `PlayerController.chooseCardsForCost()`
+- `HumanCostDecision` collect-evidence selection — routes weighted mana-value choices through `PlayerController.chooseCardsForCollectEvidence()`
 
 ## Utilities
 - `MyRandom.setSeed()` + shuffle routing — deterministic replay support

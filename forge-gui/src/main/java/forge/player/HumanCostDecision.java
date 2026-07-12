@@ -62,16 +62,13 @@ public class HumanCostDecision extends CostDecisionMakerBase {
     public PaymentDecision visit(final CostCollectEvidence cost) {
         CardCollection list = CardLists.filter(player.getCardsIn(ZoneType.Graveyard), CardPredicates.canExiledBy(ability, isEffect()));
         final int total = AbilityUtils.calculateAmount(source, cost.getAmount(), ability);
-        final InputSelectCardsFromList inp =
-                new InputSelectCardsFromList(controller, 0, list.size(), list, ability, "CMC", total);
-        inp.setMessage(Localizer.getInstance().getMessage("lblCollectEvidence", total));
-        inp.setCancelAllowed(true);
-        inp.showAndWait();
+        final CardCollectionView selected = player.getController().chooseCardsForCollectEvidence(list, ability, total,
+                Localizer.getInstance().getMessage("lblCollectEvidence", total));
 
-        if (inp.hasCancelled() || CardLists.getTotalCMC(inp.getSelected()) < total) {
+        if (selected == null || CardLists.getTotalCMC(selected) < total) {
             return null;
         }
-        return PaymentDecision.card(inp.getSelected());
+        return PaymentDecision.card(selected);
     }
 
     @Override
