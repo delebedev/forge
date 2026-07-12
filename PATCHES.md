@@ -24,6 +24,9 @@ accessors to mutable `Card` references require migration.
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
 - `TargetSelectionResult` — result type for the seam
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
+- `HumanCostDecision` sacrifice, discard, return, unattach, ordinary tap, untap, ordinary exile, enlist, forage, exert, gain-control, and hand-to-library selection — routes exact-count choices through `PlayerController.chooseCardsForCost()`
+- `HumanCostDecision` reveal and behold selection — routes constrained reveal choices through `PlayerController.chooseCardsForRevealCost()`
+- `HumanCostDecision` collect-evidence selection — routes weighted mana-value choices through `PlayerController.chooseCardsForCollectEvidence()`
 
 ## Utilities
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
