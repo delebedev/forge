@@ -13,6 +13,7 @@ import forge.game.ability.AbilityUtils;
 import forge.game.card.*;
 import forge.game.cost.*;
 import forge.game.player.*;
+import forge.game.spellability.OptionalCost;
 import forge.game.spellability.SpellAbility;
 import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.zone.ZoneType;
@@ -98,7 +99,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return hand.contains(lastDrawn) ? PaymentDecision.card(lastDrawn) : null;
         }
 
-        int c = cost.getAbilityAmount(ability);
+        int c = ((ability.isJumpstart() && discardType.equals("Card"))
+                || (ability.isOptionalCostPaid(OptionalCost.Retrace) && discardType.equals("Land")))
+                ? 1 : cost.getAbilityAmount(ability);
 
         if (discardType.equals("Random")) {
             CardCollectionView randomSubset = new CardCollection(Aggregates.random(hand, c));
@@ -110,14 +113,12 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         if (discardType.contains("+WithDifferentNames")) {
             final CardCollection discarded = new CardCollection();
             while (c > 0) {
-                final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, 1, 1, hand, ability);
-                inp.setMessage(Localizer.getInstance().getMessage("lblSelectOneDifferentNameCardToDiscardAlreadyChosen") + discarded);
-                inp.setCancelAllowed(true);
-                inp.showAndWait();
-                if (inp.hasCancelled()) {
+                final CardCollectionView selected = chooseCardsForCostExact(hand, cost, 1, true,
+                        Localizer.getInstance().getMessage("lblSelectOneDifferentNameCardToDiscardAlreadyChosen") + discarded);
+                if (selected == null) {
                     return null;
                 }
-                final Card first = inp.getFirstSelected();
+                final Card first = selected.get(0);
                 discarded.add(first);
                 hand = CardLists.filter(hand, CardPredicates.sharesNameWith(first).negate());
                 c--;
@@ -141,14 +142,12 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             }
             final CardCollection discarded = new CardCollection();
             while (c > 0) {
-                final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, 1, 1, hand, ability);
-                inp.setMessage(Localizer.getInstance().getMessage("lblSelectOneSameNameCardToDiscardAlreadyChosen") + discarded);
-                inp.setCancelAllowed(true);
-                inp.showAndWait();
-                if (inp.hasCancelled()) {
+                final CardCollectionView selected = chooseCardsForCostExact(hand, cost, 1, true,
+                        Localizer.getInstance().getMessage("lblSelectOneSameNameCardToDiscardAlreadyChosen") + discarded);
+                if (selected == null) {
                     return null;
                 }
-                final Card first = inp.getFirstSelected();
+                final Card first = selected.get(0);
                 discarded.add(first);
                 final CardCollection filteredHand = CardLists.filter(hand, CardPredicates.nameEquals(first.getName()));
                 filteredHand.remove(first);
@@ -165,14 +164,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return null;
         }
 
-        final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, c, c, hand, ability);
-        inp.setMessage(Localizer.getInstance().getMessage("lblSelectNMoreTargetTypeCardToDiscard", "%d", cost.getDescriptiveType()));
-        inp.setCancelAllowed(!mandatory);
-        inp.showAndWait();
-        if (inp.hasCancelled() || inp.getSelected().size() != c) {
-            return null;
-        }
-        return PaymentDecision.card(inp.getSelected());
+        final CardCollectionView selected = chooseCardsForCostExact(hand, cost, c, !mandatory,
+                Localizer.getInstance().getMessage("lblSelectNMoreTargetTypeCardToDiscard", "%d", cost.getDescriptiveType()));
+        return selected == null ? null : PaymentDecision.card(selected);
     }
 
     @Override
@@ -1329,9 +1323,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         if (differentNames) {
             final CardCollection chosen = new CardCollection();
             while (c > 0) {
-                final CardCollectionView selected = player.getController().chooseCardsForCost(list, ability, cost, 1, true,
+                final CardCollectionView selected = chooseCardsForCostExact(list, cost, 1, true,
                         Localizer.getInstance().getMessage("lblSelectATargetToSacrifice", cost.getDescriptiveType(), c));
-                if (selected == null || selected.size() != 1) {
+                if (selected == null) {
                     return null;
                 }
                 final Card first = selected.get(0);
@@ -1346,12 +1340,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return null;
         }
 
-        final CardCollectionView selected = player.getController().chooseCardsForCost(list, ability, cost, c, !mandatory,
+        final CardCollectionView selected = chooseCardsForCostExact(list, cost, c, !mandatory,
                 Localizer.getInstance().getMessage("lblSelectATargetToSacrifice", cost.getDescriptiveType(), "%d"));
-        if (selected == null || selected.size() != c) {
-            return null;
-        }
-        return PaymentDecision.card(selected);
+        return selected == null ? null : PaymentDecision.card(selected);
     }
 
     @Override
@@ -1527,5 +1518,12 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return controller.getGui().confirm(cardView, message.replaceAll("\n", " "));
         }
         return controller.confirmPayment(costPart, message, ability);
+    }
+
+    private CardCollectionView chooseCardsForCostExact(final CardCollectionView options, final CostPartWithList cost,
+            final int amount, final boolean optional, final String prompt) {
+        final CardCollectionView selected = player.getController()
+                .chooseCardsForCost(options, ability, cost, amount, optional, prompt);
+        return selected == null || selected.size() != amount ? null : selected;
     }
 }
