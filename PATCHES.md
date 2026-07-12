@@ -24,6 +24,7 @@ accessors to mutable `Card` references require migration.
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
 - `TargetSelectionResult` — result type for the seam
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
+- `HumanCostDecision` sacrifice selection — routes through `PlayerController.chooseCardsForCost()`
 
 ## Utilities
 - `MyRandom.setSeed()` + shuffle routing — deterministic replay support
