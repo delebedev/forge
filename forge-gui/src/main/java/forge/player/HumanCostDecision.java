@@ -62,10 +62,10 @@ public class HumanCostDecision extends CostDecisionMakerBase {
     public PaymentDecision visit(final CostCollectEvidence cost) {
         CardCollection list = CardLists.filter(player.getCardsIn(ZoneType.Graveyard), CardPredicates.canExiledBy(ability, isEffect()));
         final int total = AbilityUtils.calculateAmount(source, cost.getAmount(), ability);
-        final CardCollectionView selected = player.getController().chooseCardsForCollectEvidence(list, ability, total,
+        final CardCollectionView selected = controller.chooseCardsForCollectEvidence(list, ability, total,
                 Localizer.getInstance().getMessage("lblCollectEvidence", total));
 
-        if (selected == null || CardLists.getTotalCMC(selected) < total) {
+        if (!isLegalCardSelection(list, selected) || CardLists.getTotalCMC(selected) < total) {
             return null;
         }
         return PaymentDecision.card(selected);
@@ -913,9 +913,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             if (num == 0) {
                 return PaymentDecision.number(0);
             }
-            final CardCollectionView selected = player.getController().chooseCardsForRevealCost(hand, ability, cost, num,
+            final CardCollectionView selected = controller.chooseCardsForRevealCost(hand, ability, cost, num,
                     !mandatory, true, Localizer.getInstance().getMessage("lblSelectNCardOfSameColorToReveal", num));
-            if (selected == null || selected.size() != num) { return null; }
+            if (!isLegalCardSelection(hand, selected, num)) { return null; }
             final Card first = Iterables.getFirst(selected, null);
             if (first != null && !selected.stream().allMatch(card -> card.equals(first) || CardPredicates.sharesColorWith(first).test(card))) { return null; }
             return PaymentDecision.card(selected);
@@ -936,9 +936,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
                 return PaymentDecision.card(hand);
             }
 
-            final CardCollectionView selected = player.getController().chooseCardsForRevealCost(hand, ability, cost, num,
+            final CardCollectionView selected = controller.chooseCardsForRevealCost(hand, ability, cost, num,
                     !mandatory, false, Localizer.getInstance().getMessage("lblSelectNMoreTypeCardsTpReveal", "%d", cost.getDescriptiveType()));
-            return selected == null || selected.size() != num ? null : PaymentDecision.card(selected);
+            return !isLegalCardSelection(hand, selected, num) ? null : PaymentDecision.card(selected);
         }
     }
 
@@ -953,9 +953,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return null;
         }
 
-        final CardCollectionView selected = player.getController().chooseCardsForRevealCost(hand, ability, cost, num,
+        final CardCollectionView selected = controller.chooseCardsForRevealCost(hand, ability, cost, num,
                 !mandatory, false, Localizer.getInstance().getMessage("lblSelectNMoreTypeCardsTpReveal", "%d", cost.getDescriptiveType()));
-        return selected == null || selected.size() != num ? null : PaymentDecision.card(selected);
+        return !isLegalCardSelection(hand, selected, num) ? null : PaymentDecision.card(selected);
     }
 
 
@@ -1445,8 +1445,28 @@ public class HumanCostDecision extends CostDecisionMakerBase {
 
     private CardCollectionView chooseCardsForCostExact(final CardCollectionView options, final CostPartWithList cost,
             final int amount, final boolean optional, final String prompt) {
-        final CardCollectionView selected = player.getController()
-                .chooseCardsForCost(options, ability, cost, amount, optional, prompt);
-        return selected == null || selected.size() != amount ? null : selected;
+        final CardCollectionView selected = controller.chooseCardsForCost(options, ability, cost, amount, optional, prompt);
+        return !isLegalCardSelection(options, selected, amount) ? null : selected;
+    }
+
+    private boolean isLegalCardSelection(final CardCollectionView options, final CardCollectionView selected) {
+        if (selected == null) { return false; }
+        final Set<Card> distinct = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (final Card card : selected) {
+            boolean found = false;
+            for (final Card option : options) {
+                if (option == card) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found || !distinct.add(card)) { return false; }
+        }
+        return true;
+    }
+
+    private boolean isLegalCardSelection(final CardCollectionView options, final CardCollectionView selected,
+            final int amount) {
+        return selected != null && selected.size() == amount && isLegalCardSelection(options, selected);
     }
 }
