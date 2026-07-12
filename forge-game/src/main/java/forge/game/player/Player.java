@@ -101,7 +101,6 @@ public class Player extends GameEntity implements Comparable<Player> {
     private int landsPlayedThisTurn;
     private int landsPlayedLastTurn;
     private int numPowerSurgeLands;
-    private int spellsCastThisTurn;
     private int spellsCastThisGame;
     private int spellsCastLastTurn;
     private List<Card> spellsCastSinceBeginningOfLastTurn = Lists.newArrayList();
@@ -2126,7 +2125,8 @@ public class Player extends GameEntity implements Comparable<Player> {
     }
 
     public final boolean hasSurge() {
-        return !CardLists.filterControlledBy(game.getStack().getSpellsCastThisTurn(), getYourTeam()).isEmpty();
+        PlayerCollection team = getYourTeam();
+        return game.getStack().getSpellsCastThisTurn().stream().anyMatch(sp -> team.contains(sp.getActivatingPlayer()));
     }
 
     public final boolean hasBloodthirst() {
@@ -2300,7 +2300,7 @@ public class Player extends GameEntity implements Comparable<Player> {
     }
 
     public final List<Card> getSpellsCastSinceBegOfYourLastTurn() {
-        List<Card> all = new ArrayList<>(game.getStack().getSpellsCastThisTurn());
+        List<Card> all = new ArrayList<>(game.getStack().getSpellCardsCastThisTurn());
         all.addAll(spellsCastSinceBeginningOfLastTurn);
         return all;
     }
@@ -2312,21 +2312,15 @@ public class Player extends GameEntity implements Comparable<Player> {
     }
 
     public final int getSpellsCastThisTurn() {
-        return spellsCastThisTurn;
+        return (int) getGame().getStack().getSpellsCastThisTurn().stream().filter(sp -> this.equals(sp.getActivatingPlayer())).count();
     }
     public final int getSpellsCastLastTurn() {
         return spellsCastLastTurn;
     }
     public final void addSpellCastThisTurn() {
-        spellsCastThisTurn++;
         spellsCastThisGame++;
         achievementTracker.spellsCast++;
-        if (spellsCastThisTurn > achievementTracker.maxStormCount) {
-            achievementTracker.maxStormCount = spellsCastThisTurn;
-        }
-    }
-    public final void resetSpellsCastThisTurn() {
-        spellsCastThisTurn = 0;
+        achievementTracker.maxStormCount = Math.max(achievementTracker.maxStormCount, getSpellsCastThisTurn());
     }
     public final void setSpellsCastLastTurn(int num) {
         spellsCastLastTurn = num;
@@ -2499,7 +2493,6 @@ public class Player extends GameEntity implements Comparable<Player> {
         resetVenturedThisTurn();
         setDescended(0);
         setSpellsCastLastTurn(getSpellsCastThisTurn());
-        resetSpellsCastThisTurn();
         setLifeLostLastTurn(getLifeLostThisTurn());
         setLifeLostThisTurn(0);
         setLifeGainedThisTurn(0);
@@ -3218,7 +3211,7 @@ public class Player extends GameEntity implements Comparable<Player> {
             moved += " | Destination$ Graveyard,Exile,Hand,Library | Description$ If a commander would be exiled or put into hand, graveyard, or library from anywhere, that player may put it into the command zone instead.";
         } else {
             // rule 903.9b
-            moved += " | Destination$ Graveyard,Exile,Hand,Library | Description$ If a commander would be put into its owner's graveyard, exile, hand, or library from anywhere, its owner may put it into the command zone instead.";
+            moved += " | Destination$ Hand,Library | Description$ If a commander would be put into its owner's hand or library from anywhere, its owner may put it into the command zone instead.";
         }
         ReplacementEffect re = ReplacementHandler.parseReplacement(moved, eff, true);
         re.setOverridingAbility(AbilityFactory.getAbility(effStr, eff));

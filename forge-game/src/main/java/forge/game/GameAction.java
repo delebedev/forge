@@ -526,17 +526,6 @@ public class GameAction {
             c.setZone(zoneTo);
         }
 
-        if (zoneFrom != null && zoneFrom.is(ZoneType.Exile) && zoneTo.is(ZoneType.Stack)
-                && copied.getCurrentStateName() == CardStateName.PreparedSpell) {
-            for (Card source : game.getCardsIn(ZoneType.Battlefield)) {
-                Card preparedEffect = source.getPrepared();
-                if (preparedEffect != null && preparedEffect.getFirstRemembered() == c) {
-                    source.setPrepared(null);
-                    break;
-                }
-            }
-        }
-
         if (fromBattlefield) {
             game.addLeftBattlefieldThisTurn(lastKnownInfo);
             // order here is important so it doesn't unattach cards that might have returned from UntilHostLeavesPlay

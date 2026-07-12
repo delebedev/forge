@@ -29,11 +29,5 @@ accessors to mutable `Card` references require migration.
 - `HumanCostDecision` collect-evidence selection — routes weighted mana-value choices through `PlayerController.chooseCardsForCollectEvidence()`
 
 ## Utilities
-- `MyRandom.setSeed()` + shuffle routing — deterministic replay support
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
-
-## Engine fixes
-- `PreparedSpell` stack entry — clear prepared-copy state after moving a prepared copy to the stack. Without it, the next spell can reuse stale prepared-copy metadata.
-- `EndureEffect` — set `tokenSpawningAbility` on the Spirit token, mirroring `TokenEffectBase` / `AmassEffect` / `CopyPermanentEffect` / `ReplaceTokenEffect`. Without it, `Card.tokenSpawningAbility` is null on Endure-spawned tokens.
-- Commander replacement effects — include graveyard and exile destinations for non-Oathbreaker commander command-zone replacement. Without it, normal commander deaths and exile moves skip the replacement decision.
