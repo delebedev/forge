@@ -26,9 +26,5 @@ accessors to mutable `Card` references require migration.
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
 
 ## Utilities
-- `MyRandom.setSeed()` + shuffle routing — deterministic replay support
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
-
-## Engine fixes
-- `EndureEffect` — set `tokenSpawningAbility` on the Spirit token, mirroring `TokenEffectBase` / `AmassEffect` / `CopyPermanentEffect` / `ReplaceTokenEffect`. Without it, `Card.tokenSpawningAbility` is null on Endure-spawned tokens.
