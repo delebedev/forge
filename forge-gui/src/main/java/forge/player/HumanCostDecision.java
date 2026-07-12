@@ -1445,14 +1445,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         typeList = CardLists.filter(typeList, c -> c.canUntap(null, false) &&
                 (c.getCounters(CounterEnumType.STUN) == 0 || c.canRemoveCounters(CounterEnumType.STUN)));
         int c = cost.getAbilityAmount(ability);
-        final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, c, c, typeList, ability);
-        inp.setCancelAllowed(true);
-        inp.setMessage(Localizer.getInstance().getMessage("lblSelectATargetToUntap", cost.getDescriptiveType(), "%d"));
-        inp.showAndWait();
-        if (inp.hasCancelled() || inp.getSelected().size() != c) {
-            return null;
-        }
-        return PaymentDecision.card(inp.getSelected());
+        final CardCollectionView selected = chooseCardsForCostExact(typeList, cost, c, true,
+                Localizer.getInstance().getMessage("lblSelectATargetToUntap", cost.getDescriptiveType(), "%d"));
+        return selected == null ? null : PaymentDecision.card(selected);
     }
 
     @Override
