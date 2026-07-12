@@ -326,6 +326,10 @@ public abstract class PlayerController {
             int total, String prompt) {
         return null;
     }
+    public CardCollectionView chooseCardsForRevealCost(CardCollectionView optionList, SpellAbility sa,
+            CostPartWithList cost, int amount, boolean optional, boolean sameColor, String prompt) {
+        return chooseCardsForCost(optionList, sa, cost, amount, optional, prompt);
+    }
 
     public CostDecisionMakerBase getCostDecisionMaker(Player player, SpellAbility ability, boolean effect) {
         return this.getCostDecisionMaker(player, ability, effect, null);

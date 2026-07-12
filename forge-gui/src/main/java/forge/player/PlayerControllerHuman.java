@@ -2656,6 +2656,25 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     }
 
     @Override
+    public CardCollectionView chooseCardsForRevealCost(CardCollectionView optionList, SpellAbility sa,
+            CostPartWithList cost, int amount, boolean optional, boolean sameColor, String prompt) {
+        InputSelectCardsFromList inp = sameColor ? new InputSelectCardsFromList(this, amount, optionList, sa) {
+            private static final long serialVersionUID = 8338626212893374798L;
+
+            @Override
+            protected boolean onCardSelected(final Card card, final List<Card> otherCardsToSelect, final ITriggerEvent event) {
+                final Card first = Iterables.getFirst(this.selected, null);
+                return (first == null || CardPredicates.sharesColorWith(first).test(card))
+                        && super.onCardSelected(card, otherCardsToSelect, event);
+            }
+        } : new InputSelectCardsFromList(this, amount, amount, optionList, sa);
+        inp.setMessage(prompt);
+        inp.setCancelAllowed(optional);
+        inp.showAndWait();
+        return inp.hasCancelled() ? null : new CardCollection(inp.getSelected());
+    }
+
+    @Override
     public CostDecisionMakerBase getCostDecisionMaker(Player player, SpellAbility ability, boolean effect, String prompt) {
         return new HumanCostDecision(this, player, ability, effect, prompt);
     }
