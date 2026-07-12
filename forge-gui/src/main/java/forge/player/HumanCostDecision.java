@@ -339,11 +339,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         if (cost.from.size() == 1) {
             ZoneType fromZone = cost.from.get(0);
             if (fromZone == ZoneType.Battlefield || fromZone == ZoneType.Hand) {
-                final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, c, c, list, ability);
-                inp.setMessage(Localizer.getInstance().getMessage("lblExileNCardsFromYourZone", "%d", fromZone.getTranslatedName()));
-                inp.setCancelAllowed(!mandatory);
-                inp.showAndWait();
-                return inp.hasCancelled() ? null : PaymentDecision.card(inp.getSelected());
+                final CardCollectionView selected = chooseCardsForCostExact(list, cost, c, !mandatory,
+                        Localizer.getInstance().getMessage("lblExileNCardsFromYourZone", "%d", fromZone.getTranslatedName()));
+                return selected == null ? null : PaymentDecision.card(selected);
             }
 
             if (fromZone == ZoneType.Library) { return exileFromTop(cost, c); }
