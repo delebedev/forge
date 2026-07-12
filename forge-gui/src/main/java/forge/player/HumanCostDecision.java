@@ -921,14 +921,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return null;
         }
 
-        final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, c, c, validCards, ability);
-        inp.setCancelAllowed(!mandatory);
-        inp.setMessage(Localizer.getInstance().getMessage("lblNTypeCardsToHand", "%d", cost.getDescriptiveType()));
-        inp.showAndWait();
-        if (inp.hasCancelled()) {
-            return null;
-        }
-        return PaymentDecision.card(inp.getSelected());
+        final CardCollectionView selected = chooseCardsForCostExact(validCards, cost, c, !mandatory,
+                Localizer.getInstance().getMessage("lblNTypeCardsToHand", "%d", cost.getDescriptiveType()));
+        return selected == null ? null : PaymentDecision.card(selected);
     }
 
     @Override
@@ -1438,14 +1433,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return null; // not enough targets anymore (e.g. Crackleburr + Smokebraider tapped to get mana)
         }
 
-        final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, c, c, typeList, ability);
-        inp.setCancelAllowed(!mandatory);
-        inp.setMessage(Localizer.getInstance().getMessage("lblSelectATargetToTap", cost.getDescriptiveType(), "%d"));
-        inp.showAndWait();
-        if (inp.hasCancelled()) {
-            return null;
-        }
-        return PaymentDecision.card(inp.getSelected());
+        final CardCollectionView selected = chooseCardsForCostExact(typeList, cost, c, !mandatory,
+                Localizer.getInstance().getMessage("lblSelectATargetToTap", cost.getDescriptiveType(), "%d"));
+        return selected == null ? null : PaymentDecision.card(selected);
     }
 
     @Override
@@ -1478,14 +1468,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         }
         if (cardToUnattach.size() > 1) {
             int c = cost.getAbilityAmount(ability);
-            final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, c, c, cardToUnattach, ability);
-            inp.setCancelAllowed(true);
-            inp.setMessage(Localizer.getInstance().getMessage("lblUnattachCardConfirm", cost.getDescriptiveType()));
-            inp.showAndWait();
-            if (inp.hasCancelled() || inp.getSelected().size() != c) {
-                return null;
-            }
-            return PaymentDecision.card(inp.getSelected());
+            final CardCollectionView selected = chooseCardsForCostExact(cardToUnattach, cost, c, true,
+                    Localizer.getInstance().getMessage("lblUnattachCardConfirm", cost.getDescriptiveType()));
+            return selected == null ? null : PaymentDecision.card(selected);
         }
         return null;
     }
