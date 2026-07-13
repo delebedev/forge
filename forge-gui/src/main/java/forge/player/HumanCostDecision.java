@@ -16,7 +16,6 @@ import forge.game.player.*;
 import forge.game.spellability.SpellAbility;
 import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.zone.ZoneType;
-import forge.gamemodes.match.input.InputSelectCardsFromList;
 import forge.gamemodes.match.input.InputSelectManyBase;
 import forge.util.*;
 import forge.util.collect.FCollectionView;
@@ -276,49 +275,50 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         if (totalM != null) {
             int needed = Integer.parseInt(cost.getAmount().split("\\+")[0]);
             final int total = AbilityUtils.calculateAmount(source, totalM, ability);
-            final InputSelectCardsFromList inp =
-                    new InputSelectCardsFromList(controller, needed, list.size(), list, ability, "CMC", total);
-            inp.setMessage(Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(needed)));
-            inp.setCancelAllowed(true);
-            inp.showAndWait();
-
-            int sum = CardLists.getTotalCMC(inp.getSelected());
-            if (inp.hasCancelled() || (sum != total && !totalCMCgreater) || (sum < total && totalCMCgreater)) {
+            final CardCollectionView selected = controller.chooseCardsForExileCost(list, ability, cost,
+                    needed, list.size(), "CMC", total, false, true,
+                    Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(needed)));
+            if (selected == null || selected.size() < needed || !isLegalCardSelection(list, selected)) {
                 return null;
             }
-            return PaymentDecision.card(inp.getSelected());
+            int sum = CardLists.getTotalCMC(selected);
+            if ((sum != total && !totalCMCgreater) || (sum < total && totalCMCgreater)) {
+                return null;
+            }
+            return PaymentDecision.card(selected);
         }
 
         if (totalManaSymbolsColor != null) {
             int needed = Integer.parseInt(cost.getAmount().split("\\+")[0]);
-            final int total = AbilityUtils.calculateAmount(source, totalM, ability);
-            final InputSelectCardsFromList inp =
-                    new InputSelectCardsFromList(controller, needed, list.size(), list, ability, "ManaSymbols", total);
-            inp.setMessage(Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(needed)));
-            inp.setCancelAllowed(true);
-            inp.showAndWait();
-
-            int sum = CardLists.getTotalChroma(inp.getSelected(), MagicColor.fromName(totalManaSymbolsColor));
-            int right = AbilityUtils.calculateAmount(source, totalManaSymbolsCmp.substring(2) , ability);
-            if (inp.hasCancelled() || !Expressions.compare(sum, totalManaSymbolsCmp, right)) {
+            // The comparison threshold comes from the comparator suffix (e.g. GE15),
+            // not totalM, which only the total-CMC markers populate.
+            final int right = AbilityUtils.calculateAmount(source, totalManaSymbolsCmp.substring(2), ability);
+            final CardCollectionView selected = controller.chooseCardsForExileCost(list, ability, cost,
+                    needed, list.size(), "ManaSymbols", right, false, true,
+                    Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(needed)));
+            if (selected == null || selected.size() < needed || !isLegalCardSelection(list, selected)) {
                 return null;
             }
-            return PaymentDecision.card(inp.getSelected());
+            int sum = CardLists.getTotalChroma(selected, MagicColor.fromName(totalManaSymbolsColor));
+            if (!Expressions.compare(sum, totalManaSymbolsCmp, right)) {
+                return null;
+            }
+            return PaymentDecision.card(selected);
         }
 
         if (nTypes > -1) {
-            final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, 1, list.size(), list, 
-                ability, "Types", nTypes);
-            inp.setMessage(cost.getAmount().equals("X") ?
-                Localizer.getInstance().getMessage("lblSelectAnyNumToExile") :
-                Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(nTypes)));
-            inp.setCancelAllowed(true);
-            inp.showAndWait();
-            if (inp.hasCancelled() || 
-                !Expressions.compare(AbilityUtils.countCardTypesFromList(list, false), "GE", nTypes)) {
-                    return null;
+            final CardCollectionView selected = controller.chooseCardsForExileCost(list, ability, cost,
+                    1, list.size(), "Types", nTypes, false, true,
+                    cost.getAmount().equals("X") ?
+                        Localizer.getInstance().getMessage("lblSelectAnyNumToExile") :
+                        Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(nTypes)));
+            if (selected == null || selected.isEmpty() || !isLegalCardSelection(list, selected)) {
+                return null;
             }
-            return PaymentDecision.card(inp.getSelected());
+            if (!Expressions.compare(AbilityUtils.countCardTypesFromList(selected, false), "GE", nTypes)) {
+                return null;
+            }
+            return PaymentDecision.card(selected);
         }
 
         int c = cost.getAbilityAmount(ability);
@@ -477,33 +477,25 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return null;
         }
 
-        final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, mandatory ? nNeeded : 0, nNeeded, typeList, ability) {
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            protected boolean onCardSelected(final Card c, final List<Card> otherCardsToSelect, final ITriggerEvent triggerEvent) {
-                final Card firstSelected = Iterables.getFirst(this.selected, null);
-                if (firstSelected != null && !firstSelected.sharesCardTypeWith(c)) {
-                    return false;
-                }
-                return super.onCardSelected(c, otherCardsToSelect, triggerEvent);
-            }
-        };
-
-        inp.setMessage(cost.toString(nNeeded) + " (must share a card type)");
-        inp.setCancelAllowed(!mandatory);
-        inp.showAndWait();
-
-        if (inp.hasCancelled()) {
-            return null;
-        }
-
-        final CardCollection chosen = new CardCollection(inp.getSelected());
-        if (chosen.size() < nNeeded) {
+        final CardCollectionView chosen = controller.chooseCardsForExileCost(typeList, ability, cost,
+                mandatory ? nNeeded : 0, nNeeded, null, null, true, !mandatory,
+                cost.toString(nNeeded) + " (must share a card type)");
+        if (chosen == null || chosen.size() < nNeeded || !isLegalCardSelection(typeList, chosen)
+                || !allShareCardType(chosen)) {
             return null;
         }
 
         return PaymentDecision.card(chosen);
+    }
+
+    private static boolean allShareCardType(final CardCollectionView chosen) {
+        final Card first = chosen.getFirst();
+        for (final Card c : chosen) {
+            if (c != first && !first.sharesCardTypeWith(c)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private PaymentDecision exileFromTopGraveType(final int nNeeded, final CardCollection typeList) {
