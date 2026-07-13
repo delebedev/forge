@@ -2654,7 +2654,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     }
 
     @Override
-    public CardCollectionView chooseCardsForCost(CardCollectionView optionList, SpellAbility sa, CostPartWithList cpl, int amount, boolean isOptional, String prompt) {
+    public CardCollectionView chooseCardsForCost(CardCollectionView optionList, SpellAbility sa, CostPart cpl, int amount, boolean isOptional, String prompt) {
         InputSelectCardsFromList inp = new InputSelectCardsFromList(this, amount, amount, optionList, sa);
         inp.setMessage(prompt);
         inp.setCancelAllowed(isOptional);
@@ -2665,6 +2665,16 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             return null;
 
         return new CardCollection(inp.getSelected());
+    }
+
+    @Override
+    public CardCollectionView chooseCardsForTapCost(CardCollectionView optionList, SpellAbility sa,
+            CostTapType cost, int min, int max, Integer totalPowerNeeded, String prompt) {
+        InputSelectCardsFromList inp = new InputSelectCardsFromList(this, min, max, optionList, sa);
+        inp.setMessage(prompt);
+        inp.setCancelAllowed(true);
+        inp.showAndWait();
+        return inp.hasCancelled() ? null : new CardCollection(inp.getSelected());
     }
 
     @Override
