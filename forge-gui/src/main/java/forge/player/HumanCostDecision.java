@@ -291,15 +291,16 @@ public class HumanCostDecision extends CostDecisionMakerBase {
 
         if (totalManaSymbolsColor != null) {
             int needed = Integer.parseInt(cost.getAmount().split("\\+")[0]);
-            final int total = AbilityUtils.calculateAmount(source, totalM, ability);
+            // The comparison threshold comes from the comparator suffix (e.g. GE15),
+            // not totalM, which only the total-CMC markers populate.
+            final int right = AbilityUtils.calculateAmount(source, totalManaSymbolsCmp.substring(2), ability);
             final InputSelectCardsFromList inp =
-                    new InputSelectCardsFromList(controller, needed, list.size(), list, ability, "ManaSymbols", total);
+                    new InputSelectCardsFromList(controller, needed, list.size(), list, ability, "ManaSymbols", right);
             inp.setMessage(Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(needed)));
             inp.setCancelAllowed(true);
             inp.showAndWait();
 
             int sum = CardLists.getTotalChroma(inp.getSelected(), MagicColor.fromName(totalManaSymbolsColor));
-            int right = AbilityUtils.calculateAmount(source, totalManaSymbolsCmp.substring(2) , ability);
             if (inp.hasCancelled() || !Expressions.compare(sum, totalManaSymbolsCmp, right)) {
                 return null;
             }
