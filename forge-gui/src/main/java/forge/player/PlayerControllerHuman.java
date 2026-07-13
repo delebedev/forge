@@ -2678,6 +2678,35 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     }
 
     @Override
+    public CardCollectionView chooseCardsForExileCost(CardCollectionView optionList, SpellAbility sa,
+            CostExile cost, int min, int max, String aggregateHint, Integer aggregateGoal,
+            boolean sharedCardType, boolean cancelAllowed, String prompt) {
+        final InputSelectCardsFromList inp;
+        if (sharedCardType) {
+            inp = new InputSelectCardsFromList(this, min, max, optionList, sa) {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                protected boolean onCardSelected(final Card c, final List<Card> otherCardsToSelect, final ITriggerEvent triggerEvent) {
+                    final Card firstSelected = Iterables.getFirst(this.selected, null);
+                    if (firstSelected != null && !firstSelected.sharesCardTypeWith(c)) {
+                        return false;
+                    }
+                    return super.onCardSelected(c, otherCardsToSelect, triggerEvent);
+                }
+            };
+        } else if (aggregateHint != null && aggregateGoal != null) {
+            inp = new InputSelectCardsFromList(this, min, max, optionList, sa, aggregateHint, aggregateGoal);
+        } else {
+            inp = new InputSelectCardsFromList(this, min, max, optionList, sa);
+        }
+        inp.setMessage(prompt);
+        inp.setCancelAllowed(cancelAllowed);
+        inp.showAndWait();
+        return inp.hasCancelled() ? null : new CardCollection(inp.getSelected());
+    }
+
+    @Override
     public CardCollectionView chooseCardsForCollectEvidence(CardCollectionView optionList, SpellAbility sa,
             int total, String prompt) {
         InputSelectCardsFromList inp = new InputSelectCardsFromList(this, 0, optionList.size(), optionList, sa, "CMC", total);

@@ -330,6 +330,11 @@ public abstract class PlayerController {
             CostTapType cost, int min, int max, Integer totalPowerNeeded, String prompt) {
         return null;
     }
+    public CardCollectionView chooseCardsForExileCost(CardCollectionView optionList, SpellAbility sa,
+            CostExile cost, int min, int max, String aggregateHint, Integer aggregateGoal,
+            boolean sharedCardType, boolean cancelAllowed, String prompt) {
+        return null;
+    }
     public CardCollectionView chooseCardsForRevealCost(CardCollectionView optionList, SpellAbility sa,
             CostPartWithList cost, int amount, boolean optional, boolean sameColor, String prompt) {
         return chooseCardsForCost(optionList, sa, cost, amount, optional, prompt);
