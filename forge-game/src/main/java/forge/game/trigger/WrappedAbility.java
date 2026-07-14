@@ -40,7 +40,7 @@ public class WrappedAbility extends Ability {
     private Player decider;
 
     public WrappedAbility(final Trigger regtrig0, final SpellAbility sa0, final Player decider0) {
-        super(sa0.getHostCard(), ManaCost.ZERO);
+        super(sa0.getHostCard(), ManaCost.ZERO, sa0.getDefinitionId());
         setTrigger(regtrig0);
         sa = sa0;
         sa.setTrigger(regtrig0);

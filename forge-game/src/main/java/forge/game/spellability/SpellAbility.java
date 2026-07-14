@@ -87,6 +87,7 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
     }
 
     private int id;
+    private final int definitionId;
 
     private String originalDescription = "", description = "";
     private String originalStackDescription = "", stackDescription = "";
@@ -198,7 +199,11 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
         this(iSourceCard, toPay, view0, null);
     }
     protected SpellAbility(final Card iSourceCard, final Cost toPay, SpellAbilityView view0, CardState cs) {
+        this(iSourceCard, toPay, view0, cs, 0);
+    }
+    protected SpellAbility(final Card iSourceCard, final Cost toPay, SpellAbilityView view0, CardState cs, int definitionId0) {
         id = nextId();
+        definitionId = definitionId0 == 0 ? id : definitionId0;
         hostCard = iSourceCard;
         payCosts = toPay;
         if (cs != null) {
@@ -216,6 +221,9 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
     @Override
     public final int getId() {
         return id;
+    }
+    public final int getDefinitionId() {
+        return definitionId;
     }
     @Override
     public int hashCode() {
@@ -1342,6 +1350,9 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
     public int getSourceTrigger() {
         return isTrigger() ? getTrigger().getId() : -1;
     }
+    public int getSourceTriggerDefinitionId() {
+        return isTrigger() ? getTrigger().getDefinitionId() : -1;
+    }
 
     public boolean isReplacementAbility() {
         return getParent() != null ? getParent().isReplacementAbility() : replacementEffect != null;
@@ -2365,6 +2376,7 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
     public SpellAbilityView getView() {
         view.updateHostCard(this);
         view.updateDescription(this);
+        view.updateSourceTriggerDefinitionId(this);
         view.updatePromptIfOnlyPossibleAbility(this);
         view.updateIsSpell(this);
         return view;

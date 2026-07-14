@@ -22,6 +22,7 @@ accessors to mutable `Card` references require migration.
 - `GameEventFlipCoin` — enriched with flipper, source ability, and result
 
 ## Seams
+- `SpellAbility`, `Trigger`, and `StaticAbility` definition IDs — stable identity retained across runtime copy chains; spell and source-trigger identity exposed through `SpellAbilityView`
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
 - `TargetSelectionResult` — result type for the seam
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
