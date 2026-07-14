@@ -11,7 +11,7 @@ import forge.trackable.TrackableProperty;
 import forge.trackable.Tracker;
 
 public class SpellAbilityView extends TrackableObject implements IHasCardView {
-    private static final long serialVersionUID = 2514234930798754769L;
+    private static final long serialVersionUID = 2514234930798754770L;
     private final int definitionId;
     private int sourceTriggerDefinitionId;
 
