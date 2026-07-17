@@ -59,6 +59,19 @@ public class TriggerHandler {
         delayedTriggers.add(trig);
     }
 
+    /**
+     * Returns an immutable point-in-time list of registered delayed triggers.
+     *
+     * Callers can safely inspect trigger metadata without retaining the
+     * synchronized backing collection or observing a partial iteration. Trigger
+     * entries remain the live game objects and must be treated as read-only.
+     */
+    public final List<Trigger> getDelayedTriggersSnapshot() {
+        synchronized (delayedTriggers) {
+            return List.copyOf(delayedTriggers);
+        }
+    }
+
     public final void clearDelayedTrigger() {
         delayedTriggers.clear();
     }
