@@ -2,7 +2,15 @@ package forge.game.event;
 
 import forge.game.card.CardView;
 
-public record GameEventCardDamaged(CardView card, CardView source, int amount, DamageType type, boolean isCombat) implements GameEvent {
+public record GameEventCardDamaged(CardView card, CardView source, int amount, DamageType type, DamageSourceKind sourceKind) implements GameEvent {
+
+    public GameEventCardDamaged(CardView card, CardView source, int amount, DamageType type, boolean isCombat) {
+        this(card, source, amount, type, isCombat ? DamageSourceKind.Combat : DamageSourceKind.SpellOrAbility);
+    }
+
+    public boolean isCombat() {
+        return sourceKind == DamageSourceKind.Combat;
+    }
 
     public enum DamageType {
         Normal, 
