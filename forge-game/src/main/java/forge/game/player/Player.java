@@ -713,7 +713,12 @@ public class Player extends GameEntity implements Comparable<Player> {
         runParams.put(AbilityKey.DefendingPlayer, game.getCombat() != null ? game.getCombat().getDefendingPlayerRelatedTo(source) : null);
         game.getTriggerHandler().runTrigger(TriggerType.DamageDone, runParams, isCombat);
 
-        game.fireEvent(new GameEventPlayerDamaged(PlayerView.get(this), CardView.get(source), amount, isCombat, infect));
+        game.fireEvent(new GameEventPlayerDamaged(
+                PlayerView.get(this),
+                CardView.get(source),
+                amount,
+                DamageSourceKind.from(isCombat, cause),
+                infect));
 
         return amount;
     }

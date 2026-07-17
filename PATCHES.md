@@ -7,7 +7,7 @@ Changes on top of upstream Card-Forge/forge. Update this file when adding or rem
 - `GameEventCardSurveiled` — new, carries cause card for per-card surveil tracking
 - `GameEventTokenCreated` — enriched with `List<Card>` token refs
 - `GameEventCardDestroyed` — immutable affected/source views plus stable source ability context
-- `GameEventCardDamaged` — enriched with combat-damage flag (`isCombat`)
+- `GameEventCardDamaged` and `GameEventPlayerDamaged` — enriched with structural damage source kind (combat, spell/ability, or fight)
 - `GameEventCardSacrificed` — enriched with stable source ability and cost-payment context
 - `GameEventSpellAbilityCast` — enriched with mana payment info and stable source ability context
 - `GameEventSpellResolved` — enriched with stable source ability context
