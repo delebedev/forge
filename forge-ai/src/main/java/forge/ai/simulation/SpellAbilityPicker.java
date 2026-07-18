@@ -169,6 +169,10 @@ public class SpellAbilityPicker {
         Score bestSaValue = origGameScore;
         print("Evaluating... (orig score = " + origGameScore +  ")");
         for (int i = 0; i < candidateSAs.size(); i++) {
+            if (i > 0 && controller.isBudgetExceeded()) {
+                print("Simulation budget exceeded after " + i + "/" + candidateSAs.size() + " candidates");
+                break;
+            }
             Score value = evaluateSa(controller, phase, candidateSAs, i);
             if (value.value > bestSaValue.value) {
                 bestSaValue = value;

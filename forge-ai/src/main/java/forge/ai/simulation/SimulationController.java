@@ -38,20 +38,28 @@ public class SimulationController {
         }
     }
 
+    private static final long BUDGET_MS = Long.parseLong(System.getenv().getOrDefault("FORGE_AI_SIM_BUDGET_MS", "0"));
+    private final long deadline;
+
     public SimulationController(Score score) {
         bestScore = score;
         scoreStack = new ArrayList<>();
         scoreStack.add(score);
         simulatorStack = new ArrayList<>();
         currentStack = new ArrayList<>();
+        deadline = BUDGET_MS > 0 ? System.currentTimeMillis() + BUDGET_MS : 0;
     }
-    
+
     private int getRecursionDepth() {
         return scoreStack.size() - 1;
     }
 
+    public boolean isBudgetExceeded() {
+        return deadline != 0 && System.currentTimeMillis() > deadline;
+    }
+
     public boolean shouldRecurse() {
-        return bestScore.value != Integer.MAX_VALUE && getRecursionDepth() < MAX_DEPTH;
+        return bestScore.value != Integer.MAX_VALUE && getRecursionDepth() < MAX_DEPTH && !isBudgetExceeded();
     }
 
     public Plan.Decision getLastDecision() {
