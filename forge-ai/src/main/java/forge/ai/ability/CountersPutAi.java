@@ -331,8 +331,7 @@ public class CountersPutAi extends CountersAi {
             amount = 1; // TODO: improve this to possibly account for some variability depending on the roll outcome (e.g. 4 for 1d8, perhaps)
         }
 
-        if (sa.hasParam("Adapt") &&
-                (!source.canReceiveCounters(CounterEnumType.P1P1) || source.getCounters(CounterEnumType.P1P1) > 0)) {
+        if (sa.hasParam("Adapt") && source.getCounters(CounterEnumType.P1P1) > 0) {
             return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
         }
 

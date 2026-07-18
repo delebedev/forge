@@ -25,12 +25,12 @@ import forge.MulliganDefs;
 import forge.game.GameLogEntryType;
 import forge.game.GameLogVerbosity;
 
-public class ForgePreferences extends PreferencesStore<ForgePreferences.FPref> {
+public class ForgePreferences extends AbstractPreferences<ForgePreferences.FPref> {
 
     /**
      * Preference identifiers and their default values.
      */
-    public enum FPref implements PreferencesStore.IPref {
+    public enum FPref implements AbstractPreferences.IPref {
         PLAYER_NAME (""),
 
         // Desktop only
@@ -151,7 +151,7 @@ public class ForgePreferences extends PreferencesStore<ForgePreferences.FPref> {
         UI_ALLOW_ORDER_GRAVEYARD_WHEN_NEEDED ("Never"),
         UI_DEFAULT_FONT_SIZE("12"),
         UI_CARD_ART_FORMAT("Full"),
-    	UI_SELECT_FROM_CARD_DISPLAYS("true"),
+        UI_SELECT_FROM_CARD_DISPLAYS("true"),
         UI_SWITCH_STATES_DECKVIEW("Switch back on hover"),
         UI_ORDER_HAND("false"),
         UI_HAND_MAX_CARDS_PER_ROW("0"),
@@ -456,11 +456,6 @@ public class ForgePreferences extends PreferencesStore<ForgePreferences.FPref> {
         catch (final Exception e) {
             return null;
         }
-    }
-
-    @Override
-    protected String getPrefDefault(final FPref key) {
-        return key.getDefault();
     }
 
     // one for normal mode, one for quest mode
