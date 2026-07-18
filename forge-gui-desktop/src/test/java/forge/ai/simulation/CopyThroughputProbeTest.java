@@ -43,6 +43,7 @@ public class CopyThroughputProbeTest extends SimulationTest {
                 addCardToZone("Plains", p, ZoneType.Library);
             }
         }
+        game.getPhaseHandler().devModeSet(forge.game.phase.PhaseType.MAIN1, p0);
         game.getAction().checkStateEffects(true);
         return game;
     }
