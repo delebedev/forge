@@ -364,6 +364,7 @@ public class SpellAbilityPicker {
             // I feel like something here is making a wrong assumption about what the target is
             lastScore = simulator.simulateSpellAbility(sa);
             numSimulations++;
+            controller.countSimulation();
             if (lastScore.value > bestScore.value) {
                 bestScore = lastScore;
             }

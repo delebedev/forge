@@ -39,7 +39,9 @@ public class SimulationController {
     }
 
     private static final long BUDGET_MS = Long.parseLong(System.getenv().getOrDefault("FORGE_AI_SIM_BUDGET_MS", "0"));
+    private static final int BUDGET_SIMS = Integer.parseInt(System.getenv().getOrDefault("FORGE_AI_SIM_BUDGET_SIMS", "0"));
     private final long deadline;
+    private int simCount;
 
     public SimulationController(Score score) {
         bestScore = score;
@@ -54,8 +56,15 @@ public class SimulationController {
         return scoreStack.size() - 1;
     }
 
+    public void countSimulation() {
+        simCount++;
+    }
+
     public boolean isBudgetExceeded() {
-        return deadline != 0 && System.currentTimeMillis() > deadline;
+        if (deadline != 0 && System.currentTimeMillis() > deadline) {
+            return true;
+        }
+        return BUDGET_SIMS != 0 && simCount >= BUDGET_SIMS;
     }
 
     public boolean shouldRecurse() {
