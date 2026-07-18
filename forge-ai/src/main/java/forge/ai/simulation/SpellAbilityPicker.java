@@ -363,6 +363,7 @@ public class SpellAbilityPicker {
             simulator.setInterceptor(choicesIterator);
             // I feel like something here is making a wrong assumption about what the target is
             lastScore = simulator.simulateSpellAbility(sa);
+            lastScore = forge.ai.ResearchValueNet.adjust(simulator.getSimGame(), simulator.getSimAiPlayer(), lastScore);
             numSimulations++;
             controller.countSimulation();
             if (lastScore.value > bestScore.value) {
