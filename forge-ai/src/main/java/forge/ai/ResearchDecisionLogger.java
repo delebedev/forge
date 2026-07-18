@@ -207,7 +207,7 @@ final class ResearchDecisionLogger {
         return index < 0 ? -1 : index + 1;
     }
 
-    private static Player firstOpponent(Player player) {
+    static Player firstOpponent(Player player) {
         for (Player opponent : player.getOpponents()) {
             return opponent;
         }
@@ -218,7 +218,7 @@ final class ResearchDecisionLogger {
         return player == null ? null : player.getName();
     }
 
-    private static int zoneSize(Player player, ZoneType zoneType) {
+    static int zoneSize(Player player, ZoneType zoneType) {
         return player.getCardsIn(zoneType).size();
     }
 
@@ -261,7 +261,33 @@ final class ResearchDecisionLogger {
                 String.valueOf(sa != null && sa.isLandAbility()), String.valueOf(sa != null && sa.usesTargeting()));
     }
 
-    private static void appendBoardSummary(StringBuilder sb, String prefix, Player player) {
+    /** Battlefield census shared by the JSON decision log and {@link ResearchValueNet}'s feature extraction. */
+    static final class BoardSummary {
+        final int creatures;
+        final int tappedCreatures;
+        final int creaturePower;
+        final int creatureToughness;
+        final int maxCreaturePower;
+        final int artifacts;
+        final int enchantments;
+        final int planeswalkers;
+        final int lands;
+
+        BoardSummary(int creatures, int tappedCreatures, int creaturePower, int creatureToughness,
+                int maxCreaturePower, int artifacts, int enchantments, int planeswalkers, int lands) {
+            this.creatures = creatures;
+            this.tappedCreatures = tappedCreatures;
+            this.creaturePower = creaturePower;
+            this.creatureToughness = creatureToughness;
+            this.maxCreaturePower = maxCreaturePower;
+            this.artifacts = artifacts;
+            this.enchantments = enchantments;
+            this.planeswalkers = planeswalkers;
+            this.lands = lands;
+        }
+    }
+
+    static BoardSummary boardSummary(Player player) {
         int creatures = 0;
         int tappedCreatures = 0;
         int totalPower = 0;
@@ -294,15 +320,21 @@ final class ResearchDecisionLogger {
                 lands++;
             }
         }
-        appendNumberField(sb, prefix + "_creatures", creatures);
-        appendNumberField(sb, prefix + "_tapped_creatures", tappedCreatures);
-        appendNumberField(sb, prefix + "_creature_power", totalPower);
-        appendNumberField(sb, prefix + "_creature_toughness", totalToughness);
-        appendNumberField(sb, prefix + "_max_creature_power", maxPower);
-        appendNumberField(sb, prefix + "_artifacts", artifacts);
-        appendNumberField(sb, prefix + "_enchantments", enchantments);
-        appendNumberField(sb, prefix + "_planeswalkers", planeswalkers);
-        appendNumberField(sb, prefix + "_lands", lands);
+        return new BoardSummary(creatures, tappedCreatures, totalPower, totalToughness, maxPower,
+                artifacts, enchantments, planeswalkers, lands);
+    }
+
+    private static void appendBoardSummary(StringBuilder sb, String prefix, Player player) {
+        BoardSummary summary = boardSummary(player);
+        appendNumberField(sb, prefix + "_creatures", summary.creatures);
+        appendNumberField(sb, prefix + "_tapped_creatures", summary.tappedCreatures);
+        appendNumberField(sb, prefix + "_creature_power", summary.creaturePower);
+        appendNumberField(sb, prefix + "_creature_toughness", summary.creatureToughness);
+        appendNumberField(sb, prefix + "_max_creature_power", summary.maxCreaturePower);
+        appendNumberField(sb, prefix + "_artifacts", summary.artifacts);
+        appendNumberField(sb, prefix + "_enchantments", summary.enchantments);
+        appendNumberField(sb, prefix + "_planeswalkers", summary.planeswalkers);
+        appendNumberField(sb, prefix + "_lands", summary.lands);
     }
 
     private static String escape(String value) {

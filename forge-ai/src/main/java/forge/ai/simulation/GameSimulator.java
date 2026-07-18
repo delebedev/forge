@@ -80,6 +80,14 @@ public class GameSimulator {
         eval.setDebugging(false);
     }
 
+    public Game getSimGame() {
+        return simGame;
+    }
+
+    public Player getSimAiPlayer() {
+        return aiPlayer;
+    }
+
     public void setInterceptor(SpellAbilityChoicesIterator interceptor) {
         this.interceptor = interceptor;
         ((PlayerControllerAi) aiPlayer.getController()).getAi().getSimulationPicker().setInterceptor(interceptor);
