@@ -49,10 +49,16 @@ public class GameCopier {
     private BiMap<Card, Card> cardMap = HashBiMap.create();
     private CopiedGameObjectMap gameObjectMap;
     private GameSnapshot snapshot = null;
+    // Research hook: FORGE_AI_SIM_SNAPSHOT=1 routes same-phase copies through
+    // GameSnapshot (~3x faster than full reconstruction). Phase-advancing copies
+    // fall back to the classic copier (snapshot cannot advance-to-phase).
+    private static final boolean SIM_SNAPSHOT = "1".equals(System.getenv("FORGE_AI_SIM_SNAPSHOT"));
+    private boolean usedSnapshot = false;
+    private Game snapshotGame = null;
 
     public GameCopier(Game origGame) {
         this.origGame = origGame;
-        if (origGame.EXPERIMENTAL_RESTORE_SNAPSHOT) {
+        if (origGame.EXPERIMENTAL_RESTORE_SNAPSHOT || SIM_SNAPSHOT) {
             this.snapshot = new GameSnapshot(origGame);
         }
     }
@@ -62,16 +68,18 @@ public class GameCopier {
     }
 
     public Game getCopiedGame() {
-        return gameObjectMap.getGame();
+        return usedSnapshot ? snapshotGame : gameObjectMap.getGame();
     }
 
     public Game makeCopy() {
         return makeCopy(null, null);
     }
     public Game makeCopy(PhaseType advanceToPhase, Player aiPlayer) {
-        if (origGame.EXPERIMENTAL_RESTORE_SNAPSHOT) {
+        if (snapshot != null && (origGame.EXPERIMENTAL_RESTORE_SNAPSHOT || advanceToPhase == null)) {
             // How do we advance to phase when using restores?
-            return snapshot.makeCopy();
+            usedSnapshot = true;
+            snapshotGame = snapshot.makeCopy();
+            return snapshotGame;
         }
 
         List<RegisteredPlayer> origPlayers = origGame.getMatch().getPlayers();
@@ -494,7 +502,7 @@ public class GameCopier {
     }
 
     public GameObject find(GameObject o) {
-        if (origGame.EXPERIMENTAL_RESTORE_SNAPSHOT) {
+        if (usedSnapshot) {
             return snapshot.find(o);
         }
 
@@ -516,7 +524,7 @@ public class GameCopier {
         return result;
     }
     public GameObject reverseFind(GameObject o) {
-        if (origGame.EXPERIMENTAL_RESTORE_SNAPSHOT) {
+        if (usedSnapshot) {
             return snapshot.reverseFind(o);
         }
 
