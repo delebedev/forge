@@ -131,7 +131,15 @@ public class SimulateMatch {
                 } else {
                     rp = new RegisteredPlayer(d);
                 }
-                rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1));
+                // Research hook: FORGE_AI_SIM_SEAT=<n> puts seat n (1-based) on the
+                // simulation-based AI (AIOption.USE_SIMULATION) instead of default AI.
+                String simSeat = System.getenv("FORGE_AI_SIM_SEAT");
+                if (simSeat != null && Integer.parseInt(simSeat.trim()) == i) {
+                    Set<forge.ai.AIOption> aiOpts = EnumSet.of(forge.ai.AIOption.USE_SIMULATION);
+                    rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1, 0, aiOpts));
+                } else {
+                    rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1));
+                }
                 pp.add(rp);
                 i++;
             }
