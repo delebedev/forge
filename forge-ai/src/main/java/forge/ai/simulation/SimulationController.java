@@ -68,6 +68,12 @@ public class SimulationController {
     }
 
     public boolean shouldRecurse() {
+        // simulatorStack is the absolute nesting depth; scoreStack only tracks
+        // plan-level recursion and can under-count when evaluation paths nest
+        // simulators directly (observed runaway recursion under snapshot copies).
+        if (simulatorStack.size() >= 2 * MAX_DEPTH) {
+            return false;
+        }
         return bestScore.value != Integer.MAX_VALUE && getRecursionDepth() < MAX_DEPTH && !isBudgetExceeded();
     }
 
