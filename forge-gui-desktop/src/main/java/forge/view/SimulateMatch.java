@@ -85,7 +85,7 @@ public class SimulateMatch {
         Long seed = null;
         if (params.containsKey("s")) {
             seed = Long.parseLong(params.get("s").get(0));
-            MyRandom.setSeed(seed);
+            MyRandom.setRandom(new Random(seed));
         }
 
         GameType type = GameType.Constructed;
