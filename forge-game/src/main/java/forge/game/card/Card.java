@@ -6425,6 +6425,11 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         return exertedByPlayer.contains(player);
     }
 
+    /** State transplant (snapshot copies): records exertion without firing triggers or updating views. */
+    public void addExertedBy(final Player p) {
+        exertedByPlayer.add(p);
+    }
+
     public void removeExertedBy(final Player player) {
         exertedByPlayer.remove(player);
         // removeExertedBy is called on Untap phase, where it can't be exerted yet
