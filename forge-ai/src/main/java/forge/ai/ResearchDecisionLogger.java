@@ -65,6 +65,7 @@ final class ResearchDecisionLogger {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
         appendField(sb, "schema", "priority_decision_v1");
+        appendNumberField(sb, "schema_version", 1);
         appendField(sb, "kind", "priority");
         appendField(sb, "run_id", RUN_ID);
         appendField(sb, "game_id", gameIdFor(game));
