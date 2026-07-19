@@ -67,6 +67,22 @@ public class CopyThroughputProbeTest extends SimulationTest {
     }
 
     @Test
+    public void debugLandStatics() {
+        Game game = buildMidGameState();
+        Game copy = new GameSnapshot(game).makeCopy();
+        for (Game g : new Game[] { game, copy }) {
+            for (forge.game.card.Card c : g.getCardsIn(ZoneType.Battlefield)) {
+                if (c.isLand()) {
+                    System.out.println("[land-statics] " + (g == game ? "orig" : "copy") + " " + c.getName()
+                            + " statics=" + c.getStaticAbilities().size()
+                            + " " + c.getStaticAbilities());
+                    break;
+                }
+            }
+        }
+    }
+
+    @Test
     public void probeGameSnapshotThroughput() {
         Game game = buildMidGameState();
         try {

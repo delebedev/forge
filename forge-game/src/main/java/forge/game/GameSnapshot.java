@@ -392,6 +392,18 @@ public class GameSnapshot {
         //newCard.setForetold(fromCard.isForetold());
         //newCard.setForetoldCostByEffect(fromCard.isForetoldCostByEffect());
         newCard.setState(fromCard.getCurrentStateName(), false);
+        newCard.setCounters(HashMultiset.create(fromCard.getCounters()));
+        newCard.setSVars(fromCard.getSVars());
+        newCard.copyChangedSVarsFrom(fromCard);
+        // Layered (effect-granted) state: types, colors, keywords, traits (auras, crews, pumps).
+        newCard.copyFrom(fromCard);
+        newCard.setPTTable(fromCard.getSetPTTable());
+        newCard.setPTCharacterDefiningTable(fromCard.getSetPTCharacterDefiningTable());
+        for (Player fromP : fromCard.getGame().getPlayers()) {
+            if (fromCard.isExertedBy(fromP)) {
+                newCard.addExertedBy(findBy(toGame, fromP));
+            }
+        }
     }
 
     private static SpellAbility findSAInCard(SpellAbility sa, Card c) {
