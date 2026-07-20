@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.time.StopWatch;
 
@@ -90,6 +90,14 @@ public class SimulatePuzzle {
         String name = pzlFile.getName().replace(PuzzleIO.SUFFIX_DATA, "");
         AiController.evalTimeoutFired = false;
 
+        // Distinguish "no such file" from "file is not a valid puzzle": FileUtil.readFile
+        // returns empty for a missing path, so both would otherwise land in the same
+        // opaque parse failure below and read as a broken puzzle rather than a bad path.
+        if (!pzlFile.isFile()) {
+            System.out.println("Puzzle file not found: " + pzlFile.getAbsolutePath());
+            return resultLine(name, "INVALID", 0, 0, false);
+        }
+
         final Puzzle puzzle;
         try {
             puzzle = PuzzleIO.loadPuzzle(pzlFile);
@@ -118,27 +126,41 @@ public class SimulatePuzzle {
 
         StopWatch sw = new StopWatch();
         sw.start();
-        boolean wallClockTimeout = false;
-        boolean crashed = false;
-        try {
-            TimeLimitedCodeBlock.runWithTimeout(
-                    () -> match.startGame(game, () -> puzzle.applyToGame(game)),
-                    WALL_CLOCK_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            wallClockTimeout = true;
-        } catch (Exception | StackOverflowError e) {
+        final AtomicBoolean crashed = new AtomicBoolean(false);
+
+        // The game MUST run on a thread whose name starts with "Game". GameAction.invoke
+        // only runs its Runnable synchronously when ThreadUtil.isGameThread() holds, and
+        // puzzle.applyToGame() goes through it. On any other thread the board setup is
+        // instead dispatched asynchronously into the Game pool and returns immediately —
+        // so PhaseHandler.setupFirstTurn's hook completes before the puzzle board exists
+        // and mainGameLoop() races applyGameOnThread(), which surfaces as intermittent
+        // ConcurrentModificationExceptions and same-seed verdict flips. The GUI gets this
+        // for free by wrapping the whole match in HostedMatch's game.getAction().invoke().
+        Thread gameThread = new Thread(
+                () -> match.startGame(game, () -> puzzle.applyToGame(game)), "Game-Puzzle");
+        // Daemon: on a wall-clock timeout we abandon the thread and let Main's System.exit
+        // tear it down rather than blocking JVM shutdown on a stuck game loop.
+        gameThread.setDaemon(true);
+        gameThread.setUncaughtExceptionHandler((t, e) -> {
             // An unexpected crash is never PASS/FAIL, same as a timeout — but it isn't
             // a timeout, so it's tracked separately and doesn't set timeout_fired.
             e.printStackTrace();
-            crashed = true;
-        } finally {
-            sw.stop();
+            crashed.set(true);
+        });
+        gameThread.start();
+        try {
+            gameThread.join(TimeUnit.SECONDS.toMillis(WALL_CLOCK_TIMEOUT_SECONDS));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            crashed.set(true);
         }
+        boolean wallClockTimeout = gameThread.isAlive();
+        sw.stop();
 
         boolean timedOut = wallClockTimeout || AiController.evalTimeoutFired;
         int turn = game.getPhaseHandler().getTurn();
         String verdict;
-        if (timedOut || crashed) {
+        if (timedOut || crashed.get()) {
             verdict = "INVALID";
         } else if (game.getOutcome() != null && game.getOutcome().isWinner(solver)) {
             verdict = "PASS";

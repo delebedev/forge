@@ -120,6 +120,22 @@ useful standalone:
   timeout_fired=1` if either fires — a puzzle that timed out is never
   PASS/FAIL.
 
+The game runs on an explicitly named `Game-Puzzle` thread. This is load-bearing,
+not cosmetic: `GameAction.invoke` only runs its `Runnable` synchronously when
+`ThreadUtil.isGameThread()` (thread name starts with "Game") holds, and
+`puzzle.applyToGame()` dispatches through it. On any other thread the board
+setup is queued asynchronously into the Game pool and returns immediately, so
+`PhaseHandler.setupFirstTurn`'s hook completes before the board exists and
+`mainGameLoop()` races `applyGameOnThread` — observed as intermittent
+`ConcurrentModificationException`s in AI combat evaluation and same-seed
+verdict flips. The GUI avoids this by wrapping the whole match in
+`HostedMatch`'s `game.getAction().invoke(...)`.
+
+A missing `-f` path is reported as `Puzzle file not found: <abs path>` before
+loading, since `FileUtil.readFile` returns empty for a missing file and would
+otherwise make a bad path indistinguishable from a corrupt puzzle. Both still
+yield `verdict=INVALID`.
+
 Also adds `forge-gui/res/ai/ChanceFree.ai`, a data-only AI profile (copy of
 `Default.ai` with every chance/percent knob pinned to a deterministic
 endpoint) that both puzzle-mode seats default to, so a puzzle's verdict
