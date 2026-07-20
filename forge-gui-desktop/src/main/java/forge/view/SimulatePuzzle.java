@@ -119,6 +119,7 @@ public class SimulatePuzzle {
         StopWatch sw = new StopWatch();
         sw.start();
         boolean wallClockTimeout = false;
+        boolean crashed = false;
         try {
             TimeLimitedCodeBlock.runWithTimeout(
                     () -> match.startGame(game, () -> puzzle.applyToGame(game)),
@@ -126,8 +127,10 @@ public class SimulatePuzzle {
         } catch (TimeoutException e) {
             wallClockTimeout = true;
         } catch (Exception | StackOverflowError e) {
+            // An unexpected crash is never PASS/FAIL, same as a timeout — but it isn't
+            // a timeout, so it's tracked separately and doesn't set timeout_fired.
             e.printStackTrace();
-            wallClockTimeout = true; // treat an unexpected crash the same as a stuck game: never PASS/FAIL it
+            crashed = true;
         } finally {
             sw.stop();
         }
@@ -135,7 +138,7 @@ public class SimulatePuzzle {
         boolean timedOut = wallClockTimeout || AiController.evalTimeoutFired;
         int turn = game.getPhaseHandler().getTurn();
         String verdict;
-        if (timedOut) {
+        if (timedOut || crashed) {
             verdict = "INVALID";
         } else if (game.getOutcome() != null && game.getOutcome().isWinner(solver)) {
             verdict = "PASS";
