@@ -33,16 +33,21 @@ public class PuzzleIO {
         ArrayList<Puzzle> puzzles = Lists.newArrayList();
         for (final String element : pList) {
             if (element.endsWith(SUFFIX_DATA)) {
-                final List<String> pfData = FileUtil.readFile(directory + element);
-
-                String filename = element.replace(SUFFIX_DATA, "");
-                boolean completed = FileUtil.doesFileExist(ForgeConstants.USER_PUZZLE_DIR + element.replace(SUFFIX_DATA, SUFFIX_COMPLETE));
-
-                // Pass file name into Puzzle so it can save the completed name to match
-                puzzles.add(new Puzzle(FileSection.parseSections(pfData), filename, completed));
+                puzzles.add(loadPuzzle(new File(directory, element)));
             }
         }
         return puzzles;
+    }
+
+    /** Load a single puzzle by file path (headless puzzle mode doesn't scan a directory). */
+    public static Puzzle loadPuzzle(File pzlFile) {
+        final List<String> pfData = FileUtil.readFile(pzlFile.getPath());
+
+        String filename = pzlFile.getName().replace(SUFFIX_DATA, "");
+        boolean completed = FileUtil.doesFileExist(ForgeConstants.USER_PUZZLE_DIR + filename + SUFFIX_COMPLETE);
+
+        // Pass file name into Puzzle so it can save the completed name to match
+        return new Puzzle(FileSection.parseSections(pfData), filename, completed);
     }
 
 }
