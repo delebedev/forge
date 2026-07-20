@@ -29,6 +29,7 @@ import forge.localinstance.properties.ForgeConstants;
 import forge.model.FModel;
 import forge.player.GamePlayerUtil;
 import forge.util.Lang;
+import forge.util.MyRandom;
 import forge.util.TextUtil;
 import forge.util.WordUtil;
 import forge.util.storage.IStorage;
@@ -81,6 +82,12 @@ public class SimulateMatch {
 
         boolean outputGamelog = !params.containsKey("q");
 
+        Long seed = null;
+        if (params.containsKey("s")) {
+            seed = Long.parseLong(params.get("s").get(0));
+            MyRandom.setRandom(new Random(seed));
+        }
+
         GameType type = GameType.Constructed;
         if (params.containsKey("f")) {
             type = GameType.valueOf(WordUtil.capitalize(params.get("f").get(0)));
@@ -124,7 +131,15 @@ public class SimulateMatch {
                 } else {
                     rp = new RegisteredPlayer(d);
                 }
-                rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1));
+                // Research hook: FORGE_AI_SIM_SEAT=<n> puts seat n (1-based) on the
+                // simulation-based AI (AIOption.USE_SIMULATION) instead of default AI.
+                String simSeat = System.getenv("FORGE_AI_SIM_SEAT");
+                if (simSeat != null && Integer.parseInt(simSeat.trim()) == i) {
+                    Set<forge.ai.AIOption> aiOpts = EnumSet.of(forge.ai.AIOption.USE_SIMULATION);
+                    rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1, 0, aiOpts));
+                } else {
+                    rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1));
+                }
                 pp.add(rp);
                 i++;
             }
@@ -135,6 +150,9 @@ public class SimulateMatch {
         }
 
         sb.append(" - ").append(Lang.nounWithNumeral(nGames, "game")).append(" of ").append(type);
+        if (seed != null) {
+            sb.append(" seed ").append(seed);
+        }
 
         System.out.println(sb.toString());
 
@@ -157,7 +175,7 @@ public class SimulateMatch {
     }
 
     private static void argumentHelp() {
-        System.out.println("Syntax: forge.exe sim -d <deck1[.dck]> ... <deckX[.dck]> -D [D] -n [N] -m [M] -t [T] -p [P] -f [F] -q");
+        System.out.println("Syntax: forge.exe sim -d <deck1[.dck]> ... <deckX[.dck]> -D [D] -n [N] -m [M] -t [T] -p [P] -f [F] -s [S] -q");
         System.out.println("\tsim - stands for simulation mode");
         System.out.println("\tdeck1 (or deck2,...,X) - constructed deck name or filename (has to be quoted when contains multiple words)");
         System.out.println("\tdeck is treated as file if it ends with a dot followed by three numbers or letters");
@@ -167,6 +185,7 @@ public class SimulateMatch {
         System.out.println("\tT - Type of tournament to run with all provided decks (Bracket, RoundRobin, Swiss)");
         System.out.println("\tP - Amount of players per match (used only with Tournaments, defaults to 2)");
         System.out.println("\tF - format of games, defaults to constructed");
+        System.out.println("\tS - RNG seed for deterministic simulation");
         System.out.println("\tc - Clock flag. Set the maximum time in seconds before calling the match a draw, defaults to 120.");
         System.out.println("\tq - Quiet flag. Output just the game result, not the entire game log.");
     }
@@ -346,6 +365,11 @@ public class SimulateMatch {
     private static Deck deckFromCommandLineParameter(String deckname, GameType type) {
         int dotpos = deckname.lastIndexOf('.');
         if (dotpos > 0 && dotpos == deckname.length() - 4) {
+            File directFile = new File(deckname);
+            if (directFile.exists()) {
+                return DeckSerializer.fromFile(directFile);
+            }
+
             String baseDir = type.equals(GameType.Commander) ?
                     ForgeConstants.DECK_COMMANDER_DIR : ForgeConstants.DECK_CONSTRUCTED_DIR;
 

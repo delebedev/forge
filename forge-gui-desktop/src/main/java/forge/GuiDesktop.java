@@ -350,11 +350,16 @@ public class GuiDesktop implements IGuiBase {
     }
 
     private static float initializeScreenScale() {
-        GraphicsConfiguration gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
-        AffineTransform at = gc.getDefaultTransform();
-        double scaleX = at.getScaleX();
-        double scaleY = at.getScaleY();
-        return (float) Math.min(scaleX, scaleY);
+        try {
+            GraphicsConfiguration gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+            AffineTransform at = gc.getDefaultTransform();
+            double scaleX = at.getScaleX();
+            double scaleY = at.getScaleY();
+            return (float) Math.min(scaleX, scaleY);
+        } catch (java.awt.HeadlessException e) {
+            // Headless sim mode (no desktop session): scale is irrelevant.
+            return 1.0f;
+        }
     }
     static float screenScale = initializeScreenScale();
 
