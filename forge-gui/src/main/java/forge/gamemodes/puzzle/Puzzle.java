@@ -120,6 +120,12 @@ public class Puzzle extends GameState implements InventoryItem, Comparable<Puzzl
                 human = p;
             }
         }
+        if (human == null) {
+            // Headless puzzle mode: both seats are AI-controlled, so no player is
+            // ever a literal GUI human. Fall back to seat 0, the "human"/solver
+            // seat by GameState's own convention (see GameState.getPlayerState).
+            human = game.getPlayers().get(0);
+        }
 
         Card goalCard = new Card(-1, game);
 

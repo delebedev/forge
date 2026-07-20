@@ -100,6 +100,12 @@ public class AiController {
     private List<SpellAbility> skipped;
     private volatile boolean timeoutReached;
 
+    // Research canary: set when the "Game AI Eval" watchdog (below) actually
+    // fires. Headless puzzle mode polls and resets this around each puzzle so
+    // a puzzle that timed out mid-decision is reported INVALID, never a
+    // PASS/FAIL that quietly rode a truncated AI search.
+    public static volatile boolean evalTimeoutFired = false;
+
     public AiController(final Player computerPlayer, final Game game0) {
         player = computerPlayer;
         game = game0;
@@ -1702,6 +1708,7 @@ public class AiController {
                     sb.append("\n\tat ").append(evalStack[i]);
                 }
                 System.out.println(sb);
+                evalTimeoutFired = true;
             }
             // ask the eval thread to exit at the next SpellAbility check first: a brutal
             // Thread.stop() mid-evaluation can leave partially mutated shared state behind
