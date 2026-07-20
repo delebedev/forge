@@ -37,4 +37,3 @@ accessors to mutable `Card` references require migration.
 
 ## Fixes
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
-- `PhaseHandler.handleNextTurn()` — run the game-over condition inside the next-player loop; a player losing after the turn's last state-based check (e.g. a puzzle goal failing at cleanup) otherwise leaves the loop spinning on a stale turn order until external timeouts fire

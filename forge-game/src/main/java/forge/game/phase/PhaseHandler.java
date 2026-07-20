@@ -837,14 +837,6 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
 
         Player next = getNextActivePlayer();
         while (!next.isInGame()) {
-            // A loss can land after the turn's last state-based check (e.g. an
-            // effect failing the player during cleanup): the player has an
-            // outcome but still sits in the turn order, so without processing
-            // the game-over condition here this loop spins on the stale list.
-            game.getAction().checkGameOverCondition();
-            if (game.isGameOver()) {
-                return next;
-            }
             next = getNextActivePlayer();
         }
 
