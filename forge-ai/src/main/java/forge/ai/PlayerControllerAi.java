@@ -61,7 +61,10 @@ public class PlayerControllerAi extends PlayerController {
     public PlayerControllerAi(Game game, Player p, LobbyPlayer lp) {
         super(game, p, lp);
 
-        brains = new AiController(p, game);
+        final AiVariant variant = lp instanceof LobbyPlayerAi
+                ? ((LobbyPlayerAi) lp).getAiVariant()
+                : AiVariant.BASELINE;
+        brains = new AiController(p, game, variant);
     }
 
     public boolean pilotsNonAggroDeck() {
@@ -86,6 +89,10 @@ public class PlayerControllerAi extends PlayerController {
 
     public AiController getAi() {
         return brains;
+    }
+
+    public AiVariant getAiVariant() {
+        return brains.getAiVariant();
     }
 
     @Override

@@ -45,6 +45,22 @@ throughput probe test measuring game-copy cost during simulation search.
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/ai/simulation/CopyThroughputProbeTest.java`
 
+## feat(ai): per-seat baseline/candidate research variant
+
+Adds a typed variant carried from `LobbyPlayerAi` through
+`PlayerControllerAi` into `AiController`. Headless match simulation parses one
+variant and seat at startup; every other seat remains baseline. Candidate
+artifacts can guard a proposed policy with `usesCandidateVariant()` while both
+experiment arms execute the same jar.
+
+- `forge-ai/src/main/java/forge/ai/AiVariant.java`
+- `forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java`
+- `forge-ai/src/main/java/forge/ai/PlayerControllerAi.java`
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
+- `forge-gui-desktop/src/test/java/forge/ai/AiVariantTest.java`
+- `forge-gui-desktop/src/test/java/forge/ai/AiVariantControllerTest.java`
+
 ## test(ai): copy probe — tolerate broken GameSnapshot on this base
 
 The copy-throughput probe hits a `GameSnapshot` limitation present on this

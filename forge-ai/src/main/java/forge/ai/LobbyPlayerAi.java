@@ -1,5 +1,6 @@
 package forge.ai;
 
+import java.util.Objects;
 import java.util.Set;
 
 import forge.LobbyPlayer;
@@ -14,6 +15,7 @@ public class LobbyPlayerAi extends LobbyPlayer implements IGameEntitiesFactory {
     private String aiProfile = "";
     private boolean rotateProfileEachGame;
     private boolean useSimulation;
+    private AiVariant aiVariant = AiVariant.BASELINE;
 
     public LobbyPlayerAi(String name, Set<AIOption> options) {
         super(name);
@@ -32,6 +34,14 @@ public class LobbyPlayerAi extends LobbyPlayer implements IGameEntitiesFactory {
 
     public void setRotateProfileEachGame(boolean rotateProfileEachGame) {
         this.rotateProfileEachGame = rotateProfileEachGame;
+    }
+
+    public void setAiVariant(final AiVariant variant) {
+        aiVariant = Objects.requireNonNull(variant);
+    }
+
+    public AiVariant getAiVariant() {
+        return aiVariant;
     }
 
     private PlayerControllerAi createControllerFor(Player ai) {
