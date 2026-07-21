@@ -142,8 +142,13 @@ public class ComputerUtilMana {
             }
         }
 
-        // lower value means better choice
-        orderedCards.sort(Comparator.comparingInt(manaCardMap::get));
+        // lower value means better choice; tie-break on card id so equal-scoring
+        // sources get a total, launch-stable order. Without the id key the sort is
+        // stable on score alone, so ties keep orderedCards' insertion order — which
+        // is the iteration order of the ManaCostShard-keyed sourcesForShards
+        // (a HashMap-backed multimap, iterated in JVM identity-hashcode order) and
+        // therefore varies per JVM launch.
+        orderedCards.sort(Comparator.<Card>comparingInt(manaCardMap::get).thenComparingInt(Card::getId));
 
         if (DEBUG_MANA_PAYMENT) {
             System.out.print("Ordered Cards: " + orderedCards.size());
@@ -1080,8 +1085,13 @@ public class ComputerUtilMana {
 
     private static ManaCostShard getNextShardToPay(ManaCostBeingPaid cost, Multimap<ManaCostShard, SpellAbility> sourcesForShards) {
         List<ManaCostShard> shardsToPay = Lists.newArrayList(cost.getDistinctShards());
-        // optimize order so that the shards with less available sources are considered first
-        shardsToPay.sort(Comparator.comparingInt(shard -> sourcesForShards.get(shard).size()));
+        // optimize order so that the shards with less available sources are considered first;
+        // tie-break on enum ordinal (declaration order = fewest ways to pay first) so equal-
+        // source-count shards get a total, launch-stable order. getDistinctShards() is a
+        // HashMap keySet iterated in JVM identity-hashcode order, so without the ordinal key
+        // the tie order varies per JVM launch and picks a different source to tap.
+        shardsToPay.sort(Comparator.comparingInt((ManaCostShard shard) -> sourcesForShards.get(shard).size())
+                .thenComparingInt(ManaCostShard::ordinal));
         // mind the priorities
         // * Pay mono-colored first
         // * Pay 2/C with matching colors

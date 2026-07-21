@@ -148,3 +148,40 @@ decision tree. Per-knob reasoning is commented inline in the profile file.
 - `forge-gui/src/main/java/forge/gamemodes/puzzle/Puzzle.java`
 - `forge-ai/src/main/java/forge/ai/AiController.java`
 - `forge-gui/res/ai/ChanceFree.ai` (new)
+
+## fix(ai): total-order mana tie-breaks — deterministic tap order across JVM launches
+
+Two mana-payment tie-breaks in `ComputerUtilMana` were resolved only up to a
+stable sort's *input* order, and that input order is the iteration order of
+`ManaCostShard`-keyed HashMaps. `ManaCostShard` is an enum, so its keys iterate
+in JVM identity-hashcode order, which varies per JVM launch (HotSpot's default
+`hashCode=5` is a per-launch xorshift). Equal-scoring mana sources (e.g. two
+equal dual lands) therefore tapped in a per-launch-varying order: a two-land tap swap when
+casting a board wipe cascades into a scry (top vs bottom) and a spell-choice
+flip that changes the game outcome. This set the real cross-invocation floor
+for paired comparison; pinned by a per-decision mana-order
+diff across two JVM launches (identical board, identical card ids, only the
+insertion order differed).
+
+Both sites get a total, launch-stable secondary key:
+- `sortManaAbilities`: `orderedCards.sort` was keyed on the score alone, so ties
+  kept insertion order (the `sourcesForShards.keySet()` iteration). Added a
+  card-id secondary key (`Card::getId`).
+- `getNextShardToPay`: `shardsToPay.sort` was keyed on source-count alone, so
+  ties kept `getDistinctShards()` (a HashMap keySet) order. Added an enum-ordinal
+  secondary key — the enum's declaration order is deliberately "fewest ways to
+  pay first," so this is a sensible as well as stable order.
+
+Card ids and enum ordinals are deterministic within a game (verified: the card
+ids at the divergent decision are identical across launches), so both tie-breaks
+are now launch-stable. This is a deliberate, minimal engine fix (not
+instrumentation): it deterministically changes which of two equal sources taps,
+so some game outcomes change vs the nondeterministic baseline — expected, since
+the goal is determinism, not preservation of the old (coin-flip) outcomes. The
+crucible puzzle corpus was re-checked against this jar; expectations unchanged.
+
+Verified by re-measurement: with the fix, K JVM launches of the fragile
+coordinate (mono-blue-winds vs esper-control, seed 13000) collapse to one
+trajectory (result-flip floor 0), where the clean pin split ~2 trajectories.
+
+- `forge-ai/src/main/java/forge/ai/ComputerUtilMana.java`
