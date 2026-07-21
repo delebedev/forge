@@ -8,6 +8,8 @@ import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.time.StopWatch;
 
 import forge.LobbyPlayer;
+import forge.ai.AiVariant;
+import forge.ai.LobbyPlayerAi;
 import forge.deck.Deck;
 import forge.deck.DeckGroup;
 import forge.deck.io.DeckSerializer;
@@ -109,6 +111,14 @@ public class SimulateMatch {
         List<RegisteredPlayer> pp = new ArrayList<>();
         StringBuilder sb = new StringBuilder();
 
+        final AiVariant selectedVariant = AiVariant.fromExternalName(System.getenv("FORGE_AI_VARIANT"));
+        final int variantSeat = parseSeat(System.getenv("FORGE_AI_VARIANT_SEAT"));
+        final int simSeat = parseSeat(System.getenv("FORGE_AI_SIM_SEAT"));
+        if (selectedVariant == AiVariant.CANDIDATE && variantSeat < 1) {
+            throw new IllegalArgumentException(
+                    "FORGE_AI_VARIANT=candidate requires FORGE_AI_VARIANT_SEAT=<positive seat>");
+        }
+
         int i = 1;
 
         if (params.containsKey("d")) {
@@ -133,16 +143,23 @@ public class SimulateMatch {
                 }
                 // Research hook: FORGE_AI_SIM_SEAT=<n> puts seat n (1-based) on the
                 // simulation-based AI (AIOption.USE_SIMULATION) instead of default AI.
-                String simSeat = System.getenv("FORGE_AI_SIM_SEAT");
-                if (simSeat != null && Integer.parseInt(simSeat.trim()) == i) {
+                final LobbyPlayer lobbyPlayer;
+                if (simSeat == i) {
                     Set<forge.ai.AIOption> aiOpts = EnumSet.of(forge.ai.AIOption.USE_SIMULATION);
-                    rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1, 0, aiOpts));
+                    lobbyPlayer = GamePlayerUtil.createAiPlayer(name, i - 1, 0, aiOpts);
                 } else {
-                    rp.setPlayer(GamePlayerUtil.createAiPlayer(name, i - 1));
+                    lobbyPlayer = GamePlayerUtil.createAiPlayer(name, i - 1);
                 }
+                final LobbyPlayerAi aiPlayer = (LobbyPlayerAi) lobbyPlayer;
+                aiPlayer.setAiVariant(i == variantSeat ? selectedVariant : AiVariant.BASELINE);
+                rp.setPlayer(aiPlayer);
                 pp.add(rp);
                 i++;
             }
+        }
+        if (selectedVariant == AiVariant.CANDIDATE && variantSeat > pp.size()) {
+            throw new IllegalArgumentException(
+                    "FORGE_AI_VARIANT_SEAT=" + variantSeat + " exceeds player count " + pp.size());
         }
 
         if (params.containsKey("c")) {
@@ -360,6 +377,10 @@ public class SimulateMatch {
 
     public static Match simulateOffthreadGame(List<Deck> decks, GameType format, int games) {
         return null;
+    }
+
+    private static int parseSeat(final String value) {
+        return value == null ? 0 : Integer.parseInt(value.trim());
     }
 
     private static Deck deckFromCommandLineParameter(String deckname, GameType type) {

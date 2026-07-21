@@ -99,6 +99,7 @@ public class AiController {
     private boolean useLivingEnd;
     private List<SpellAbility> skipped;
     private volatile boolean timeoutReached;
+    private final AiVariant aiVariant;
 
     // Research canary: set when the "Game AI Eval" watchdog (below) actually
     // fires. Headless puzzle mode polls and resets this around each puzzle so
@@ -107,10 +108,23 @@ public class AiController {
     public static volatile boolean evalTimeoutFired = false;
 
     public AiController(final Player computerPlayer, final Game game0) {
+        this(computerPlayer, game0, AiVariant.BASELINE);
+    }
+
+    public AiController(final Player computerPlayer, final Game game0, final AiVariant variant) {
         player = computerPlayer;
         game = game0;
+        aiVariant = variant;
         memory = new AiCardMemory();
         simPicker = new SpellAbilityPicker(game, player);
+    }
+
+    public AiVariant getAiVariant() {
+        return aiVariant;
+    }
+
+    public boolean usesCandidateVariant() {
+        return aiVariant == AiVariant.CANDIDATE;
     }
 
     public boolean usesSimulation() {
