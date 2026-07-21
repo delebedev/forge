@@ -15,6 +15,28 @@ env-driven wiring to enable these seams from a headless sim run.
 - `forge-ai/src/main/java/forge/ai/AiController.java`
 - `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
 - `forge-ai/src/main/java/forge/ai/ResearchNeuralReranker.java`
+
+## feat(sim): add seat-scoped cascade calibration controls
+
+Adds `FORGE_RESEARCH_CONTROL=sham|start-at-zero|fail` plus the required
+one-based `FORGE_RESEARCH_CONTROL_SEAT`. These controls exist only to exercise
+the external promotion harness against real Forge batches:
+
+- `sham` traverses parsing and seat routing without changing the game;
+- `start-at-zero` deterministically gives the selected registered player zero
+  starting life, providing the same signed control on either harness arm;
+- `fail` exits with status 42 before Forge starts background services so the
+  harness receives a prompt nonzero evaluator exit and must surface a hard
+  canary.
+
+The control name and seat travel through the harness arm environment and are
+therefore part of experiment provenance. With the environment unset, upstream
+and baseline behavior are unchanged. These are calibration sentinels, never AI
+strength candidates.
+
+- `forge-gui-desktop/src/main/java/forge/view/ResearchControl.java` (new)
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
+- `forge-gui-desktop/src/test/java/forge/view/ResearchControlTest.java` (new)
 - `forge-ai/src/main/java/forge/ai/ResearchPolicyReranker.java`
 - `forge-ai/src/main/java/forge/ai/ResearchPolicySearch.java`
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`

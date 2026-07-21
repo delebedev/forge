@@ -38,6 +38,18 @@ import forge.util.storage.IStorage;
 
 public class SimulateMatch {
     public static void simulate(String[] args) {
+        final ResearchControl researchControl = ResearchControl.fromExternalName(
+                System.getenv("FORGE_RESEARCH_CONTROL"));
+        final int researchControlSeat = parseSeat(System.getenv("FORGE_RESEARCH_CONTROL_SEAT"));
+        if (researchControl != ResearchControl.NONE && researchControlSeat < 1) {
+            throw new IllegalArgumentException(
+                    "FORGE_RESEARCH_CONTROL requires FORGE_RESEARCH_CONTROL_SEAT=<positive seat>");
+        }
+        if (researchControl.isForcedFailure()) {
+            System.err.println("Forced research-control failure for seat " + researchControlSeat);
+            System.exit(42);
+            return;
+        }
         FModel.initialize(null, null);
 
         System.out.println("Simulation mode");
@@ -153,6 +165,9 @@ public class SimulateMatch {
                 final LobbyPlayerAi aiPlayer = (LobbyPlayerAi) lobbyPlayer;
                 aiPlayer.setAiVariant(i == variantSeat ? selectedVariant : AiVariant.BASELINE);
                 rp.setPlayer(aiPlayer);
+                if (i == researchControlSeat) {
+                    researchControl.applyTo(rp);
+                }
                 pp.add(rp);
                 i++;
             }
@@ -160,6 +175,11 @@ public class SimulateMatch {
         if (selectedVariant == AiVariant.CANDIDATE && variantSeat > pp.size()) {
             throw new IllegalArgumentException(
                     "FORGE_AI_VARIANT_SEAT=" + variantSeat + " exceeds player count " + pp.size());
+        }
+        if (researchControl != ResearchControl.NONE && researchControlSeat > pp.size()) {
+            throw new IllegalArgumentException(
+                    "FORGE_RESEARCH_CONTROL_SEAT=" + researchControlSeat
+                            + " exceeds player count " + pp.size());
         }
 
         if (params.containsKey("c")) {
