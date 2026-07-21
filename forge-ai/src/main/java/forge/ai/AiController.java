@@ -1577,14 +1577,15 @@ public class AiController {
         //update LivingEndPlayer
         useLivingEnd = IterableUtil.any(player.getZone(ZoneType.Library), CardPredicates.nameEquals("Living End"));
 
-        SpellAbility forgeChoice = chooseSpellAbilityToPlayFromList(saList, true);
+        Map<SpellAbility, AiPlayDecision> evaluatedReasons = new IdentityHashMap<>();
+        SpellAbility forgeChoice = chooseSpellAbilityToPlayFromList(saList, true, evaluatedReasons);
         ResearchNeuralReranker.Result neuralChoice = ResearchNeuralReranker.choose(game, player, saList, forgeChoice);
         ResearchPolicyReranker.Result policyChoice = neuralChoice.used ? ResearchPolicyReranker.Result.fallback()
                 : ResearchPolicyReranker.choose(game, saList);
         SpellAbility chosenSa = neuralChoice.used ? ResearchPolicySearch.choose(game, player, neuralChoice.choice, forgeChoice)
                 : policyChoice.used ? policyChoice.choice : forgeChoice;
         ResearchDecisionLogger.logPriorityDecision(game, player, saList, chosenSa, policyChoice.used, policyChoice.score,
-                policyChoice.seen, neuralChoice.used, neuralChoice.score, neuralChoice.margin);
+                policyChoice.seen, neuralChoice.used, neuralChoice.score, neuralChoice.margin, evaluatedReasons);
 
         if (topOwnedByAI && !mustRespond && chosenSa != ComputerUtilAbility.getFirstCopySASpell(saList)) {
             return null; // not planning to copy the spell and not marked as something the AI would respond to
@@ -1594,6 +1595,26 @@ public class AiController {
     }
 
     private SpellAbility chooseSpellAbilityToPlayFromList(final List<SpellAbility> all, boolean skipCounter) {
+        return chooseSpellAbilityToPlayFromList(all, skipCounter, null);
+    }
+
+    // Research instrumentation: pairs the greedy scan's chosen SpellAbility with
+    // the AiPlayDecision it computed for every candidate it actually evaluated.
+    private record ScanResult(SpellAbility chosen, Map<SpellAbility, AiPlayDecision> reasons) {
+    }
+
+    // evaluatedReasonsOut (nullable, research instrumentation): on normal scan
+    // completion, receives each candidate's AiPlayDecision keyed by SA identity —
+    // but only for the prefix the greedy scan actually evaluated (up to and
+    // including the first WillPlay). The scan short-circuits there, so candidates
+    // sorted after the winner are never evaluated and never appear here; forcing
+    // their evaluation would do work Forge skips and trigger its side effects.
+    // The map is built thread-confined on the eval thread and handed back via the
+    // FutureTask result, so it is populated only on success: a timed-out scan
+    // leaves it untouched rather than being read while the eval thread may still
+    // mutate it. Capturing an already-computed decision adds no gameplay work.
+    private SpellAbility chooseSpellAbilityToPlayFromList(final List<SpellAbility> all, boolean skipCounter,
+            final Map<SpellAbility, AiPlayDecision> evaluatedReasonsOut) {
         if (all == null || all.isEmpty())
             return null;
 
@@ -1609,7 +1630,9 @@ public class AiController {
         // in case of infinite loop reset below would not be reached
         timeoutReached = false;
 
-        FutureTask<SpellAbility> future = new FutureTask<>(() -> {
+        FutureTask<ScanResult> future = new FutureTask<>(() -> {
+            // Thread-confined; published to evaluatedReasonsOut only via this task's result.
+            final Map<SpellAbility, AiPlayDecision> reasons = new IdentityHashMap<>();
             //avoid ComputerUtil.aiLifeInDanger in loops as it slows down a lot.. call this outside loops will generally be fast...
             boolean isLifeInDanger = useLivingEnd && ComputerUtil.aiLifeInDanger(player, true, 0);
             for (final SpellAbility sa : ComputerUtilAbility.getOriginalAndAltCostAbilities(all, player)) {
@@ -1683,20 +1706,27 @@ public class AiController {
                 // PhaseHandler ph = game.getPhaseHandler();
                 // System.out.printf("Ai thinks '%s' of %s -> %s @ %s %s >>> \n", opinion, sa.getHostCard(), sa, Lang.getInstance().getPossesive(ph.getPlayerTurn().getName()), ph.getPhase());
 
+                // Instrumentation only: record the decision this evaluated candidate got.
+                reasons.put(sa, opinion);
+
                 if (opinion != AiPlayDecision.WillPlay)
                     continue;
 
                 // TODO could continue to try find another with higher rating (weighted by priority ordering)
-                return sa;
+                return new ScanResult(sa, reasons);
             }
 
-            return null;
+            return new ScanResult(null, reasons);
         });
 
         Thread t = new Thread(future, "Game AI Eval");
         t.start();
         try {
-            return future.get(game.getAITimeout(), TimeUnit.SECONDS);
+            ScanResult result = future.get(game.getAITimeout(), TimeUnit.SECONDS);
+            if (evaluatedReasonsOut != null) {
+                evaluatedReasonsOut.putAll(result.reasons());
+            }
+            return result.chosen();
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             e.printStackTrace();
             if (e instanceof TimeoutException) {

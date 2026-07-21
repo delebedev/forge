@@ -9,6 +9,7 @@ import forge.game.zone.ZoneType;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 final class ResearchDecisionLogger {
     private static final String LOG_PATH = System.getenv("FORGE_AI_DECISION_LOG");
@@ -43,13 +44,14 @@ final class ResearchDecisionLogger {
     }
 
     static void logPriorityDecision(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
-            boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin) {
+            boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
+            Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
         if (LOG_PATH == null || LOG_PATH.isEmpty()) {
             return;
         }
 
         String json = buildPriorityDecisionJson(game, player, candidates, chosen, policyUsed, policyScore, policySeen,
-                neuralUsed, neuralScore, neuralMargin);
+                neuralUsed, neuralScore, neuralMargin, evaluatedReasons);
         synchronized (ResearchDecisionLogger.class) {
             try (FileWriter writer = new FileWriter(LOG_PATH, true)) {
                 writer.write(json);
@@ -61,11 +63,12 @@ final class ResearchDecisionLogger {
     }
 
     static String buildPriorityDecisionJson(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
-            boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin) {
+            boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
+            Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
-        appendField(sb, "schema", "priority_decision_v1");
-        appendNumberField(sb, "schema_version", 1);
+        appendField(sb, "schema", "priority_decision_v2");
+        appendNumberField(sb, "schema_version", 2);
         appendField(sb, "kind", "priority");
         appendField(sb, "run_id", RUN_ID);
         appendField(sb, "game_id", gameIdFor(game));
@@ -98,13 +101,26 @@ final class ResearchDecisionLogger {
         appendNumberField(sb, "chosen_candidate_index", chosenCandidateIndex(candidates, chosen));
         appendField(sb, "chosen", describe(chosen));
         sb.append(",\"candidates\":[");
-        appendCandidate(sb, 0, null);
+        appendCandidate(sb, 0, null, "");
         for (int i = 0; i < candidates.size(); i++) {
             sb.append(',');
-            appendCandidate(sb, i + 1, candidates.get(i));
+            appendCandidate(sb, i + 1, candidates.get(i), aiPlayDecisionFor(evaluatedReasons, candidates.get(i)));
         }
         sb.append("]}");
         return sb.toString();
+    }
+
+    // The AiPlayDecision the greedy scan computed for this candidate, or "" when
+    // it was never evaluated. schema_version 2: only the prefix the scan reached
+    // before the first WillPlay carries a decision (see AiController); candidates
+    // after the winner — and the synthetic PASS candidate — are blank by design,
+    // not missing data. Present-and-blank so every candidate has the same keys.
+    private static String aiPlayDecisionFor(Map<SpellAbility, AiPlayDecision> evaluatedReasons, SpellAbility sa) {
+        if (evaluatedReasons == null || sa == null) {
+            return "";
+        }
+        AiPlayDecision decision = evaluatedReasons.get(sa);
+        return decision == null ? "" : decision.name();
     }
 
     private static void appendField(StringBuilder sb, String name, String value) {
@@ -128,11 +144,12 @@ final class ResearchDecisionLogger {
         sb.append('"').append(name).append("\":").append(value);
     }
 
-    private static void appendCandidate(StringBuilder parent, int index, SpellAbility sa) {
+    private static void appendCandidate(StringBuilder parent, int index, SpellAbility sa, String aiPlayDecision) {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
         appendNumberField(sb, "index", index);
-        appendField(sb, "action_schema", "priority_action_v1");
+        appendField(sb, "action_schema", "priority_action_v2");
+        appendField(sb, "ai_play_decision", aiPlayDecision);
         appendField(sb, "action_id", actionId(sa));
         appendField(sb, "id", describe(sa));
         appendField(sb, "host_card", hostName(sa));
