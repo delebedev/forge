@@ -185,3 +185,35 @@ coordinate (mono-blue-winds vs esper-control, seed 13000) collapse to one
 trajectory (result-flip floor 0), where the clean pin split ~2 trajectories.
 
 - `forge-ai/src/main/java/forge/ai/ComputerUtilMana.java`
+
+## feat(ai): log per-candidate AiPlayDecision (evaluated prefix) — schema_version 2
+
+Threads each candidate's veto-gauntlet `AiPlayDecision` into
+`ResearchDecisionLogger` so `bench triage` can build a refusal-reason
+histogram. Previously the JSONL recorded which candidate was chosen but never
+why the losers lost.
+
+Instrumentation only — no gameplay change. The greedy scan
+(`AiController.chooseSpellAbilityToPlayFromList`) already computes an
+`AiPlayDecision` per candidate and discards it; this captures the
+already-computed value into a thread-confined `IdentityHashMap` and hands it
+back via the eval task's result. **It records only the prefix the scan
+actually evaluated** — the scan short-circuits at the first `WillPlay`, so
+candidates sorted after the winner are never evaluated and stay blank.
+Deliberately does NOT force `canPlaySa`/`canPlayAndPayFor` on post-winner
+candidates: that would do work Forge skips and trigger its side effects (mana
+reservations, `AiCardMemory`, predicted-combat caches), changing play.
+
+The map is published only on the eval task's normal completion, so a timed-out
+scan never has its partial map read while the eval thread may still mutate it.
+
+Schema: bumps `schema_version` 1 → 2 (and the `schema` / candidate
+`action_schema` strings to `*_v2`); each candidate object gains an
+`ai_play_decision` string — the `AiPlayDecision.name()` for evaluated
+candidates, blank (`""`) for the synthetic PASS candidate and any candidate
+after the winner. Verified no puzzle-state change vs. baseline and contract
+tests green.
+
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
+- `forge-ai/src/main/java/forge/ai/ResearchNeuralReranker.java`
