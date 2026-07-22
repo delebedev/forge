@@ -277,3 +277,20 @@ Off by default, so default behavior and all recorded runs are unaffected.
 - `forge-game/src/main/java/forge/game/card/Card.java`
 - `forge-gui/src/main/java/forge/localinstance/properties/ForgePreferences.java`
 - `forge-gui/src/main/java/forge/model/FModel.java`
+
+## fix(ai): deterministic mustAttack — run per-attacker checks synchronously
+
+`AiAttackController.declareAttackers` ran each attacker's forced/mustAttack
+requirement check in a parallel `CompletableFuture.supplyAsync` (a perf change).
+The futures mutate shared `Combat` (`addAttacker`) and are bounded by
+`completeOnTimeout`, so the forced-attacker set and combat insertion ORDER are
+thread-scheduling-dependent — non-deterministic under CPU load, with no AI-eval
+watchdog fire. Upstream #11161 synchronized `addAttacker` to stop the resulting
+`ConcurrentModificationException` (which was silently dropping attackers), but
+left the ordering non-determinism. This runs the suppliers synchronously on the
+calling thread (`supplyAsync(..., Runnable::run)`), so the order is the
+`this.attackers` iteration order — deterministic. Verified: a 6-concurrent load
+probe that yields 2 distinct decision transcripts on the pinned jar collapses to
+1 with this change.
+
+- `forge-ai/src/main/java/forge/ai/AiAttackController.java`
