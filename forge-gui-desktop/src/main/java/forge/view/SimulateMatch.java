@@ -131,6 +131,28 @@ public class SimulateMatch {
                     "FORGE_AI_VARIANT=candidate requires FORGE_AI_VARIANT_SEAT=<positive seat>");
         }
 
+        // Research hook: FORGE_AI_EVAL_WEIGHTS=<file> + FORGE_AI_EVAL_WEIGHTS_SEAT=<n>
+        // reweights CreatureEvaluator for one seat. Load fails loudly (a candidate
+        // arm must never silently run stock); the ack line is exposure evidence.
+        final String evalWeightsPath = System.getenv("FORGE_AI_EVAL_WEIGHTS");
+        final int evalWeightsSeat = parseSeat(System.getenv("FORGE_AI_EVAL_WEIGHTS_SEAT"));
+        final forge.ai.ResearchCreatureWeights evalWeights;
+        if (evalWeightsPath != null && !evalWeightsPath.isEmpty()) {
+            if (evalWeightsSeat < 1) {
+                throw new IllegalArgumentException(
+                        "FORGE_AI_EVAL_WEIGHTS requires FORGE_AI_EVAL_WEIGHTS_SEAT=<positive seat>");
+            }
+            evalWeights = forge.ai.ResearchCreatureWeights.load(evalWeightsPath);
+            System.out.println("RESEARCH_EVAL_WEIGHTS seat=" + evalWeightsSeat + " file=" + evalWeightsPath
+                    + " sha256=" + evalWeights.sourceSha256() + " terms=" + evalWeights.termCount());
+        } else {
+            if (evalWeightsSeat >= 1) {
+                throw new IllegalArgumentException(
+                        "FORGE_AI_EVAL_WEIGHTS_SEAT set without FORGE_AI_EVAL_WEIGHTS");
+            }
+            evalWeights = null;
+        }
+
         int i = 1;
 
         if (params.containsKey("d")) {
@@ -164,6 +186,9 @@ public class SimulateMatch {
                 }
                 final LobbyPlayerAi aiPlayer = (LobbyPlayerAi) lobbyPlayer;
                 aiPlayer.setAiVariant(i == variantSeat ? selectedVariant : AiVariant.BASELINE);
+                if (i == evalWeightsSeat) {
+                    aiPlayer.setEvalWeights(evalWeights);
+                }
                 rp.setPlayer(aiPlayer);
                 if (i == researchControlSeat) {
                     researchControl.applyTo(rp);
@@ -175,6 +200,10 @@ public class SimulateMatch {
         if (selectedVariant == AiVariant.CANDIDATE && variantSeat > pp.size()) {
             throw new IllegalArgumentException(
                     "FORGE_AI_VARIANT_SEAT=" + variantSeat + " exceeds player count " + pp.size());
+        }
+        if (evalWeights != null && evalWeightsSeat > pp.size()) {
+            throw new IllegalArgumentException(
+                    "FORGE_AI_EVAL_WEIGHTS_SEAT=" + evalWeightsSeat + " exceeds player count " + pp.size());
         }
         if (researchControl != ResearchControl.NONE && researchControlSeat > pp.size()) {
             throw new IllegalArgumentException(

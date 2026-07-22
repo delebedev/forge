@@ -313,3 +313,40 @@ and a 6-concurrent load probe both collapse from multiple distinct decision
 transcripts to one.
 
 - `forge-game/src/main/java/forge/game/trigger/TriggerWaiting.java`
+
+## feat(ai): per-seat CreatureEvaluator weight tables + turn-level feature capture
+
+Research seam for evaluator-weight fitting. Every CreatureEvaluator term
+already flows through `addValue(value, label)`; this patch makes those
+contributions (a) per-seat reweightable and (b) capturable as per-turn
+feature vectors, with stock behavior bit-identical whenever the env is unset.
+
+- **Injection**: `FORGE_AI_EVAL_WEIGHTS=<file>` + `FORGE_AI_EVAL_WEIGHTS_SEAT=<n>`
+  load a `term = multiplier` table (validated against the canonical term set;
+  any parse error aborts the run — a candidate arm must never silently run
+  stock). The table rides `LobbyPlayerAi → PlayerControllerAi → AiController`
+  like `AiVariant`, and reaches the static `ComputerUtilCard.evaluateCreature`
+  funnel via an `InheritableThreadLocal` context set at the three decision
+  surfaces that price creatures: priority (whose "Game AI Eval" thread inherits
+  it), `declareAttackers`, `declareBlockers`. No context → stock singleton.
+  Startup prints `RESEARCH_EVAL_WEIGHTS seat=… sha256=… terms=…` as exposure
+  evidence. The sim brain's `SimulationCreatureEvaluator` is out of scope.
+- **Capture**: `FORGE_AI_EVAL_FEATURES_LOG=<file>` records, once per (game,
+  turn) at the first observed priority decision, one JSONL record per player:
+  per-term contribution sums over that player's battlefield creatures
+  (`ResearchCollectingCreatureEvaluator`, stock arithmetic; `_base` +
+  `_residual` make sum(features) == stock score exact by construction, with an
+  independently recomputed `reconcile_delta` tripwire).
+
+- `forge-ai/src/main/java/forge/ai/ResearchCreatureWeights.java` (new)
+- `forge-ai/src/main/java/forge/ai/ResearchWeightedCreatureEvaluator.java` (new)
+- `forge-ai/src/main/java/forge/ai/ResearchCollectingCreatureEvaluator.java` (new)
+- `forge-ai/src/main/java/forge/ai/ResearchEvalFeatureLogger.java` (new)
+- `forge-ai/src/main/java/forge/ai/ComputerUtilCard.java`
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java`
+- `forge-ai/src/main/java/forge/ai/PlayerControllerAi.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchCreatureWeightsTest.java` (new)
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchEvalWeightsAiTest.java` (new)

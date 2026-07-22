@@ -100,6 +100,7 @@ public class AiController {
     private List<SpellAbility> skipped;
     private volatile boolean timeoutReached;
     private final AiVariant aiVariant;
+    private ResearchCreatureWeights evalWeights;
 
     // Research canary: set when the "Game AI Eval" watchdog (below) actually
     // fires. Headless puzzle mode polls and resets this around each puzzle so
@@ -121,6 +122,14 @@ public class AiController {
 
     public AiVariant getAiVariant() {
         return aiVariant;
+    }
+
+    void setEvalWeights(final ResearchCreatureWeights weights) {
+        evalWeights = weights;
+    }
+
+    ResearchCreatureWeights getEvalWeights() {
+        return evalWeights;
     }
 
     public boolean usesCandidateVariant() {
@@ -1600,6 +1609,7 @@ public class AiController {
                 : policyChoice.used ? policyChoice.choice : forgeChoice;
         ResearchDecisionLogger.logPriorityDecision(game, player, saList, chosenSa, policyChoice.used, policyChoice.score,
                 policyChoice.seen, neuralChoice.used, neuralChoice.score, neuralChoice.margin, evaluatedReasons);
+        ResearchEvalFeatureLogger.logTurnFeatures(game, player);
 
         if (topOwnedByAI && !mustRespond && chosenSa != ComputerUtilAbility.getFirstCopySASpell(saList)) {
             return null; // not planning to copy the spell and not marked as something the AI would respond to
