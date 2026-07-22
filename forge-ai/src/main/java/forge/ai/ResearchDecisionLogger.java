@@ -37,7 +37,7 @@ final class ResearchDecisionLogger {
         return gameIndex;
     }
 
-    private static String gameIdFor(Game game) {
+    static String gameIdFor(Game game) {
         if (GAME_ID_BASE == null) {
             return null;
         }

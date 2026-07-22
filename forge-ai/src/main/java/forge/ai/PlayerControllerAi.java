@@ -65,6 +65,9 @@ public class PlayerControllerAi extends PlayerController {
                 ? ((LobbyPlayerAi) lp).getAiVariant()
                 : AiVariant.BASELINE;
         brains = new AiController(p, game, variant);
+        if (lp instanceof LobbyPlayerAi) {
+            brains.setEvalWeights(((LobbyPlayerAi) lp).getEvalWeights());
+        }
     }
 
     public boolean pilotsNonAggroDeck() {
@@ -824,19 +827,37 @@ public class PlayerControllerAi extends PlayerController {
         return CardCollection.getView(toReturn);
     }
 
+    // Research seam: the per-seat eval-weight context wraps the decision
+    // surfaces that price creatures (priority incl. its spawned eval thread —
+    // the context is inheritable — plus attack and block declarations).
     @Override
     public void declareAttackers(Player attacker, Combat combat) {
-        brains.declareAttackers(attacker, combat);
+        ResearchCreatureWeights.setContext(brains.getEvalWeights());
+        try {
+            brains.declareAttackers(attacker, combat);
+        } finally {
+            ResearchCreatureWeights.setContext(null);
+        }
     }
 
     @Override
     public void declareBlockers(Player defender, Combat combat) {
-        brains.declareBlockersFor(defender, combat);
+        ResearchCreatureWeights.setContext(brains.getEvalWeights());
+        try {
+            brains.declareBlockersFor(defender, combat);
+        } finally {
+            ResearchCreatureWeights.setContext(null);
+        }
     }
 
     @Override
     public List<SpellAbility> chooseSpellAbilityToPlay() {
-        return brains.chooseSpellAbilityToPlay();
+        ResearchCreatureWeights.setContext(brains.getEvalWeights());
+        try {
+            return brains.chooseSpellAbilityToPlay();
+        } finally {
+            ResearchCreatureWeights.setContext(null);
+        }
     }
 
     @Override

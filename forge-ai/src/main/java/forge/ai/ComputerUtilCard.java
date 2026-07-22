@@ -747,7 +747,7 @@ public class ComputerUtilCard {
 
     public static Comparator<Card> getCachedCreatureComparator() {
         Map<Card, Integer> cache = new IdentityHashMap<>();
-        return Comparator.comparing(c -> cache.computeIfAbsent(c, creatureEvaluator));
+        return Comparator.comparing(c -> cache.computeIfAbsent(c, ComputerUtilCard::evaluateCreature));
     }
     public static final Comparator<SpellAbility> EvaluateCreatureSpellComparator = (a, b) -> {
         // TODO ideally we could reuse the value from the previous pass with false
@@ -766,9 +766,19 @@ public class ComputerUtilCard {
      * @return a int.
      */
     public static int evaluateCreature(final Card c) {
+        // Research seam: a per-seat weight table set for the deciding thread
+        // reweights evaluation; no context means stock. See ResearchCreatureWeights.
+        final ResearchCreatureWeights weights = ResearchCreatureWeights.current();
+        if (weights != null) {
+            return new ResearchWeightedCreatureEvaluator(weights).evaluateCreature(c);
+        }
         return creatureEvaluator.evaluateCreature(c);
     }
     public static int evaluateCreature(final Card c, final boolean considerPT, final boolean considerCMC) {
+        final ResearchCreatureWeights weights = ResearchCreatureWeights.current();
+        if (weights != null) {
+            return new ResearchWeightedCreatureEvaluator(weights).evaluateCreature(c, considerPT, considerCMC);
+        }
         return creatureEvaluator.evaluateCreature(c, considerPT, considerCMC);
     }
     public static int evaluateCreature(final SpellAbility sa) {
