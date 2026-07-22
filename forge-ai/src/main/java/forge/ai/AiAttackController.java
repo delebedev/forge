@@ -950,7 +950,10 @@ public class AiAttackController {
                         numForcedAttackers.incrementAndGet();
                     }
                     return 0;
-                }).exceptionally(ex -> {
+                // Determinism: run synchronously on the calling thread. The parallel
+                // ForkJoinPool version made the forced-attacker set and combat insertion
+                // order scheduling-dependent, diverging under CPU load.
+                }, Runnable::run).exceptionally(ex -> {
                     ex.printStackTrace();
                     return 0;
                 }));
