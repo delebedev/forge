@@ -1377,7 +1377,11 @@ public class AiController {
         memory.clearMemorySet(AiCardMemory.MemorySet.HELD_MANA_SOURCES_FOR_NEXT_SPELL);
 
         if (useSimulation) {
-            return singleSpellAbilityList(simPicker.chooseSpellAbilityToPlay(null));
+            int simulationsBefore = simPicker.getNumSimulations();
+            SpellAbility choice = simPicker.chooseSpellAbilityToPlay(null);
+            ResearchTreatmentTelemetry.recordSimulationDecision(
+                    player, simPicker.getNumSimulations() - simulationsBefore);
+            return singleSpellAbilityList(choice);
         }
 
         CardCollection playBeforeLand = CardLists.filter(

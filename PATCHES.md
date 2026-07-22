@@ -326,3 +326,16 @@ and a 6-concurrent load probe both collapse from multiple distinct decision
 transcripts to one.
 
 - `forge-game/src/main/java/forge/game/trigger/TriggerWaiting.java`
+
+## feat(ai): batch treatment-assignment and exposure telemetry
+
+Emits one deterministic end-of-batch summary for the selected AI variant,
+variant seat, simulation seat, and per-seat callback, positive-work, total-work,
+and maximum-work counts.
+Crucible uses it to fail closed when a configured treatment is missing,
+assigned to the wrong seat, or never reaches the simulation branch. The
+counter is observation-only and resets before each headless batch.
+
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-ai/src/main/java/forge/ai/ResearchTreatmentTelemetry.java`
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
