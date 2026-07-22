@@ -203,6 +203,7 @@ public class ForgePreferences extends AbstractPreferences<ForgePreferences.FPref
 
         ENFORCE_DECK_LEGALITY ("true"),
         PERFORMANCE_MODE ("false"),
+        PERFORMANCE_TRAIT_FASTPATH ("false"),
         FILTERED_HANDS ("false"),
         MULLIGAN_RULE(MulliganDefs.getDefaultRule().name()),
 
