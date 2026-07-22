@@ -3,6 +3,7 @@ package forge.ai;
 import forge.game.player.Player;
 
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.atomic.LongAccumulator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -11,7 +12,9 @@ public final class ResearchTreatmentTelemetry {
     private static final int MAX_SEATS = 8;
     private static final Pattern AI_SEAT = Pattern.compile("^Ai\\((\\d+)\\)-");
     private static final LongAdder[] SIM_DECISIONS = counters();
+    private static final LongAdder[] WORK_DECISIONS = counters();
     private static final LongAdder[] SIMULATIONS = counters();
+    private static final LongAccumulator[] MAX_SIMULATIONS = maxima();
 
     private ResearchTreatmentTelemetry() {
     }
@@ -24,17 +27,31 @@ public final class ResearchTreatmentTelemetry {
         return result;
     }
 
+    private static LongAccumulator[] maxima() {
+        LongAccumulator[] result = new LongAccumulator[MAX_SEATS + 1];
+        for (int seat = 0; seat <= MAX_SEATS; seat++) {
+            result[seat] = new LongAccumulator(Long::max, 0);
+        }
+        return result;
+    }
+
     public static void reset() {
         for (int seat = 0; seat <= MAX_SEATS; seat++) {
             SIM_DECISIONS[seat].reset();
+            WORK_DECISIONS[seat].reset();
             SIMULATIONS[seat].reset();
+            MAX_SIMULATIONS[seat].reset();
         }
     }
 
     public static void recordSimulationDecision(final Player player, final int simulations) {
         int seat = seatFromName(player.getName());
         SIM_DECISIONS[seat].increment();
+        if (simulations > 0) {
+            WORK_DECISIONS[seat].increment();
+        }
         SIMULATIONS[seat].add(simulations);
+        MAX_SIMULATIONS[seat].accumulate(simulations);
     }
 
     public static String summary(final AiVariant variant, final int variantSeat, final int simSeat) {
@@ -42,7 +59,9 @@ public final class ResearchTreatmentTelemetry {
                 + " variant_seat=" + variantSeat
                 + " sim_seat=" + simSeat
                 + " sim_decisions=" + joined(SIM_DECISIONS)
-                + " simulations=" + joined(SIMULATIONS);
+                + " work_decisions=" + joined(WORK_DECISIONS)
+                + " simulations=" + joined(SIMULATIONS)
+                + " max_simulations=" + joined(MAX_SIMULATIONS);
     }
 
     private static int seatFromName(final String name) {
@@ -61,6 +80,17 @@ public final class ResearchTreatmentTelemetry {
                 result.append(',');
             }
             result.append(counters[seat].sum());
+        }
+        return result.toString();
+    }
+
+    private static String joined(final LongAccumulator[] counters) {
+        StringBuilder result = new StringBuilder();
+        for (int seat = 1; seat <= MAX_SEATS; seat++) {
+            if (seat > 1) {
+                result.append(',');
+            }
+            result.append(counters[seat].get());
         }
         return result.toString();
     }
