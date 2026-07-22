@@ -4,6 +4,19 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): explicit paired-state and turn identity — schema_version 3
+
+Adds arm-independent `pair_id` plus `active_player`, `priority_player`, and
+`next_turn_player` to each priority decision. This lets downstream analysis
+distinguish paired games from doubled A/A executions and interpret flash or
+deferred actions without reconstructing turn ownership from player names.
+
+Schema: bumps `priority_decision_v2` / `schema_version` 2 to
+`priority_decision_v3` / `schema_version` 3. Candidate action schema remains
+version 2 because its shape is unchanged.
+
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
+
 ## feat(ai): add research reranker harness hooks
 
 Adds pluggable reranking seams (`ResearchPolicyReranker`,

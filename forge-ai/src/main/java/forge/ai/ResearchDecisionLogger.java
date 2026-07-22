@@ -15,6 +15,7 @@ final class ResearchDecisionLogger {
     private static final String LOG_PATH = System.getenv("FORGE_AI_DECISION_LOG");
     private static final String RUN_ID = System.getenv("FORGE_AI_RUN_ID");
     private static final String GAME_ID_BASE = System.getenv("FORGE_AI_GAME_ID");
+    private static final String PAIR_ID_BASE = System.getenv("FORGE_AI_PAIR_ID");
     private static final String SEED = System.getenv("FORGE_AI_SEED");
     private static final String PILOT = System.getenv("FORGE_AI_PILOT");
     private static final String OPPONENT = System.getenv("FORGE_AI_OPPONENT");
@@ -43,6 +44,13 @@ final class ResearchDecisionLogger {
         return GAME_ID_BASE + "-g" + gameIndexFor(game);
     }
 
+    private static String pairIdFor(Game game) {
+        if (PAIR_ID_BASE == null) {
+            return null;
+        }
+        return PAIR_ID_BASE + "-g" + gameIndexFor(game);
+    }
+
     static void logPriorityDecision(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
             boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
             Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
@@ -67,15 +75,19 @@ final class ResearchDecisionLogger {
             Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
-        appendField(sb, "schema", "priority_decision_v2");
-        appendNumberField(sb, "schema_version", 2);
+        appendField(sb, "schema", "priority_decision_v3");
+        appendNumberField(sb, "schema_version", 3);
         appendField(sb, "kind", "priority");
         appendField(sb, "run_id", RUN_ID);
         appendField(sb, "game_id", gameIdFor(game));
+        appendField(sb, "pair_id", pairIdFor(game));
         appendField(sb, "seed", SEED);
         appendField(sb, "pilot", PILOT);
         appendField(sb, "opponent", OPPONENT);
         appendField(sb, "player", player.getName());
+        appendField(sb, "active_player", playerName(game.getPhaseHandler().getPlayerTurn()));
+        appendField(sb, "priority_player", playerName(game.getPhaseHandler().getPriorityPlayer()));
+        appendField(sb, "next_turn_player", playerName(game.getPhaseHandler().getNextTurn()));
         appendField(sb, "phase", game.getPhaseHandler().getPhase().name());
         appendNumberField(sb, "turn", game.getPhaseHandler().getTurn());
         appendNumberField(sb, "stack_size", game.getStack().size());
@@ -200,6 +212,10 @@ final class ResearchDecisionLogger {
             return opponent;
         }
         return null;
+    }
+
+    private static String playerName(Player player) {
+        return player == null ? null : player.getName();
     }
 
     private static int zoneSize(Player player, ZoneType zoneType) {
