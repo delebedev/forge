@@ -4949,7 +4949,20 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         return changedCardTraitsByText.remove(timestamp, staticId) != null;
     }
 
+    // Opt-in perf fast-path, gated on FPref.PERFORMANCE_TRAIT_FASTPATH and cached here at
+    // FModel.initialize (same shape as PERFORMANCE_MODE). Default off is byte-identical to
+    // the concat below: with both trait tables empty the concat yields only the Layer 4
+    // land change, and so does ImmutableList.of.
+    private static boolean changedTraitsFastpath = false;
+
+    public static void setChangedTraitsFastpath(final boolean value) {
+        changedTraitsFastpath = value;
+    }
+
     public Iterable<ICardTraitChanges> getChangedCardTraitsList(CardState state) {
+        if (changedTraitsFastpath && changedCardTraitsByText.isEmpty() && changedCardTraits.isEmpty()) {
+            return ImmutableList.of(state.getLandTraitChanges());
+        }
         return Iterables.<ICardTraitChanges>concat(
             changedCardTraitsByText.values(), // Layer 3
             ImmutableList.of(state.getLandTraitChanges()), // Layer 4

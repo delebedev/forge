@@ -255,3 +255,25 @@ tests green.
 - `forge-ai/src/main/java/forge/ai/AiController.java`
 - `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
 - `forge-ai/src/main/java/forge/ai/ResearchNeuralReranker.java`
+
+## perf(game): opt-in getChangedCardTraitsList empty-case fast-path
+
+A perf change (not instrumentation), carried opt-in and upstream-first, using
+Forge's own flag shape: a new `FPref.PERFORMANCE_TRAIT_FASTPATH` ("false") cached
+into a `Card` static at `FModel.initialize` — the same mechanism as
+`PERFORMANCE_MODE`. Enabled via that FPref (canonical/upstream) or, for headless
+harness toggling without the prefs file, the `FORGE_PERF_TRAIT_FASTPATH=true`
+environment override (matching the fork's `FORGE_*` convention). When enabled and
+both changed-trait tables are empty (the common case),
+`Card.getChangedCardTraitsList` skips the `Iterables.concat` + Guava
+`TreeBasedTable` cell iteration and returns only the Layer 4 land change.
+
+Default off is byte-identical to upstream (concat of two empties + `[x]` == `[x]`);
+verified flag-off preserves the fragile-coordinate transcript and the era-2019
+pool. Flag-on measured ~+25% engine at low load, outcome-neutral across the pool
+— but validate per-pool at low load before treating flag-on runs as evidence.
+Off by default, so default behavior and all recorded runs are unaffected.
+
+- `forge-game/src/main/java/forge/game/card/Card.java`
+- `forge-gui/src/main/java/forge/localinstance/properties/ForgePreferences.java`
+- `forge-gui/src/main/java/forge/model/FModel.java`
