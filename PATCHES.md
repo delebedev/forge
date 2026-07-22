@@ -294,3 +294,22 @@ probe that yields 2 distinct decision transcripts on the pinned jar collapses to
 1 with this change.
 
 - `forge-ai/src/main/java/forge/ai/AiAttackController.java`
+
+## fix(game): deterministic simultaneous-trigger order — LinkedHashMap in TriggerWaiting
+
+When several triggered abilities fire from one event, the game stacks them in an
+order it must reproduce. `TriggerWaiting.setTriggers` collected the (ordered)
+triggers into `Maps.newHashMap()`; `getTriggers()` returns `keySet()`, which
+`TriggerHandler.runWaitingTrigger` iterates to put them on the stack. `Trigger`
+uses identity hashCode, so that iteration order varies per JVM launch —
+independent of the RNG seed — making the on-stack order of simultaneous
+same-controller triggers (and thus the game outcome) non-reproducible on ~8% of
+isolated launches on the era-2019 pool. Fix: `Maps.newLinkedHashMap()`, which
+preserves the collected sequence; the downstream APNAP + AI ordering
+(`orderPlaySa`) is unchanged. Confirmed with `-XX:hashCode=2` (constant identity
+hashcode collapses the divergence) and an event-log diff (Cavalier of Night death
+→ Midnight Reaper triggers stacked in a different order). Verified: isolated ×16
+and a 6-concurrent load probe both collapse from multiple distinct decision
+transcripts to one.
+
+- `forge-game/src/main/java/forge/game/trigger/TriggerWaiting.java`
