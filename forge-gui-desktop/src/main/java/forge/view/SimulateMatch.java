@@ -10,6 +10,7 @@ import org.apache.commons.lang3.time.StopWatch;
 import forge.LobbyPlayer;
 import forge.ai.AiVariant;
 import forge.ai.LobbyPlayerAi;
+import forge.ai.ResearchTreatmentTelemetry;
 import forge.deck.Deck;
 import forge.deck.DeckGroup;
 import forge.deck.io.DeckSerializer;
@@ -126,6 +127,7 @@ public class SimulateMatch {
         final AiVariant selectedVariant = AiVariant.fromExternalName(System.getenv("FORGE_AI_VARIANT"));
         final int variantSeat = parseSeat(System.getenv("FORGE_AI_VARIANT_SEAT"));
         final int simSeat = parseSeat(System.getenv("FORGE_AI_SIM_SEAT"));
+        ResearchTreatmentTelemetry.reset();
         if (selectedVariant == AiVariant.CANDIDATE && variantSeat < 1) {
             throw new IllegalArgumentException(
                     "FORGE_AI_VARIANT=candidate requires FORGE_AI_VARIANT_SEAT=<positive seat>");
@@ -208,6 +210,7 @@ public class SimulateMatch {
             }
         }
 
+        System.out.println(ResearchTreatmentTelemetry.summary(selectedVariant, variantSeat, simSeat));
         System.out.flush();
     }
 
