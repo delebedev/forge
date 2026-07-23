@@ -430,7 +430,9 @@ public class AiController {
      * under mandatory evaluation, so they never satisfy this and stay vetoed.
      */
     private boolean mandatoryTriggerResolvesAgainstOpponent(final Trigger tr, final Card card, final Player activator) {
-        if (!usesCandidateVariant() || tr.hasParam("OptionalDecider")) {
+        if (!usesCandidateVariant()
+                || !ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.MANDATORY_ETB)
+                || tr.hasParam("OptionalDecider")) {
             return false;
         }
         SpellAbility forced = tr.ensureAbility();

@@ -4,6 +4,21 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): FORGE_AI_CANDIDATE_FEATURES — per-feature candidate gating
+
+`ResearchCandidateFeatures`: comma-separated env subset of the known
+candidate features (`cast-trigger-main1`, `mandatory-etb`) that the
+`AiVariant.CANDIDATE` seat evaluates. Unset = all features (plain candidate
+seat); unknown names fail fast so a typo can never silently run a different
+experiment. Lets several candidate policies coexist in one pinned jar while
+each experiment activates exactly one, preserving causal attribution.
+Baseline seats never consult it.
+
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java` (new)
+- `forge-ai/src/main/java/forge/ai/ComputerUtil.java`
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchCandidateFeaturesTest.java` (new)
+
 ## feat(ai): mandatory-ETB candidate — zero-legal-target fizzle escape
 
 Extension of the mandatory-ETB admission candidate: a forced trigger made
