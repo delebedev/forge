@@ -450,6 +450,22 @@ public class AiController {
                 cons.setIsPresent(null);
             }
         }
+        // A forced ability made entirely of required-target effects with zero
+        // legal candidates never resolves — it fizzles, harming nobody.
+        boolean allTargeted = true;
+        boolean anyCandidate = false;
+        for (SpellAbility s = forced; s != null; s = s.getSubAbility()) {
+            if (!s.usesTargeting()) {
+                allTargeted = false;
+                break;
+            }
+            if (s.getTargetRestrictions().getNumCandidates(s) > 0) {
+                anyCandidate = true;
+            }
+        }
+        if (allTargeted && !anyCandidate) {
+            return true;
+        }
         if (!doTrigger(forced, true)) {
             return false;
         }
