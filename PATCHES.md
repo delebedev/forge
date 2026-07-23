@@ -4,6 +4,15 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(puzzle): FORGE_AI_VARIANT seat routing in headless puzzle mode
+
+`SimulatePuzzle` gains the same `FORGE_AI_VARIANT`/`FORGE_AI_VARIANT_SEAT`
+research seam as `SimulateMatch` (seat 1 = solver, seat 2 = opponent);
+unset = baseline both seats. Lets the puzzle tier exercise seat-scoped
+candidates.
+
+- `forge-gui-desktop/src/main/java/forge/view/SimulatePuzzle.java`
+
 ## feat(ai): explicit paired-state and turn identity — schema_version 3
 
 Adds arm-independent `pair_id` plus `active_player`, `priority_player`, and
