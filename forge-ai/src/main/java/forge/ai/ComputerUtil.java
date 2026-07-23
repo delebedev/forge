@@ -1234,6 +1234,10 @@ public class ComputerUtil {
             }
         }
 
+        if (castTriggerPumpsAttacker(ai, sa)) {
+            return true;
+        }
+
         // get all cards the computer controls with BuffedBy
         final CardCollectionView buffed = ai.getCardsIn(ZoneType.Battlefield);
         for (Card buffedcard : buffed) {
@@ -1302,6 +1306,10 @@ public class ComputerUtil {
             return true;
         }
 
+        if (castTriggerPumpsAttacker(ai, sa)) {
+            return true;
+        }
+
         if (sub != null) {
             final ApiType api = sub.getApi();
             if (ApiType.Encode == api && !ai.getCreaturesInPlay().isEmpty()) {
@@ -1355,6 +1363,63 @@ public class ComputerUtil {
         }
 
         return false;
+    }
+
+    /**
+     * Research candidate (seat-scoped via {@link AiVariant#CANDIDATE}, inert otherwise):
+     * generic precombat value from cast triggers. True when casting sa on the AI's own
+     * precombat main phase would fire a battlefield SpellCast trigger whose pump lands
+     * on a creature already expected to attack. Generalizes the hand-annotated BuffedBy
+     * and keyword-Prowess special cases above to any scripted cast trigger
+     * (keyword Prowess itself is an intrinsic SpellCast trigger).
+     */
+    public static boolean castTriggerPumpsAttacker(final Player ai, final SpellAbility sa) {
+        if (!isCandidateAiVariant(ai) || !sa.isSpell()) {
+            return false;
+        }
+        final Card source = sa.getHostCard();
+        if (source == null) {
+            return false;
+        }
+        final PhaseHandler ph = ai.getGame().getPhaseHandler();
+        if (!ph.isPlayerTurn(ai) || !ph.getPhase().isBefore(PhaseType.COMBAT_DECLARE_ATTACKERS)) {
+            return false;
+        }
+        for (final Card c : ai.getCardsIn(ZoneType.Battlefield)) {
+            for (final Trigger t : c.getTriggers()) {
+                if (t.getMode() != TriggerType.SpellCast || t.isSuppressed()
+                        || !t.zonesCheck(ai.getGame().getZoneOf(c))) {
+                    continue;
+                }
+                if (!t.matchesValidParam("ValidActivatingPlayer", ai)
+                        || !t.matchesValidParam("ValidCard", source)) {
+                    continue;
+                }
+                if (!hasCombatPumpEffect(t.ensureAbility())) {
+                    continue;
+                }
+                if (c.isCreature() && ComputerUtilCard.doesCreatureAttackAI(ai, c)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Pump-shaped trigger effects whose value is realized by attacking this turn. */
+    private static boolean hasCombatPumpEffect(final SpellAbility trigSa) {
+        for (SpellAbility s = trigSa; s != null; s = s.getSubAbility()) {
+            final ApiType api = s.getApi();
+            if (ApiType.Pump == api || ApiType.PumpAll == api || ApiType.PutCounter == api) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isCandidateAiVariant(final Player ai) {
+        return ai.getController() instanceof PlayerControllerAi
+                && ((PlayerControllerAi) ai.getController()).getAi().usesCandidateVariant();
     }
 
     // returns true if the AI should stop using the ability
