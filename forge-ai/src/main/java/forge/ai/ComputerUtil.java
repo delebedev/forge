@@ -1374,7 +1374,9 @@ public class ComputerUtil {
      * (keyword Prowess itself is an intrinsic SpellCast trigger).
      */
     public static boolean castTriggerPumpsAttacker(final Player ai, final SpellAbility sa) {
-        if (!isCandidateAiVariant(ai) || !sa.isSpell()) {
+        if (!isCandidateAiVariant(ai)
+                || !ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.CAST_TRIGGER_MAIN1)
+                || !sa.isSpell()) {
             return false;
         }
         final Card source = sa.getHostCard();
