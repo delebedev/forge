@@ -4,6 +4,15 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): mandatory-ETB candidate — zero-legal-target fizzle escape
+
+Extension of the mandatory-ETB admission candidate: a forced trigger made
+entirely of required-target effects with zero legal candidates never
+resolves — it fizzles, harming nobody — so it is no reason to veto the
+cast. Same `AiVariant.CANDIDATE` gating.
+
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+
 ## feat(ai): candidate seat-scoped mandatory-ETB admission under mandatory semantics
 
 `AiController.mandatoryTriggerResolvesAgainstOpponent`: when permanent
