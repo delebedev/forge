@@ -511,6 +511,50 @@ counter is observation-only and resets before each headless batch.
 
 - `forge-ai/src/main/java/forge/ai/AiController.java`
 - `forge-ai/src/main/java/forge/ai/ResearchTreatmentTelemetry.java`
+
+## fix(ai): absolute sim-nesting cap in shouldRecurse (simulatorStack bound)
+
+Cherry-picked from `research/feat/ai-research-harness-upstream` (`ba6d14432e5`).
+Hardening against plan-level depth under-counting nested simulators; kept
+although the observed snapshot-mode crash proved to be heap exhaustion, not
+unbounded recursion.
+
+- `forge-ai/src/main/java/forge/ai/simulation/SimulationController.java`
+
+## fix(game): GameSnapshot fidelity — counters, SVars, layered traits, PT tables, exert
+
+Cherry-picked from `research/feat/ai-research-harness-upstream` (`cc2ee0ed29c`).
+Canary-driven fidelity fixes (`ensureGameCopyScoreMatches`): copy-error fires
+6/6 -> 2/6 games on a selesnya-vs-red-aggro probe. Fixes counters (P/T,
+loyalty were lost), state SVars + the changedSVars layer, `Card.copyFrom` for
+layered types/colors/keywords/traits, PT tables (animation P/T), and
+exert-by-player state. Not required for the value-net MVP eval path itself,
+but the value net trains on and scores simulated states, so snapshot fidelity
+during simulation is load-bearing for its inputs. Remaining fires are small
+(+/-1-2pt) nits, documented in the source commit.
+
+- `forge-game/src/main/java/forge/game/card/Card.java`
+
+## feat(ai): ResearchValueNet — in-JVM learned state-value blend
+
+Reworked from `research/feat/ai-research-harness-upstream` (`5037139a8c8`):
+same `GameStateEvaluator` blend seam in `SpellAbilityPicker` (post-simulation
+score adjustment), but the value net is a small MLP loaded from a weights
+JSON and run in-JVM — no HTTP client, no network, no fail-open: per-decision
+HTTP dies at simulation call volume (tens-100+ scored states per decision) and
+timeout/fallback made transcripts nondeterministic. `FORGE_AI_VALUE_NET=<path>` loads once per JVM;
+`FORGE_AI_VALUE_NET_SHA`, if set, must match the file's sha256 or loading
+fails fast. Seat-scoped via `AiVariant.CANDIDATE` — env unset means the class
+never runs. `FORGE_AI_VALUE_BLEND` sets the blend lambda (default 0).
+Feature extraction shares field names 1:1 with the `priority_decision_v3`
+JSON schema via a new shared `ResearchDecisionLogger.boardSummary()`, so the
+Python trainer (crucible `scripts/valuenet/`) and this forward pass can't
+drift apart silently — see crucible `docs/neural.md`.
+
+- `forge-ai/src/main/java/forge/ai/ResearchValueNet.java` (new)
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
+- `forge-ai/src/main/java/forge/ai/simulation/GameSimulator.java`
+- `forge-ai/src/main/java/forge/ai/simulation/SpellAbilityPicker.java`
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 
 ## feat(ai): per-seat CreatureEvaluator weight tables + turn-level feature capture
