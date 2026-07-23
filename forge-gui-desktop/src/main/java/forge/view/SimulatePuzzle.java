@@ -13,6 +13,8 @@ import org.apache.commons.lang3.time.StopWatch;
 
 import forge.LobbyPlayer;
 import forge.ai.AiController;
+import forge.ai.AiVariant;
+import forge.ai.LobbyPlayerAi;
 import forge.deck.Deck;
 import forge.game.Game;
 import forge.game.GameRules;
@@ -106,14 +108,26 @@ public class SimulatePuzzle {
             return resultLine(name, "INVALID", 0, 0, false);
         }
 
+        // Research seam, same contract as SimulateMatch: FORGE_AI_VARIANT=candidate
+        // + FORGE_AI_VARIANT_SEAT (1-based; 1 = solver, 2 = opponent) routes the
+        // candidate AI variant to one seat. Unset = baseline both seats.
+        final AiVariant selectedVariant = AiVariant.fromExternalName(System.getenv("FORGE_AI_VARIANT"));
+        final int variantSeat = parseSeat(System.getenv("FORGE_AI_VARIANT_SEAT"));
+        if (selectedVariant == AiVariant.CANDIDATE && variantSeat < 1) {
+            throw new IllegalArgumentException(
+                    "FORGE_AI_VARIANT=candidate requires FORGE_AI_VARIANT_SEAT=<positive seat>");
+        }
+
         List<RegisteredPlayer> players = new ArrayList<>();
         LobbyPlayer solver = GamePlayerUtil.createAiPlayer("Puzzle-Solver", 0, 0, null, PUZZLE_AI_PROFILE);
+        ((LobbyPlayerAi) solver).setAiVariant(variantSeat == 1 ? selectedVariant : AiVariant.BASELINE);
         RegisteredPlayer human = new RegisteredPlayer(new Deck()).setPlayer(solver);
         human.setStartingHand(0);
         players.add(human);
 
-        RegisteredPlayer ai = new RegisteredPlayer(new Deck())
-                .setPlayer(GamePlayerUtil.createAiPlayer("Puzzle-Opponent", 1, 0, null, PUZZLE_AI_PROFILE));
+        LobbyPlayer opponent = GamePlayerUtil.createAiPlayer("Puzzle-Opponent", 1, 0, null, PUZZLE_AI_PROFILE);
+        ((LobbyPlayerAi) opponent).setAiVariant(variantSeat == 2 ? selectedVariant : AiVariant.BASELINE);
+        RegisteredPlayer ai = new RegisteredPlayer(new Deck()).setPlayer(opponent);
         ai.setStartingHand(0);
         players.add(ai);
 
@@ -168,6 +182,10 @@ public class SimulatePuzzle {
             verdict = "FAIL";
         }
         return resultLine(name, verdict, turn, sw.getTime(), timedOut);
+    }
+
+    private static int parseSeat(final String value) {
+        return value == null ? 0 : Integer.parseInt(value.trim());
     }
 
     private static String resultLine(String name, String verdict, int turn, long ms, boolean timeoutFired) {
