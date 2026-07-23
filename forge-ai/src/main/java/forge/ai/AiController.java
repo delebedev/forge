@@ -384,6 +384,12 @@ public class AiController {
                     // trigger will not run due to lack of targets and we 1. desperately need a creature or 2. are happy about that
                     continue;
                 }
+                if (api == null && mandatoryTriggerResolvesAgainstOpponent(tr, card, activator)) {
+                    // Research candidate: declining an opt-in is not evidence the cast
+                    // is bad when the trigger is mandatory — its forced resolution lands
+                    // entirely on an opponent, so it is at worst neutral for us.
+                    continue;
+                }
                 return false;
             }
         }
@@ -412,6 +418,60 @@ public class AiController {
         }
 
         return rightapi;
+    }
+
+    /**
+     * Research candidate (seat-scoped via {@link AiVariant#CANDIDATE}, inert otherwise):
+     * true when a mandatory ETB trigger the AI declined as an opt-in would, evaluated
+     * under mandatory semantics, commit at least one target with every chosen target
+     * belonging to an opponent — a forced resolution that is at worst neutral for the
+     * activator and therefore no reason to veto the cast. Non-targeted mandatory
+     * effects (sacrifice/self-damage shapes) are accepted unconditionally by experts
+     * under mandatory evaluation, so they never satisfy this and stay vetoed.
+     */
+    private boolean mandatoryTriggerResolvesAgainstOpponent(final Trigger tr, final Card card, final Player activator) {
+        if (!usesCandidateVariant() || tr.hasParam("OptionalDecider")) {
+            return false;
+        }
+        SpellAbility forced = tr.ensureAbility();
+        if (forced == null) {
+            return false;
+        }
+        forced = forced.copy(activator);
+        if (!(forced instanceof AbilitySub)) {
+            return false;
+        }
+        forced.setTrigger(tr);
+        forced.setTriggeringObject(AbilityKey.Card, card);
+        SpellAbilityCondition cons = forced.getConditions();
+        if (cons != null) {
+            String pres = cons.getIsPresent();
+            if (pres != null && pres.matches("Card\\.(Strictly)?Self")) {
+                cons.setIsPresent(null);
+            }
+        }
+        if (!doTrigger(forced, true)) {
+            return false;
+        }
+        int committed = 0;
+        for (SpellAbility s = forced; s != null; s = s.getSubAbility()) {
+            if (!s.usesTargeting()) {
+                continue;
+            }
+            for (final GameObject o : s.getTargets()) {
+                committed++;
+                if (o instanceof Card && !((Card) o).getController().isOpponentOf(activator)) {
+                    return false;
+                }
+                if (o instanceof Player && !((Player) o).isOpponentOf(activator)) {
+                    return false;
+                }
+                if (!(o instanceof Card) && !(o instanceof Player)) {
+                    return false;
+                }
+            }
+        }
+        return committed > 0;
     }
 
     private static List<SpellAbility> getPlayableCounters(final CardCollection all) {

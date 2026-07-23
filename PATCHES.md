@@ -4,6 +4,19 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): candidate seat-scoped mandatory-ETB admission under mandatory semantics
+
+`AiController.mandatoryTriggerResolvesAgainstOpponent`: when permanent
+admission would veto a cast because the AI declined its mandatory ETB
+trigger as an opt-in (`BadEtbEffects`), re-evaluate a fresh copy under
+`doTrigger(mandatory=true)`; lift the veto only when that evaluation
+accepts and commits at least one target with every chosen target belonging
+to an opponent — a forced resolution that is at worst neutral for the
+activator. Non-targeted mandatory effects (sacrifice/self-damage shapes)
+never take the escape. Evaluated only for the `AiVariant.CANDIDATE` seat.
+
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+
 ## feat(ai): candidate seat-scoped generic cast-trigger MAIN1 admission
 
 `ComputerUtil.castTriggerPumpsAttacker`: on the AI's own precombat main
