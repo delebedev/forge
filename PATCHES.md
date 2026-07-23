@@ -4,6 +4,19 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): candidate seat-scoped generic cast-trigger MAIN1 admission
+
+`ComputerUtil.castTriggerPumpsAttacker`: on the AI's own precombat main
+phase, admit a spell whose cast would fire an active battlefield SpellCast
+trigger with a Pump/PumpAll/PutCounter effect on a creature already
+predicted to attack — the generic form of the hand-annotated `BuffedBy` /
+keyword-Prowess special cases (keyword Prowess is itself an intrinsic
+SpellCast trigger). Consulted from `castSpellInMain1` and
+`castPermanentInMain1`, evaluated only for the `AiVariant.CANDIDATE` seat;
+baseline seats are unchanged.
+
+- `forge-ai/src/main/java/forge/ai/ComputerUtil.java`
+
 ## feat(puzzle): FORGE_AI_VARIANT seat routing in headless puzzle mode
 
 `SimulatePuzzle` gains the same `FORGE_AI_VARIANT`/`FORGE_AI_VARIANT_SEAT`
