@@ -103,6 +103,12 @@ public class SimulateMatch {
             MyRandom.setRandom(new Random(seed));
         }
 
+        final boolean perGameSeeding = parseSeedProtocol(System.getenv("FORGE_RESEARCH_SEED_PROTOCOL"));
+        if (perGameSeeding && seed == null) {
+            throw new IllegalArgumentException(
+                    "FORGE_RESEARCH_SEED_PROTOCOL=game requires a -s seed");
+        }
+
         GameType type = GameType.Constructed;
         if (params.containsKey("f")) {
             type = GameType.valueOf(WordUtil.capitalize(params.get("f").get(0)));
@@ -191,6 +197,9 @@ public class SimulateMatch {
         sb.append(" - ").append(Lang.nounWithNumeral(nGames, "game")).append(" of ").append(type);
         if (seed != null) {
             sb.append(" seed ").append(seed);
+            if (perGameSeeding) {
+                sb.append(" protocol game");
+            }
         }
 
         System.out.println(sb.toString());
@@ -206,12 +215,52 @@ public class SimulateMatch {
             }
         } else {
             for (int iGame = 0; iGame < nGames; iGame++) {
+                if (perGameSeeding) {
+                    // Per-game reseed + fresh match: game i's opening state
+                    // depends only on (seed, i) — not on how many random draws
+                    // games 0..i-1 consumed, and not on their outcomes either
+                    // (a reused Match hands the previous loser the play). Batch
+                    // game i is therefore the same game across arms until
+                    // in-game play diverges, and a batch can be sharded by
+                    // game without changing any game.
+                    MyRandom.setRandom(new Random(perGameSeed(seed, iGame)));
+                    mc = new Match(rules, pp, "Test");
+                }
                 simulateSingleMatch(mc, iGame, outputGamelog);
             }
         }
 
         System.out.println(ResearchTreatmentTelemetry.summary(selectedVariant, variantSeat, simSeat));
         System.out.flush();
+    }
+
+    /**
+     * FORGE_RESEARCH_SEED_PROTOCOL: unset or "batch" keeps the historical
+     * one-seeding-per-JVM stream; "game" reseeds every batch game from
+     * {@link #perGameSeed}. Anything else fails fast so a typo can never
+     * silently run the wrong pairing protocol.
+     */
+    private static boolean parseSeedProtocol(final String value) {
+        if (value == null || value.isEmpty() || "batch".equals(value)) {
+            return false;
+        }
+        if ("game".equals(value)) {
+            return true;
+        }
+        throw new IllegalArgumentException(
+                "FORGE_RESEARCH_SEED_PROTOCOL must be batch or game, got: " + value);
+    }
+
+    /**
+     * SplitMix64 output i+1 of a stream seeded at batchSeed. Raw sequential
+     * seeds (seed + i) produce correlated java.util.Random streams; the
+     * finalizer mix decorrelates neighbouring games.
+     */
+    private static long perGameSeed(final long batchSeed, final int iGame) {
+        long z = batchSeed + (iGame + 1L) * 0x9E3779B97F4A7C15L;
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return z ^ (z >>> 31);
     }
 
     private static void argumentHelp() {

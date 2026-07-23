@@ -4,6 +4,23 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(sim): FORGE_RESEARCH_SEED_PROTOCOL — per-game RNG reseed in seeded batches
+
+`SimulateMatch`: `FORGE_RESEARCH_SEED_PROTOCOL=game` (with `-s SEED -n N`)
+reseeds `MyRandom` at the top of every batch game from a SplitMix64 mix of
+`(seed, gameIndex)` instead of seeding once per JVM, and gives each game a
+fresh `Match` (a reused Match hands the previous game's loser the play, so
+game i's opening would otherwise depend on game i-1's outcome). Game i's
+opening state then depends only on `(seed, i)` — so game i is the same
+game across arms until in-game play diverges (true game-level pairing),
+and a batch can be sharded by game without changing any game. The mix is
+mandatory: raw sequential seeds correlate `java.util.Random` streams.
+Unset or `batch` keeps the historical stream byte-for-byte (parent-parity
+contracts stay valid); unknown values and `game` without `-s` fail fast.
+Match mode (`-m`) and puzzle-mode seeding are unchanged.
+
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
+
 ## feat(ai): FORGE_AI_CANDIDATE_FEATURES — per-feature candidate gating
 
 `ResearchCandidateFeatures`: comma-separated env subset of the known
