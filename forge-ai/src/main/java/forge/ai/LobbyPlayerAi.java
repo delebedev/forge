@@ -17,6 +17,7 @@ public class LobbyPlayerAi extends LobbyPlayer implements IGameEntitiesFactory {
     private boolean useSimulation;
     private AiVariant aiVariant = AiVariant.BASELINE;
     private ResearchCreatureWeights evalWeights;
+    private ResearchProfileOverrides profileOverrides;
 
     public LobbyPlayerAi(String name, Set<AIOption> options) {
         super(name);
@@ -47,6 +48,14 @@ public class LobbyPlayerAi extends LobbyPlayer implements IGameEntitiesFactory {
 
     public void setEvalWeights(final ResearchCreatureWeights weights) {
         evalWeights = weights;
+    }
+
+    public void setProfileOverrides(final ResearchProfileOverrides overrides) {
+        profileOverrides = overrides;
+    }
+
+    public ResearchProfileOverrides getProfileOverrides() {
+        return profileOverrides;
     }
 
     public ResearchCreatureWeights getEvalWeights() {
