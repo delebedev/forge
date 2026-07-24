@@ -16,6 +16,7 @@ public class LobbyPlayerAi extends LobbyPlayer implements IGameEntitiesFactory {
     private boolean rotateProfileEachGame;
     private boolean useSimulation;
     private AiVariant aiVariant = AiVariant.BASELINE;
+    private ResearchCreatureWeights evalWeights;
 
     public LobbyPlayerAi(String name, Set<AIOption> options) {
         super(name);
@@ -42,6 +43,14 @@ public class LobbyPlayerAi extends LobbyPlayer implements IGameEntitiesFactory {
 
     public AiVariant getAiVariant() {
         return aiVariant;
+    }
+
+    public void setEvalWeights(final ResearchCreatureWeights weights) {
+        evalWeights = weights;
+    }
+
+    public ResearchCreatureWeights getEvalWeights() {
+        return evalWeights;
     }
 
     private PlayerControllerAi createControllerFor(Player ai) {
