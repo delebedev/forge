@@ -1422,6 +1422,10 @@ public class AiController {
         AiBlockController block = new AiBlockController(defender, defender != player);
         // When player != defender, AI should declare blockers for its benefit.
         block.assignBlockersForCombat(combat);
+        // Only this path is a real declaration; the predictive AiBlockController
+        // instances inside ComputerUtil never reach it.
+        ResearchDecisionLogger.logBlockDecision(game, defender, block.getTelemetry(), combat,
+                block.getTelemetryBlockers());
     }
 
     public void declareAttackers(Player attacker, Combat combat) {
@@ -1447,6 +1451,11 @@ public class AiController {
                 aiAtk.declareAttackers(combat);
             }
         }
+
+        // Logged after cost removal and legality repair, so the record is the
+        // declaration the game actually received.
+        ResearchDecisionLogger.logAttackDecision(game, attacker, aiAtk.getTelemetry(), combat,
+                aiAtk.getPotentialAttackers());
     }
 
     private void removeUnpayableAttackers(Combat combat) {

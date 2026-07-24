@@ -78,6 +78,8 @@ public class AiAttackController {
     private Player defendingOpponent;
 
     private int aiAggression = 0; // how aggressive the ai is attack will be depending on circumstances
+    // Research seam: inputs to the aggression collapse, read back at the real declaration site.
+    private final ResearchDecisionLogger.AttackTelemetry telemetry = new ResearchDecisionLogger.AttackTelemetry();
     private final boolean nextTurn; // include creature that can only attack/block next turn
     private final int timeOut;
     private final boolean canUseTimeout;
@@ -352,6 +354,14 @@ public class AiAttackController {
     }
 
     // this checks to make sure that the computer player doesn't lose when the human player attacks
+    ResearchDecisionLogger.AttackTelemetry getTelemetry() {
+        return telemetry;
+    }
+
+    List<Card> getPotentialAttackers() {
+        return attackers;
+    }
+
     public final List<Card> notNeededAsBlockers(final List<Card> currentAttackers, final List<Card> potentialAttackers) {
         // check for time walks
         if (ai.getGame().getPhaseHandler().getNextTurn().equals(ai)) {
@@ -1270,6 +1280,16 @@ public class AiAttackController {
         } else {
             aiAggression = 0;
         } // stay at home to block
+
+        telemetry.aggression = aiAggression;
+        telemetry.ratioDiff = ratioDiff;
+        telemetry.outNumber = outNumber;
+        telemetry.aiLifeToPlayerDamageRatio = aiLifeToPlayerDamageRatio;
+        telemetry.humanLifeToDamageRatio = humanLifeToDamageRatio;
+        telemetry.turnsUntilDeathByUnblockable = turnsUntilDeathByUnblockable;
+        telemetry.attritional = doAttritionalAttack;
+        telemetry.unblockableOnly = doUnblockableAttack;
+        telemetry.playAggro = playAggro;
 
         if ( LOG_AI_ATTACKS )
             System.out.println(aiAggression + " = ai aggression");

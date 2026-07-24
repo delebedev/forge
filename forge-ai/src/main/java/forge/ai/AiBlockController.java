@@ -70,6 +70,19 @@ public class AiBlockController {
 
     private boolean lifeInDanger = false;
 
+    // Research seam: which escalation tier produced the final assignment, read back
+    // at the real declaration site. Predictive instances are never logged.
+    private final ResearchDecisionLogger.BlockTelemetry telemetry = new ResearchDecisionLogger.BlockTelemetry();
+    private List<Card> telemetryBlockers = new ArrayList<>();
+
+    ResearchDecisionLogger.BlockTelemetry getTelemetry() {
+        return telemetry;
+    }
+
+    List<Card> getTelemetryBlockers() {
+        return telemetryBlockers;
+    }
+
     // set to true when AI is predicting a blocking for another player so it doesn't use hidden information
     private boolean checkingOther = false;
 
@@ -1053,6 +1066,10 @@ public class AiBlockController {
 
         clearBlockers(combat, possibleBlockers);
 
+        telemetry.tier = 1;
+        telemetry.resets = 0;
+        telemetryBlockers = new ArrayList<>(possibleBlockers);
+
         diff = (ai.getLife() * 2) - 5; // This is the minimal gain for an unnecessary trade
         if (diff > 0 && AiProfileUtil.getBoolProperty(ai, AiProps.PLAY_AGGRO)) {
             diff = 0;
@@ -1084,8 +1101,10 @@ public class AiBlockController {
         makeGangBlocks(combat);
 
         // When the AI holds some Fog effect, don't bother about lifeInDanger
-        if (!ComputerUtil.hasAFogEffect(ai, ai, checkingOther)) {
+        telemetry.fogEffect = ComputerUtil.hasAFogEffect(ai, ai, checkingOther);
+        if (!telemetry.fogEffect) {
             lifeInDanger = ComputerUtilCombat.lifeInDanger(ai, combat);
+            telemetry.dangerAfterFirstPass = lifeInDanger;
             makeTradeBlocks(combat);
 
             if (lifeInDanger) {
@@ -1111,6 +1130,8 @@ public class AiBlockController {
 
             // == 2. If the AI life would still be in danger make a safer approach ==
             if (lifeInDanger) {
+                telemetry.tier = 2;
+                telemetry.resets++;
                 clearBlockers(combat, possibleBlockers); // reset every block assignment
                 makeTradeBlocks(combat);
                 makeGoodBlocks(combat);
@@ -1130,6 +1151,9 @@ public class AiBlockController {
 
             // == 3. If the AI life would be in serious danger make an even safer approach ==
             if (lifeInDanger && ComputerUtilCombat.lifeInSeriousDanger(ai, combat)) {
+                telemetry.tier = 3;
+                telemetry.resets++;
+                telemetry.seriousDanger = true;
                 clearBlockers(combat, possibleBlockers);
                 makeChumpBlocks(combat);
 

@@ -1,7 +1,10 @@
 package forge.ai;
 
 import forge.game.Game;
+import forge.game.GameEntity;
 import forge.game.card.Card;
+import forge.game.combat.Combat;
+import forge.game.keyword.Keyword;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.game.zone.ZoneType;
@@ -335,6 +338,189 @@ final class ResearchDecisionLogger {
         appendNumberField(sb, prefix + "_enchantments", summary.enchantments);
         appendNumberField(sb, prefix + "_planeswalkers", summary.planeswalkers);
         appendNumberField(sb, prefix + "_lands", summary.lands);
+    }
+
+    /**
+     * Inputs the attack controller collapses into one aggression level, captured
+     * where that collapse happens. See docs/forge-ai.md.
+     */
+    static final class AttackTelemetry {
+        int aggression = -1;
+        double ratioDiff;
+        int outNumber;
+        double aiLifeToPlayerDamageRatio;
+        double humanLifeToDamageRatio;
+        double turnsUntilDeathByUnblockable;
+        boolean attritional;
+        boolean unblockableOnly;
+        boolean playAggro;
+    }
+
+    /**
+     * Which escalation tier of {@code AiBlockController.assignBlockers} produced the
+     * final assignment. Later tiers discard every earlier assignment, so the tier —
+     * not the pass sequence — is what identifies the decision.
+     */
+    static final class BlockTelemetry {
+        int tier = 1;
+        int resets;
+        boolean dangerAfterFirstPass;
+        boolean seriousDanger;
+        boolean fogEffect;
+    }
+
+    private static boolean enabled() {
+        return LOG_PATH != null && !LOG_PATH.isEmpty();
+    }
+
+    private static void write(String json) {
+        synchronized (ResearchDecisionLogger.class) {
+            try (FileWriter writer = new FileWriter(LOG_PATH, true)) {
+                writer.write(json);
+                writer.write(System.lineSeparator());
+            } catch (IOException ignored) {
+                // Research logging must never affect game execution.
+            }
+        }
+    }
+
+    // Combat records deliberately carry no "candidates" key: bench triage builds its
+    // candidate_events view by UNNESTing that column, so its absence drops these rows
+    // from the priority grain instead of corrupting it.
+    private static void appendCombatEnvelope(StringBuilder sb, String schema, String kind, Game game, Player player) {
+        appendField(sb, "schema", schema);
+        appendNumberField(sb, "schema_version", 1);
+        appendField(sb, "kind", kind);
+        appendField(sb, "run_id", RUN_ID);
+        appendField(sb, "game_id", gameIdFor(game));
+        appendField(sb, "pair_id", pairIdFor(game));
+        appendField(sb, "seed", SEED);
+        appendField(sb, "pilot", PILOT);
+        appendField(sb, "opponent", OPPONENT);
+        appendField(sb, "player", player.getName());
+        appendField(sb, "phase", game.getPhaseHandler().getPhase().name());
+        appendNumberField(sb, "turn", game.getPhaseHandler().getTurn());
+        appendNumberField(sb, "player_life", player.getLife());
+        Player opp = firstOpponent(player);
+        appendNumberField(sb, "opponent_life", opp == null ? -1 : opp.getLife());
+        // Posture is a per-seat treatment variable that no other artifact records:
+        // pilotsNonAggroDeck is inferred once from the deck name and average CMC.
+        appendBoolField(sb, "pilots_non_aggro_deck", pilotsNonAggroDeck(player));
+    }
+
+    private static boolean pilotsNonAggroDeck(Player player) {
+        return player.getController() instanceof PlayerControllerAi pc && pc.pilotsNonAggroDeck();
+    }
+
+    static void logAttackDecision(Game game, Player player, AttackTelemetry telemetry, Combat combat,
+            List<Card> available) {
+        if (!enabled() || telemetry == null) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append('{');
+        appendCombatEnvelope(sb, "combat_attack_v1", "combat_attack", game, player);
+        appendNumberField(sb, "aggression", telemetry.aggression);
+        appendField(sb, "ratio_diff", String.valueOf(telemetry.ratioDiff));
+        appendNumberField(sb, "out_number", telemetry.outNumber);
+        appendField(sb, "ai_life_to_player_damage_ratio", String.valueOf(telemetry.aiLifeToPlayerDamageRatio));
+        appendField(sb, "human_life_to_damage_ratio", String.valueOf(telemetry.humanLifeToDamageRatio));
+        appendField(sb, "turns_until_death_by_unblockable", String.valueOf(telemetry.turnsUntilDeathByUnblockable));
+        appendBoolField(sb, "attritional", telemetry.attritional);
+        appendBoolField(sb, "unblockable_only", telemetry.unblockableOnly);
+        appendBoolField(sb, "play_aggro", telemetry.playAggro);
+        List<Card> attacked = combat == null ? List.of() : combat.getAttackers();
+        appendNumberField(sb, "attacker_count", attacked.size());
+        appendNumberField(sb, "available_count", available == null ? -1 : available.size());
+        appendCreatureArray(sb, "attackers", attacked);
+        appendCreatureArray(sb, "available", available);
+        sb.append('}');
+        write(sb.toString());
+    }
+
+    static void logBlockDecision(Game game, Player player, BlockTelemetry telemetry, Combat combat,
+            List<Card> availableBlockers) {
+        if (!enabled() || telemetry == null || combat == null) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append('{');
+        appendCombatEnvelope(sb, "combat_block_v1", "combat_block", game, player);
+        appendNumberField(sb, "tier", telemetry.tier);
+        appendNumberField(sb, "resets", telemetry.resets);
+        appendBoolField(sb, "danger_after_first_pass", telemetry.dangerAfterFirstPass);
+        appendBoolField(sb, "serious_danger", telemetry.seriousDanger);
+        appendBoolField(sb, "fog_effect", telemetry.fogEffect);
+        appendNumberField(sb, "available_blocker_count", availableBlockers == null ? -1 : availableBlockers.size());
+        appendCreatureArray(sb, "available_blockers", availableBlockers);
+        sb.append(",\"blocks\":[");
+        boolean first = true;
+        for (Card attacker : combat.getAttackers()) {
+            if (!first) {
+                sb.append(',');
+            }
+            first = false;
+            StringBuilder entry = new StringBuilder();
+            entry.append('{');
+            appendCreatureFields(entry, "attacker", attacker);
+            GameEntity defender = combat.getDefenderByAttacker(attacker);
+            appendField(entry, "defender", defender == null ? "" : defender.getName());
+            List<Card> blockers = combat.getBlockers(attacker);
+            appendNumberField(entry, "blocker_count", blockers.size());
+            appendCreatureArray(entry, "blockers", blockers);
+            entry.append('}');
+            sb.append(entry);
+        }
+        sb.append("]}");
+        write(sb.toString());
+    }
+
+    private static void appendCreatureArray(StringBuilder sb, String name, List<Card> cards) {
+        if (sb.length() > 1) {
+            sb.append(',');
+        }
+        sb.append('"').append(name).append("\":[");
+        if (cards != null) {
+            for (int i = 0; i < cards.size(); i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                StringBuilder entry = new StringBuilder();
+                entry.append('{');
+                appendCreatureFields(entry, null, cards.get(i));
+                entry.append('}');
+                sb.append(entry);
+            }
+        }
+        sb.append(']');
+    }
+
+    // Enough to re-enumerate a block assignment offline: identity, body, evasion.
+    private static void appendCreatureFields(StringBuilder sb, String prefix, Card card) {
+        String p = prefix == null ? "" : prefix + "_";
+        appendField(sb, p + "name", card == null ? "" : card.getName());
+        appendNumberField(sb, p + "power", card == null ? 0 : card.getNetPower());
+        appendNumberField(sb, p + "toughness", card == null ? 0 : card.getNetToughness());
+        appendNumberField(sb, p + "damage", card == null ? 0 : card.getDamage());
+        appendField(sb, p + "keywords", card == null ? "" : combatKeywords(card));
+    }
+
+    private static final Keyword[] COMBAT_KEYWORDS = {
+        Keyword.FLYING, Keyword.REACH, Keyword.TRAMPLE, Keyword.FIRST_STRIKE, Keyword.DOUBLE_STRIKE,
+        Keyword.DEATHTOUCH, Keyword.MENACE, Keyword.VIGILANCE, Keyword.INDESTRUCTIBLE, Keyword.LIFELINK,
+    };
+
+    private static String combatKeywords(Card card) {
+        StringBuilder sb = new StringBuilder();
+        for (Keyword keyword : COMBAT_KEYWORDS) {
+            if (card.hasKeyword(keyword)) {
+                if (sb.length() > 0) {
+                    sb.append(' ');
+                }
+                sb.append(keyword.name());
+            }
+        }
+        return sb.toString();
     }
 
     private static String escape(String value) {

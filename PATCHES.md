@@ -4,6 +4,38 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): combat decision logging — declare-attackers/blockers records with posture
+
+`ResearchDecisionLogger` covered `chooseSpellAbilityToPlay` only, so combat was
+unobservable: `AiAttackController.LOG_AI_ATTACKS` is a hardcoded `false` and
+`AiBlockController` has no logging at all. A combat probe yielded one PASS/FAIL
+bit, and reconstructing what the AI did required paired control boards.
+
+Two record kinds now land in the same JSONL when `FORGE_AI_DECISION_LOG` is
+set. `combat_attack_v1` carries the aggression level plus the inputs it
+collapses (ratio diff, out-number, life-to-damage ratios, turns-until-death,
+attritional and unblockable-only flags) and the declared attack set.
+`combat_block_v1` carries which escalation tier of `assignBlockers` produced
+the final assignment, the reset count, the danger flags, and the assignment
+itself with per-creature power/toughness/damage/keywords.
+
+Both carry `pilots_non_aggro_deck`, a per-seat variable no other artifact
+records: it is not an `AiProps` knob but is inferred once at match start from
+the deck name and average CMC, and it selects whether the attack path gets its
+graded hold-back. Recording it is a correctness requirement for any paired
+experiment whose arms differ in deck pool.
+
+Combat records deliberately omit a `candidates` key so `bench triage`, which
+builds its candidate view by UNNESTing that column, drops them from the
+priority grain instead of misparsing them. Logging happens only at
+`AiController`'s real declaration sites, so the predictive `AiBlockController`
+instances inside `ComputerUtil` never emit. Unset env is upstream behaviour.
+
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
+- `forge-ai/src/main/java/forge/ai/AiAttackController.java`
+- `forge-ai/src/main/java/forge/ai/AiBlockController.java`
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+
 ## perf(startup): FORGE_PERF_SKIP_DECKGEN — headless runs skip the deck-gen matrix
 
 `FModel.initialize` eagerly builds the deck-builder card-relation matrix and
