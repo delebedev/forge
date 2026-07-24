@@ -181,7 +181,7 @@ public class GameSimulator {
             sa = findSaInSimGame(origSa);
             if (sa == null) {
                 System.err.println("Simulation: SA not found! " + origSa + " / " + origSa.getClass());
-                return new Score(Integer.MIN_VALUE);
+                return Score.simFailure();
             }
 
             debugPrint("Found SA " + sa + " on host card " + sa.getHostCard() + " with owner:"+ sa.getHostCard().getOwner());
@@ -220,7 +220,7 @@ public class GameSimulator {
                 }
             });
             if (!success) {
-                return new Score(Integer.MIN_VALUE);
+                return Score.simFailure();
             }
         }
 

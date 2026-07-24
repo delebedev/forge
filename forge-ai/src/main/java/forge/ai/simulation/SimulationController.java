@@ -68,7 +68,7 @@ public class SimulationController {
     }
 
     public boolean shouldRecurse() {
-        return bestScore.value != Integer.MAX_VALUE && getRecursionDepth() < MAX_DEPTH && !isBudgetExceeded();
+        return !bestScore.isWin() && getRecursionDepth() < MAX_DEPTH && !isBudgetExceeded();
     }
 
     public Plan.Decision getLastDecision() {
@@ -245,13 +245,21 @@ public class SimulationController {
                     int cardScore = evaluator.evalCard(player.getGame(), player, (Card) hostAndTarget[2]);
                     if (cardScore == effect.targetScore) {
                         Score currentScore = getCurrentScore();
+                        if (!currentScore.isFinite()) {
+                            break;
+                        }
                         // TODO: summonSick score?
-                        return new Score(currentScore.value + effect.scoreDelta, currentScore.summonSickValue);
+                        return currentScore.addDelta(effect.scoreDelta);
                     }
                 }
             }
         }
         return null;
+    }
+
+    // Terminal/failure/unknown scores have no meaningful delta to cache.
+    static boolean isCacheableDelta(Score score, Score initialScore) {
+        return score.isFinite() && initialScore.isFinite();
     }
 
     public void possiblyCacheResult(Score score, SpellAbility sa) {
@@ -260,19 +268,21 @@ public class SimulationController {
         // TODO: Why is the check below needed by tests?
         if (!currentStack.isEmpty()) {
             Plan.Decision d = currentStack.get(currentStack.size() - 1);
-            int scoreDelta = score.value - d.initialScore.value;
-            // Needed to make sure below is only executed when target decisions are ended.
-            // Also, only cache negative effects - so that in those cases we don't need to
-            // recurse.
-            if (scoreDelta <= 0 && d.targets != null) {
-                // FIXME: Support more than one target in this logic.
-                GameObject[] hostAndTarget = currentHostAndTarget;
-                if (currentHostAndTarget != null) {
-                    GameStateEvaluator evaluator = new GameStateEvaluator();
-                    Player player = sa.getActivatingPlayer();
-                    int cardScore = evaluator.evalCard(player.getGame(), player, (Card) hostAndTarget[2]);
-                    effectCache.add(new CachedEffect(hostAndTarget[0], sa, hostAndTarget[1], cardScore, scoreDelta));
-                    cached = " (added to cache)";
+            if (isCacheableDelta(score, d.initialScore)) {
+                long scoreDelta = Score.finiteDelta(score, d.initialScore);
+                // Needed to make sure below is only executed when target decisions are ended.
+                // Also, only cache negative effects - so that in those cases we don't need to
+                // recurse.
+                if (scoreDelta <= 0 && scoreDelta >= Integer.MIN_VALUE && d.targets != null) {
+                    // FIXME: Support more than one target in this logic.
+                    GameObject[] hostAndTarget = currentHostAndTarget;
+                    if (currentHostAndTarget != null) {
+                        GameStateEvaluator evaluator = new GameStateEvaluator();
+                        Player player = sa.getActivatingPlayer();
+                        int cardScore = evaluator.evalCard(player.getGame(), player, (Card) hostAndTarget[2]);
+                        effectCache.add(new CachedEffect(hostAndTarget[0], sa, hostAndTarget[1], cardScore, (int) scoreDelta));
+                        cached = " (added to cache)";
+                    }
                 }
             }
         }

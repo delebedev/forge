@@ -4,6 +4,30 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## fix(ai): typed Score kinds — terminal, failure, and no-score states never enter arithmetic
+
+`GameStateEvaluator.Score` used raw int sentinels: `Integer.MAX_VALUE` for a
+terminal win and `Integer.MIN_VALUE` ambiguously for terminal loss, simulation
+failure, and the best-so-far initializer. Sentinels entered arithmetic
+(`fallbackScore.value + MIN_DELTA`, `currentScore.value + effect.scoreDelta`,
+`score.value - initialScore.value`) where overflow can invert a gate or cache
+nonsense, and a failed simulation was indistinguishable from a lost game.
+Now `Score` carries a `Kind` (`FINITE`/`WIN`/`LOSS`/`SIM_FAILURE`/`NONE`) with
+factories, and all threshold/delta math goes through kind-aware APIs:
+`meetsThreshold` (long arithmetic, failure never beats and is never beatable),
+saturating `addDelta`, and `finiteDelta` plus effect-cache suppression for
+non-finite scores. `.value` keeps the legacy sentinel ordinals so untouched
+comparison sites are behavior-identical; `equals` is kind-aware. Contract in
+`ScoreSafetyTest` (23 tests); `SpellAbilityPickerSimulationTest` (135) green.
+
+- `forge-ai/src/main/java/forge/ai/simulation/GameStateEvaluator.java`
+- `forge-ai/src/main/java/forge/ai/simulation/GameSimulator.java`
+- `forge-ai/src/main/java/forge/ai/simulation/SimulationController.java`
+- `forge-ai/src/main/java/forge/ai/simulation/SpellAbilityChoicesIterator.java`
+- `forge-ai/src/main/java/forge/ai/simulation/SpellAbilityPicker.java`
+- `forge-ai/src/main/java/forge/ai/ResearchPolicySearch.java`
+- `forge-gui-desktop/src/test/java/forge/ai/simulation/ScoreSafetyTest.java`
+
 ## feat(sim): FORGE_RESEARCH_SEED_PROTOCOL — per-game RNG reseed in seeded batches
 
 `SimulateMatch`: `FORGE_RESEARCH_SEED_PROTOCOL=game` (with `-s SEED -n N`)

@@ -352,7 +352,7 @@ public class SpellAbilityPicker {
         Random origRandom = MyRandom.getRandom();
         long randomSeedToUse = origRandom.nextLong();
 
-        Score bestScore = new Score(Integer.MIN_VALUE);
+        Score bestScore = Score.none();
         final SpellAbilityChoicesIterator choicesIterator = new SpellAbilityChoicesIterator(controller);
         Score lastScore;
         do {

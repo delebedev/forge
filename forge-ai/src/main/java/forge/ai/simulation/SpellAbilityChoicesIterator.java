@@ -16,19 +16,19 @@ public class SpellAbilityChoicesIterator {
 
     private Iterator<int[]> modeIterator;
     private int[] selectedModes;
-    private Score bestScoreForMode = new Score(Integer.MIN_VALUE);
+    private Score bestScoreForMode = Score.none();
     private boolean advancedToNextMode;
 
     private ArrayList<Score> cachedTargetScores;
     private int nextTarget = 0;
-    private Score bestScoreForTarget = new Score(Integer.MIN_VALUE);
+    private Score bestScoreForTarget = Score.none();
     private boolean pushTarget = true;
 
     private static class ChoicePoint {
         int numChoices = -1;
         int nextChoice = 0;
         Card selectedChoice;
-        Score bestScoreForChoice = new Score(Integer.MIN_VALUE);
+        Score bestScoreForChoice = Score.none();
     }
     private final ArrayList<ChoicePoint> choicePoints = new ArrayList<>();
     private int incrementedCpIndex = 0;
@@ -191,7 +191,7 @@ public class SpellAbilityChoicesIterator {
         if (cachedTargetScores != null) {
             pushTarget = true;
             doneEvaluating(bestScoreForTarget);
-            bestScoreForTarget = new Score(Integer.MIN_VALUE);
+            bestScoreForTarget = Score.none();
             while (nextTarget + 1 < cachedTargetScores.size()) {
                 nextTarget++;
                 if (cachedTargetScores.get(nextTarget) == null) {
@@ -203,7 +203,7 @@ public class SpellAbilityChoicesIterator {
         }
         if (modeIterator != null) {
             doneEvaluating(bestScoreForMode);
-            bestScoreForMode = new Score(Integer.MIN_VALUE);
+            bestScoreForMode = Score.none();
             if (modeIterator.hasNext()) {
                 selectedModes = remapModes(modeIterator.next());
                 advancedToNextMode = true;
