@@ -166,6 +166,17 @@ public class ResearchTopKRerankTest extends AITest {
         AssertJUnit.assertSame(b.divinationSa, chosen);
     }
 
+    @Test
+    public void probeControllerNeverRecurses() {
+        // One-ply means one ply: a probe controller at depth 0 with no budget
+        // pressure must still refuse GameSimulator's follow-up-search recursion
+        // (GameSimulator spawns a full SpellAbilityPicker tree when the
+        // controller allows it — the T1 OOM canary, cascade 36dbe170b602).
+        AssertJUnit.assertFalse(
+                new ResearchOnePlySimulationController(new forge.ai.simulation.GameStateEvaluator.Score(0))
+                        .shouldRecurse());
+    }
+
     // --- eligibility gate ---
 
     @Test
