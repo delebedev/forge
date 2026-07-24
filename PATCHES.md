@@ -4,6 +4,29 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): topk-rerank candidate — bounded top-k one-ply rerank after the greedy veto scan
+
+The greedy scan returns the first WillPlay candidate and never compares
+playable options (upstream's own TODO). On a candidate seat with the
+`topk-rerank` feature, own main phase, empty stack, the scan keeps going and
+collects up to `FORGE_AI_TOPK_K - 1` (default k=3, clamped 1..8) further
+WillPlay candidates; `ResearchTopKRerank` then simulates one resolution of
+each (fresh `GameSimulator` per probe — live game never mutated) and overrides
+the greedy choice only when an alternative beats its simulated score by
+`FORGE_AI_TOPK_MIN_DELTA` (default 1) via the kind-aware `Score.meetsThreshold`
+(a failed simulation never overrides and is never overridden). Runs after the
+neural/policy seams and outside the eval-thread watchdog, so a timeout can
+never eat the greedy fallback. Probed-but-unchosen SpellAbilities are restored
+(targets + X); modal (Charm) chains are excluded from probing in v1. Disabled
+paths (baseline seat, feature unselected, reactive/stack decisions) are
+byte-identical — verified by a wrong-feature candidate decision-log parity
+probe against the parent jar. Contract in `ResearchTopKRerankTest` (8 tests).
+
+- `forge-ai/src/main/java/forge/ai/ResearchTopKRerank.java`
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchTopKRerankTest.java`
+
 ## fix(ai): typed Score kinds — terminal, failure, and no-score states never enter arithmetic
 
 `GameStateEvaluator.Score` used raw int sentinels: `Integer.MAX_VALUE` for a

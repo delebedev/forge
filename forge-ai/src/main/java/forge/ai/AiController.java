@@ -127,6 +127,11 @@ public class AiController {
         return aiVariant == AiVariant.CANDIDATE;
     }
 
+    private boolean topKRerankActive() {
+        return usesCandidateVariant() && ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.TOPK_RERANK)
+                && ResearchTopKRerank.eligible(game, player);
+    }
+
     public boolean usesSimulation() {
         return this.useSimulation;
     }
@@ -1674,12 +1679,18 @@ public class AiController {
         useLivingEnd = IterableUtil.any(player.getZone(ZoneType.Library), CardPredicates.nameEquals("Living End"));
 
         Map<SpellAbility, AiPlayDecision> evaluatedReasons = new IdentityHashMap<>();
-        SpellAbility forgeChoice = chooseSpellAbilityToPlayFromList(saList, true, evaluatedReasons);
+        List<SpellAbility> willPlayTail = new ArrayList<>();
+        SpellAbility forgeChoice = chooseSpellAbilityToPlayFromList(saList, true, evaluatedReasons, willPlayTail);
         ResearchNeuralReranker.Result neuralChoice = ResearchNeuralReranker.choose(game, player, saList, forgeChoice);
         ResearchPolicyReranker.Result policyChoice = neuralChoice.used ? ResearchPolicyReranker.Result.fallback()
                 : ResearchPolicyReranker.choose(game, saList);
         SpellAbility chosenSa = neuralChoice.used ? ResearchPolicySearch.choose(game, player, neuralChoice.choice, forgeChoice)
                 : policyChoice.used ? policyChoice.choice : forgeChoice;
+        // Bounded rerank runs last and only on an unaltered greedy choice: neural/policy
+        // seams already had their say, and the eval-thread watchdog no longer applies.
+        if (chosenSa == forgeChoice && !willPlayTail.isEmpty()) {
+            chosenSa = ResearchTopKRerank.choose(game, player, forgeChoice, willPlayTail, ResearchTopKRerank.minDelta());
+        }
         ResearchDecisionLogger.logPriorityDecision(game, player, saList, chosenSa, policyChoice.used, policyChoice.score,
                 policyChoice.seen, neuralChoice.used, neuralChoice.score, neuralChoice.margin, evaluatedReasons);
 
@@ -1691,12 +1702,27 @@ public class AiController {
     }
 
     private SpellAbility chooseSpellAbilityToPlayFromList(final List<SpellAbility> all, boolean skipCounter) {
-        return chooseSpellAbilityToPlayFromList(all, skipCounter, null);
+        return chooseSpellAbilityToPlayFromList(all, skipCounter, null, null);
     }
 
     // Research instrumentation: pairs the greedy scan's chosen SpellAbility with
-    // the AiPlayDecision it computed for every candidate it actually evaluated.
-    private record ScanResult(SpellAbility chosen, Map<SpellAbility, AiPlayDecision> reasons) {
+    // the AiPlayDecision it computed for every candidate it actually evaluated,
+    // plus (candidate seat only) the WillPlay candidates scanned after it for the
+    // top-k rerank. willPlayTail is never null; empty when not collecting.
+    private record ScanResult(SpellAbility chosen, Map<SpellAbility, AiPlayDecision> reasons,
+            List<SpellAbility> willPlayTail) {
+    }
+
+    // A candidate's ability chain containing a modal choice (Charm) is out of
+    // scope for v1: restoring the modes it committed to isn't handled, so such
+    // candidates are never collected into the rerank tail.
+    private static boolean isModalChain(SpellAbility sa) {
+        for (SpellAbility s = sa; s != null; s = s.getSubAbility()) {
+            if (s.getApi() == ApiType.Charm) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // evaluatedReasonsOut (nullable, research instrumentation): on normal scan
@@ -1711,6 +1737,18 @@ public class AiController {
     // mutate it. Capturing an already-computed decision adds no gameplay work.
     private SpellAbility chooseSpellAbilityToPlayFromList(final List<SpellAbility> all, boolean skipCounter,
             final Map<SpellAbility, AiPlayDecision> evaluatedReasonsOut) {
+        return chooseSpellAbilityToPlayFromList(all, skipCounter, evaluatedReasonsOut, null);
+    }
+
+    // willPlayTailOut (nullable, research instrumentation): candidate seat only.
+    // Receives the WillPlay candidates scanned after the greedy choice, for the
+    // bounded top-k rerank. Gated once on the calling thread (topKRerankActive())
+    // so the eval-thread scan either behaves exactly as the non-collecting path
+    // or, when active, keeps scanning past the first WillPlay up to k()-1 more.
+    // Modal (Charm) candidates are excluded — restoring committed modes is out of
+    // v1 scope — and a modal greedy incumbent disables collection entirely.
+    private SpellAbility chooseSpellAbilityToPlayFromList(final List<SpellAbility> all, boolean skipCounter,
+            final Map<SpellAbility, AiPlayDecision> evaluatedReasonsOut, final List<SpellAbility> willPlayTailOut) {
         if (all == null || all.isEmpty())
             return null;
 
@@ -1726,9 +1764,14 @@ public class AiController {
         // in case of infinite loop reset below would not be reached
         timeoutReached = false;
 
+        final boolean collectTail = evaluatedReasonsOut != null && willPlayTailOut != null && topKRerankActive();
+        final int tailCap = collectTail ? Math.max(0, ResearchTopKRerank.k() - 1) : 0;
+
         FutureTask<ScanResult> future = new FutureTask<>(() -> {
-            // Thread-confined; published to evaluatedReasonsOut only via this task's result.
+            // Thread-confined; published to evaluatedReasonsOut/willPlayTailOut only via this task's result.
             final Map<SpellAbility, AiPlayDecision> reasons = new IdentityHashMap<>();
+            final List<SpellAbility> tail = collectTail ? new ArrayList<>() : null;
+            SpellAbility chosen = null;
             //avoid ComputerUtil.aiLifeInDanger in loops as it slows down a lot.. call this outside loops will generally be fast...
             boolean isLifeInDanger = useLivingEnd && ComputerUtil.aiLifeInDanger(player, true, 0);
             for (final SpellAbility sa : ComputerUtilAbility.getOriginalAndAltCostAbilities(all, player)) {
@@ -1808,11 +1851,27 @@ public class AiController {
                 if (opinion != AiPlayDecision.WillPlay)
                     continue;
 
+                if (chosen == null) {
+                    chosen = sa;
+                    if (!collectTail || tailCap == 0 || isModalChain(sa)) {
+                        // Not collecting, tail capped to zero, or the greedy incumbent
+                        // itself is modal: behave exactly like the legacy short-circuit.
+                        return new ScanResult(sa, reasons, List.of());
+                    }
+                    continue; // keep scanning to fill the rerank tail
+                }
+
+                if (isModalChain(sa)) {
+                    continue;
+                }
                 // TODO could continue to try find another with higher rating (weighted by priority ordering)
-                return new ScanResult(sa, reasons);
+                tail.add(sa);
+                if (tail.size() >= tailCap) {
+                    break;
+                }
             }
 
-            return new ScanResult(null, reasons);
+            return new ScanResult(chosen, reasons, tail == null ? List.of() : List.copyOf(tail));
         });
 
         Thread t = new Thread(future, "Game AI Eval");
@@ -1821,6 +1880,9 @@ public class AiController {
             ScanResult result = future.get(game.getAITimeout(), TimeUnit.SECONDS);
             if (evaluatedReasonsOut != null) {
                 evaluatedReasonsOut.putAll(result.reasons());
+            }
+            if (willPlayTailOut != null) {
+                willPlayTailOut.addAll(result.willPlayTail());
             }
             return result.chosen();
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
