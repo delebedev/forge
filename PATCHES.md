@@ -4,6 +4,18 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## perf(startup): FORGE_PERF_SKIP_DECKGEN — headless runs skip the deck-gen matrix
+
+`FModel.initialize` eagerly builds the deck-builder card-relation matrix and
+archetype LDA (`FPref.DECKGEN_CARDBASED`, default on), deserializing ~22.5k
+PaperCards across every set. A headless `sim` or `puzzle` run plays pre-built
+decks and never reads that data, so it is dead weight on every JVM launch —
+and launches dominate at batch scale. `FORGE_PERF_SKIP_DECKGEN=true` skips it,
+matching the `FORGE_PERF_*` shape already used by the trait fast-path. Default
+(unset) is upstream behaviour untouched.
+
+- `forge-gui/src/main/java/forge/model/FModel.java`
+
 ## feat(sim): AI-eval watchdog is configurable and loud — never a silent truncation
 
 The `"Game AI Eval"` watchdog abandons a scan after `Game.AI_TIMEOUT` (5s by
