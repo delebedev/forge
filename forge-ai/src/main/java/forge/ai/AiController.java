@@ -75,6 +75,7 @@ import java.util.stream.Collectors;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static forge.ai.ComputerUtilMana.getAvailableManaEstimate;
 import static java.lang.Math.max;
@@ -106,6 +107,20 @@ public class AiController {
     // a puzzle that timed out mid-decision is reported INVALID, never a
     // PASS/FAIL that quietly rode a truncated AI search.
     public static volatile boolean evalTimeoutFired = false;
+
+    // Same canary, counted, so batch sim mode can attribute fires to one game
+    // of a batch instead of the whole JVM. A truncated scan is silent in the
+    // game log (the fall-through choice is usually PASS) but consumes shared
+    // RNG differently, so any fire invalidates that game's evidence.
+    private static final AtomicInteger EVAL_TIMEOUT_FIRES = new AtomicInteger();
+
+    public static int evalTimeoutFires() {
+        return EVAL_TIMEOUT_FIRES.get();
+    }
+
+    public static void resetEvalTimeoutFires() {
+        EVAL_TIMEOUT_FIRES.set(0);
+    }
 
     public AiController(final Player computerPlayer, final Game game0) {
         this(computerPlayer, game0, AiVariant.BASELINE);
@@ -1897,6 +1912,12 @@ public class AiController {
                 }
                 System.out.println(sb);
                 evalTimeoutFired = true;
+                EVAL_TIMEOUT_FIRES.incrementAndGet();
+                // Machine-parseable so a harness can invalidate the game rather
+                // than score a transcript that silently lost a decision.
+                System.out.printf("Research AI Eval Timeout: turn=%d phase=%s player=%s seconds=%d%n",
+                        game.getPhaseHandler().getTurn(), game.getPhaseHandler().getPhase(),
+                        player.getName(), game.getAITimeout());
             }
             // ask the eval thread to exit at the next SpellAbility check first: a brutal
             // Thread.stop() mid-evaluation can leave partially mutated shared state behind
