@@ -4,6 +4,26 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(sim): AI-eval watchdog is configurable and loud — never a silent truncation
+
+The `"Game AI Eval"` watchdog abandons a scan after `Game.AI_TIMEOUT` (5s by
+default) and falls through to whatever the AI had, usually PASS: the game log
+looks normal, but the decision was truncated and the shared RNG stream shifted,
+surfacing as divergence many decisions later. Measured firing in ordinary
+single-worker headless runs, so it silently degraded evidence at every worker
+cap. Now `FORGE_RESEARCH_AI_EVAL_TIMEOUT=<seconds>` sets the ceiling for a
+`sim` JVM (unset = upstream default; non-positive/unparseable fails fast), and
+each fire prints `Research AI Eval Timeout: turn=… phase=… player=… seconds=…`
+plus, per batch game, `Research Game Canary: game=<n> kind=ai_eval_timeout
+fires=<k>` before that game's result line — the sim-mode parity of puzzle
+mode's `timeout_fired`, so a harness can invalidate the game instead of
+scoring a truncated transcript. Fire count is per game (reset at game start);
+`evalTimeoutFired` keeps its puzzle-mode meaning.
+
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
+- `forge-gui-desktop/src/test/java/forge/view/AiEvalTimeoutTest.java`
+
 ## fix(ai): research probes are strictly one-ply — never recurse into the sim-brain follow-up search
 
 `GameSimulator.simulateSpellAbility` consults `controller.shouldRecurse()`

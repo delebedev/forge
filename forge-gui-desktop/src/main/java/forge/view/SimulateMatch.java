@@ -8,6 +8,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.time.StopWatch;
 
 import forge.LobbyPlayer;
+import forge.ai.AiController;
 import forge.ai.AiVariant;
 import forge.ai.LobbyPlayerAi;
 import forge.ai.ResearchTreatmentTelemetry;
@@ -38,6 +39,11 @@ import forge.util.WordUtil;
 import forge.util.storage.IStorage;
 
 public class SimulateMatch {
+    // Per-decision "Game AI Eval" watchdog ceiling for this JVM, seconds.
+    // 0 = leave Forge's own default (Game.AI_TIMEOUT, 5s) alone.
+    private static final int AI_EVAL_TIMEOUT_SECONDS =
+            parseAiEvalTimeout(System.getenv("FORGE_RESEARCH_AI_EVAL_TIMEOUT"));
+
     public static void simulate(String[] args) {
         final ResearchControl researchControl = ResearchControl.fromExternalName(
                 System.getenv("FORGE_RESEARCH_CONTROL"));
@@ -252,6 +258,32 @@ public class SimulateMatch {
     }
 
     /**
+     * FORGE_RESEARCH_AI_EVAL_TIMEOUT: per-decision AI-eval watchdog ceiling in
+     * seconds for headless sim runs. Unset or empty keeps Forge's default; a
+     * research run raises it so a truncated scan is exceptional rather than a
+     * routine, silent source of divergence. Anything non-positive or
+     * unparseable fails fast — a typo must never quietly restore the low
+     * ceiling the raise exists to avoid.
+     */
+    static int parseAiEvalTimeout(final String value) {
+        if (value == null || value.isEmpty()) {
+            return 0;
+        }
+        final int seconds;
+        try {
+            seconds = Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "FORGE_RESEARCH_AI_EVAL_TIMEOUT must be a positive number of seconds, got: " + value);
+        }
+        if (seconds <= 0) {
+            throw new IllegalArgumentException(
+                    "FORGE_RESEARCH_AI_EVAL_TIMEOUT must be a positive number of seconds, got: " + value);
+        }
+        return seconds;
+    }
+
+    /**
      * SplitMix64 output i+1 of a stream seeded at batchSeed. Raw sequential
      * seeds (seed + i) produce correlated java.util.Random streams; the
      * finalizer mix decorrelates neighbouring games.
@@ -284,6 +316,10 @@ public class SimulateMatch {
         sw.start();
 
         final Game g1 = mc.createGame();
+        if (AI_EVAL_TIMEOUT_SECONDS > 0) {
+            g1.AI_TIMEOUT = AI_EVAL_TIMEOUT_SECONDS;
+        }
+        AiController.resetEvalTimeoutFires();
         // will run match in the same thread
         try {
             TimeLimitedCodeBlock.runWithTimeout(() -> {
@@ -310,6 +346,14 @@ public class SimulateMatch {
         Collections.reverse(log);
         for (GameLogEntry l : log) {
             System.out.println(l);
+        }
+
+        // Precedes this game's result line so a harness reading the batch stream
+        // attributes the fire to the right game.
+        final int evalTimeoutFires = AiController.evalTimeoutFires();
+        if (evalTimeoutFires > 0) {
+            System.out.printf("Research Game Canary: game=%d kind=ai_eval_timeout fires=%d%n",
+                    1 + iGame, evalTimeoutFires);
         }
 
         // If both players life totals to 0 in a single turn, the game should end in a draw
