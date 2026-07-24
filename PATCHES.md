@@ -4,6 +4,24 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## fix(ai): research probes are strictly one-ply — never recurse into the sim-brain follow-up search
+
+`GameSimulator.simulateSpellAbility` consults `controller.shouldRecurse()`
+after resolving and, when allowed, spawns a full `SpellAbilityPicker`
+follow-up search on the sim game. Research probes passed a fresh depth-0
+`SimulationController`, so every "one-ply" probe was a depth-bounded tree of
+nested game copies — OOM at 6g on grindy boards (T1 canary, candidate
+esper-control vs mono-green-stompy, all 5 games exit 1).
+`ResearchOnePlySimulationController` refuses recursion; used by
+`ResearchTopKRerank` and `ResearchPolicySearch` (same latent defect, never
+exercised in shipped arms). Verified: the crashing coordinate completes 5/5
+games in seconds on the fixed jar.
+
+- `forge-ai/src/main/java/forge/ai/ResearchOnePlySimulationController.java`
+- `forge-ai/src/main/java/forge/ai/ResearchTopKRerank.java`
+- `forge-ai/src/main/java/forge/ai/ResearchPolicySearch.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchTopKRerankTest.java`
+
 ## feat(ai): topk-rerank candidate — bounded top-k one-ply rerank after the greedy veto scan
 
 The greedy scan returns the first WillPlay candidate and never compares

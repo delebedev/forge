@@ -35,7 +35,7 @@ final class ResearchPolicySearch {
     }
 
     private static Score simulate(Game game, Player player, SpellAbility choice, Score origScore) {
-        SimulationController controller = new SimulationController(origScore);
+        SimulationController controller = new ResearchOnePlySimulationController(origScore);
         GameSimulator simulator = new GameSimulator(controller, game, player, null);
         return simulator.simulateSpellAbility(choice);
     }
