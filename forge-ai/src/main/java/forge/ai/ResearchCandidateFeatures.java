@@ -17,9 +17,10 @@ import java.util.Set;
 public final class ResearchCandidateFeatures {
     public static final String CAST_TRIGGER_MAIN1 = "cast-trigger-main1";
     public static final String MANDATORY_ETB = "mandatory-etb";
+    public static final String TOPK_RERANK = "topk-rerank";
 
     private static final Set<String> KNOWN = new LinkedHashSet<>(Arrays.asList(
-            CAST_TRIGGER_MAIN1, MANDATORY_ETB));
+            CAST_TRIGGER_MAIN1, MANDATORY_ETB, TOPK_RERANK));
 
     /** null = all features enabled. */
     private static final Set<String> ENABLED = parse(System.getenv("FORGE_AI_CANDIDATE_FEATURES"));
