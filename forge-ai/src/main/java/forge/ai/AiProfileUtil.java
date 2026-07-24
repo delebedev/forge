@@ -115,6 +115,15 @@ public class AiProfileUtil {
     }
 
     public static String getProperty(final Player p, final AiProps propName) {
+        // Research hook: a seat-scoped override answers before the profile.
+        final ResearchProfileOverrides overrides = ResearchProfileOverrides.forPlayer(p);
+        if (overrides != null) {
+            final String override = overrides.value(propName);
+            if (override != null) {
+                return override;
+            }
+        }
+
         String prop = AiProfileUtil.getAIProp(p.getLobbyPlayer(), propName);
 
         if (prop == null || prop.isEmpty()) {

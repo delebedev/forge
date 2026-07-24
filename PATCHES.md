@@ -593,3 +593,33 @@ feature vectors, with stock behavior bit-identical whenever the env is unset.
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/ai/ResearchCreatureWeightsTest.java` (new)
 - `forge-gui-desktop/src/test/java/forge/ai/ResearchEvalWeightsAiTest.java` (new)
+
+## feat(ai): FORGE_AI_PROFILE_OVERRIDES — per-seat AiProps overrides
+
+Research seam for AI coefficient tuning. `AiProps` holds 122 named personality
+constants (thresholds, percentage gates, behavior switches) that the AI reads
+per-player through `AiProfileUtil`; this patch makes a named subset of them
+overridable for one seat, leaving that seat's resolved profile otherwise in
+force. Stock behavior when the env is unset.
+
+`FORGE_AI_PROFILE_OVERRIDES=<file>` + `FORGE_AI_PROFILE_OVERRIDES_SEAT=<n>`
+load a `PROPERTY = value` table. Every accessor (`getIntProperty`,
+`getBoolProperty`, `getProperty`) funnels through
+`AiProfileUtil.getProperty(Player, AiProps)`, so the override is applied at
+that single point; the table rides `LobbyPlayerAi` per seat like
+`AiVariant` and the eval-weights table, which makes it per-seat by
+construction rather than by thread context.
+
+Loading fails loudly on an unknown property, a duplicate, an empty value, a
+malformed line, or a value whose shape contradicts the property's declared
+default (`AiProps` is untyped, so the declared default is the only available
+type witness). This matters because Forge's own profile loader silently drops
+a key it cannot resolve — the same typo in a research arm would run stock
+under a candidate's name. Startup prints
+`RESEARCH_AI_PROFILE seat=… sha256=… props=…` as exposure evidence.
+
+- `forge-ai/src/main/java/forge/ai/ResearchProfileOverrides.java` (new)
+- `forge-ai/src/main/java/forge/ai/AiProfileUtil.java`
+- `forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java`
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchProfileOverridesTest.java` (new)

@@ -167,6 +167,28 @@ public class SimulateMatch {
             evalWeights = null;
         }
 
+        // Research hook: FORGE_AI_PROFILE_OVERRIDES=<file> + FORGE_AI_PROFILE_OVERRIDES_SEAT=<n>
+        // overrides named AiProps for one seat, on top of its resolved profile.
+        // See crucible docs/aiprops.md for what stock means here.
+        final String profileOverridesPath = System.getenv("FORGE_AI_PROFILE_OVERRIDES");
+        final int profileOverridesSeat = parseSeat(System.getenv("FORGE_AI_PROFILE_OVERRIDES_SEAT"));
+        final forge.ai.ResearchProfileOverrides profileOverrides;
+        if (profileOverridesPath != null && !profileOverridesPath.isEmpty()) {
+            if (profileOverridesSeat < 1) {
+                throw new IllegalArgumentException(
+                        "FORGE_AI_PROFILE_OVERRIDES requires FORGE_AI_PROFILE_OVERRIDES_SEAT=<positive seat>");
+            }
+            profileOverrides = forge.ai.ResearchProfileOverrides.load(profileOverridesPath);
+            System.out.println("RESEARCH_AI_PROFILE seat=" + profileOverridesSeat + " file=" + profileOverridesPath
+                    + " sha256=" + profileOverrides.sourceSha256() + " props=" + profileOverrides.propCount());
+        } else {
+            if (profileOverridesSeat >= 1) {
+                throw new IllegalArgumentException(
+                        "FORGE_AI_PROFILE_OVERRIDES_SEAT set without FORGE_AI_PROFILE_OVERRIDES");
+            }
+            profileOverrides = null;
+        }
+
         int i = 1;
 
         if (params.containsKey("d")) {
@@ -203,6 +225,9 @@ public class SimulateMatch {
                 if (i == evalWeightsSeat) {
                     aiPlayer.setEvalWeights(evalWeights);
                 }
+                if (i == profileOverridesSeat) {
+                    aiPlayer.setProfileOverrides(profileOverrides);
+                }
                 rp.setPlayer(aiPlayer);
                 if (i == researchControlSeat) {
                     researchControl.applyTo(rp);
@@ -218,6 +243,12 @@ public class SimulateMatch {
         if (evalWeights != null && evalWeightsSeat > pp.size()) {
             throw new IllegalArgumentException(
                     "FORGE_AI_EVAL_WEIGHTS_SEAT=" + evalWeightsSeat + " exceeds player count " + pp.size());
+        }
+
+        if (profileOverrides != null && profileOverridesSeat > pp.size()) {
+            throw new IllegalArgumentException(
+                    "FORGE_AI_PROFILE_OVERRIDES_SEAT=" + profileOverridesSeat
+                            + " exceeds player count " + pp.size());
         }
         if (researchControl != ResearchControl.NONE && researchControlSeat > pp.size()) {
             throw new IllegalArgumentException(
