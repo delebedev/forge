@@ -260,8 +260,11 @@ public final class FModel {
         AiProfileUtil.loadAllProfiles(ForgeConstants.AI_PROFILE_DIR);
         AiProfileUtil.setAiSideboardingMode(AiProfileUtil.AISideboardingMode.normalizedValueOf(getPreferences().getPref(FPref.MATCH_AI_SIDEBOARDING_MODE)));
 
-        // Generate Deck Gen matrix
-        if(getPreferences().getPrefBoolean(FPref.DECKGEN_CARDBASED)) {
+        // Generate Deck Gen matrix. FORGE_PERF_SKIP_DECKGEN skips it for headless
+        // runs: the matrix + LDA deserialize ~22.5k PaperCards for the deck
+        // builder alone, and a headless match plays pre-built decks.
+        if(getPreferences().getPrefBoolean(FPref.DECKGEN_CARDBASED)
+                && !"true".equalsIgnoreCase(System.getenv("FORGE_PERF_SKIP_DECKGEN"))) {
             boolean commanderDeckGenMatrixLoaded=CardRelationMatrixGenerator.initialize();
             deckGenMatrixLoaded=CardArchetypeLDAGenerator.initialize();
             if(!commanderDeckGenMatrixLoaded){
