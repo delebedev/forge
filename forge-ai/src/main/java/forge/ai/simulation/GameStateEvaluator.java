@@ -71,10 +71,10 @@ public class GameStateEvaluator {
     private Score getScoreForGameOver(Game game, Player aiPlayer) {
         if (game.getOutcome().getWinningTeam() == aiPlayer.getTeam() ||
                 game.getOutcome().isWinner(aiPlayer.getRegisteredPlayer())) {
-            return new Score(Integer.MAX_VALUE);
+            return Score.win();
         }
 
-        return new Score(Integer.MIN_VALUE);
+        return Score.loss();
     }
 
     public Score getScoreForGameState(Game game, Player aiPlayer) {
@@ -289,23 +289,110 @@ public class GameStateEvaluator {
     }
 
     public static class Score {
+        // Kind is the source of truth for terminal/failure/unknown states.
+        // value keeps the legacy sentinel ordinal so untouched .value
+        // comparison sites keep exact prior behavior.
+        public enum Kind { FINITE, WIN, LOSS, SIM_FAILURE, NONE }
+
+        public final Kind kind;
         public final int value;
         public final int summonSickValue;
-        
+
         public Score(int value) {
-            this.value = value;
-            this.summonSickValue = value;
+            this(Kind.FINITE, value, value);
         }
 
         public Score(int value, int summonSickValue) {
+            this(Kind.FINITE, value, summonSickValue);
+        }
+
+        private Score(Kind kind, int value, int summonSickValue) {
+            this.kind = kind;
             this.value = value;
             this.summonSickValue = summonSickValue;
+        }
+
+        public static Score win() {
+            return new Score(Kind.WIN, Integer.MAX_VALUE, Integer.MAX_VALUE);
+        }
+
+        public static Score loss() {
+            return new Score(Kind.LOSS, Integer.MIN_VALUE, Integer.MIN_VALUE);
+        }
+
+        public static Score simFailure() {
+            return new Score(Kind.SIM_FAILURE, Integer.MIN_VALUE, Integer.MIN_VALUE);
+        }
+
+        public static Score none() {
+            return new Score(Kind.NONE, Integer.MIN_VALUE, Integer.MIN_VALUE);
+        }
+
+        public boolean isFinite() {
+            return kind == Kind.FINITE;
+        }
+
+        public boolean isWin() {
+            return kind == Kind.WIN;
+        }
+
+        public boolean isLoss() {
+            return kind == Kind.LOSS;
+        }
+
+        public boolean isSimFailure() {
+            return kind == Kind.SIM_FAILURE;
+        }
+
+        public boolean isNone() {
+            return kind == Kind.NONE;
+        }
+
+        // The only sanctioned threshold gate: candidate must beat incumbent
+        // by minDelta, with terminal/failure/unknown states never compared
+        // as arithmetic operands.
+        public static boolean meetsThreshold(Score candidate, Score incumbent, int minDelta) {
+            // An incumbent with unknown value (failed sim / not-yet-scored)
+            // is never beatable, not even by a winning candidate.
+            if (incumbent.isSimFailure() || incumbent.isNone()) {
+                return false;
+            }
+            if (candidate.isWin()) {
+                return !incumbent.isWin() || minDelta <= 0;
+            }
+            if (!candidate.isFinite()) {
+                return false;
+            }
+            if (incumbent.isWin()) {
+                return false;
+            }
+            if (incumbent.isLoss()) {
+                return true;
+            }
+            return (long) candidate.value >= (long) incumbent.value + (long) minDelta;
+        }
+
+        // Saturating; never fabricates a WIN/LOSS sentinel via arithmetic.
+        public Score addDelta(int delta) {
+            if (!isFinite()) {
+                throw new IllegalStateException("addDelta requires a finite Score, got " + kind);
+            }
+            long result = (long) value + (long) delta;
+            result = Math.max(Integer.MIN_VALUE + 1, Math.min(Integer.MAX_VALUE - 1, result));
+            return new Score(Kind.FINITE, (int) result, summonSickValue);
+        }
+
+        public static long finiteDelta(Score a, Score b) {
+            if (!a.isFinite() || !b.isFinite()) {
+                throw new IllegalStateException("finiteDelta requires finite Scores, got " + a.kind + " and " + b.kind);
+            }
+            return (long) a.value - (long) b.value;
         }
 
         public boolean equals(Score other) {
             if (other == null)
                 return false;
-            return value == other.value && summonSickValue == other.summonSickValue;
+            return kind == other.kind && value == other.value && summonSickValue == other.summonSickValue;
         }
 
         public String toString() {

@@ -28,7 +28,7 @@ final class ResearchPolicySearch {
             Score origScore = evaluator.getScoreForGameState(game, player);
             Score neuralScore = simulate(game, player, neuralChoice, origScore);
             Score fallbackScore = fallbackChoice == null ? origScore : simulate(game, player, fallbackChoice, origScore);
-            return neuralScore.value >= fallbackScore.value + MIN_DELTA ? neuralChoice : fallbackChoice;
+            return Score.meetsThreshold(neuralScore, fallbackScore, MIN_DELTA) ? neuralChoice : fallbackChoice;
         } catch (RuntimeException ex) {
             return fallbackChoice;
         }
