@@ -78,8 +78,8 @@ final class ResearchDecisionLogger {
             Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
-        appendField(sb, "schema", "priority_decision_v3");
-        appendNumberField(sb, "schema_version", 3);
+        appendField(sb, "schema", "priority_decision_v4");
+        appendNumberField(sb, "schema_version", 4);
         appendField(sb, "kind", "priority");
         appendField(sb, "run_id", RUN_ID);
         appendField(sb, "game_id", gameIdFor(game));
@@ -93,6 +93,13 @@ final class ResearchDecisionLogger {
         appendField(sb, "next_turn_player", playerName(game.getPhaseHandler().getNextTurn()));
         appendField(sb, "phase", game.getPhaseHandler().getPhase().name());
         appendNumberField(sb, "turn", game.getPhaseHandler().getTurn());
+        // schema_version 4: RNG draws consumed so far this game. Two arms that
+        // agree on this at every decision compared share a random state, so a
+        // divergence between them is a policy difference; a mismatch means the
+        // stream was displaced and the divergence cannot be attributed.
+        if (forge.util.CountingRandom.instrumented()) {
+            appendNumberField(sb, "draws", (int) forge.util.CountingRandom.draws());
+        }
         appendNumberField(sb, "stack_size", game.getStack().size());
         appendNumberField(sb, "player_life", player.getLife());
         appendNumberField(sb, "player_hand_size", zoneSize(player, ZoneType.Hand));

@@ -92,6 +92,7 @@ scoring a truncated transcript. Fire count is per game (reset at game start);
 `evalTimeoutFired` keeps its puzzle-mode meaning.
 
 - `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/view/AiEvalTimeoutTest.java`
 
@@ -175,6 +176,7 @@ Unset or `batch` keeps the historical stream byte-for-byte (parent-parity
 contracts stay valid); unknown values and `game` without `-s` fail fast.
 Match mode (`-m`) and puzzle-mode seeding are unchanged.
 
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 
 ## feat(ai): FORGE_AI_CANDIDATE_FEATURES — per-feature candidate gating
@@ -280,10 +282,12 @@ and baseline behavior are unchanged. These are calibration sentinels, never AI
 strength candidates.
 
 - `forge-gui-desktop/src/main/java/forge/view/ResearchControl.java` (new)
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/view/ResearchControlTest.java` (new)
 - `forge-ai/src/main/java/forge/ai/ResearchPolicyReranker.java`
 - `forge-ai/src/main/java/forge/ai/ResearchPolicySearch.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 
 ## feat(ai): per-game ID suffix in ResearchDecisionLogger for batch mode
@@ -309,6 +313,7 @@ Adds an env var to pin which seat the simulation AI drives, for reranker
 seams that need to know which player they're evaluating for. Adds a
 throughput probe test measuring game-copy cost during simulation search.
 
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/ai/simulation/CopyThroughputProbeTest.java`
 
@@ -324,6 +329,7 @@ experiment arms execute the same jar.
 - `forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java`
 - `forge-ai/src/main/java/forge/ai/PlayerControllerAi.java`
 - `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/ai/AiVariantTest.java`
 - `forge-gui-desktop/src/test/java/forge/ai/AiVariantControllerTest.java`
@@ -614,6 +620,7 @@ drift apart silently — see crucible `docs/neural.md`.
 - `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
 - `forge-ai/src/main/java/forge/ai/simulation/GameSimulator.java`
 - `forge-ai/src/main/java/forge/ai/simulation/SpellAbilityPicker.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 
 ## feat(ai): per-seat CreatureEvaluator weight tables + turn-level feature capture
@@ -649,6 +656,7 @@ feature vectors, with stock behavior bit-identical whenever the env is unset.
 - `forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java`
 - `forge-ai/src/main/java/forge/ai/PlayerControllerAi.java`
 - `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/ai/ResearchCreatureWeightsTest.java` (new)
 - `forge-gui-desktop/src/test/java/forge/ai/ResearchEvalWeightsAiTest.java` (new)
@@ -680,5 +688,43 @@ under a candidate's name. Startup prints
 - `forge-ai/src/main/java/forge/ai/ResearchProfileOverrides.java` (new)
 - `forge-ai/src/main/java/forge/ai/AiProfileUtil.java`
 - `forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/ai/ResearchProfileOverridesTest.java` (new)
+
+## feat(ai): RESEARCH_ACTIVATION — per-seat AiProps read counts + seeded draw counter
+
+Measurement seam, no behavior change. Answers "does this knob even fire here?"
+— the question that separates an undetectable effect from an absent one. A
+whole-pool average divides a within-cell effect by the share of cells where the
+code path executes, so a real effect confined to a few cells reads as noise;
+without activation counts the two are indistinguishable.
+
+`AiProfileUtil.getProperty` records every read per seat (it is the single
+funnel every accessor goes through). `SimulateMatch` prints one
+`RESEARCH_ACTIVATION game=<i> draws=<n> seat=<name> PROP:count,…` line per
+game and resets between games. Counts come from each seat's own reads, so a
+baseline arm reports activation for knobs it is not using — which is the only
+sound way to define an activation-scoped population, since selecting on where
+divergence appeared would condition on a treatment-affected variable.
+
+`CountingRandom` seeds through a `java.util.Random` subclass that counts draws
+in `next(int)`, the primitive every accessor funnels through. The per-game
+*total* is deliberately not the displacement statistic: once play differs the
+game runs a different length and consumes different draws either way. The
+discriminating statistic is draws consumed up to the first divergent decision,
+so **schema_version 4** adds `draws` to each priority-decision record — the
+cumulative count at that decision. Two arms agreeing on it at every decision
+compared shared a random state, so a divergence between them is a policy
+difference; a mismatch means the stream was displaced and the divergence
+cannot be attributed to the perturbation's semantics.
+
+The field is omitted, never zeroed, when no counting RNG was installed (an
+unseeded run). A constant zero would read as "both arms consumed the same
+draws" and silently certify a divergence this instrument never measured.
+
+- `forge-core/src/main/java/forge/util/CountingRandom.java` (new)
+- `forge-ai/src/main/java/forge/ai/ResearchActivation.java` (new)
+- `forge-ai/src/main/java/forge/ai/AiProfileUtil.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
