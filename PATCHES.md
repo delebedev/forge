@@ -623,3 +623,32 @@ under a candidate's name. Startup prints
 - `forge-ai/src/main/java/forge/ai/LobbyPlayerAi.java`
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/ai/ResearchProfileOverridesTest.java` (new)
+
+## feat(ai): RESEARCH_ACTIVATION — per-seat AiProps read counts + seeded draw counter
+
+Measurement seam, no behavior change. Answers "does this knob even fire here?"
+— the question that separates an undetectable effect from an absent one. A
+whole-pool average divides a within-cell effect by the share of cells where the
+code path executes, so a real effect confined to a few cells reads as noise;
+without activation counts the two are indistinguishable.
+
+`AiProfileUtil.getProperty` records every read per seat (it is the single
+funnel every accessor goes through). `SimulateMatch` prints one
+`RESEARCH_ACTIVATION game=<i> draws=<n> seat=<name> PROP:count,…` line per
+game and resets between games. Counts come from each seat's own reads, so a
+baseline arm reports activation for knobs it is not using — which is the only
+sound way to define an activation-scoped population, since selecting on where
+divergence appeared would condition on a treatment-affected variable.
+
+`CountingRandom` seeds through a `java.util.Random` subclass that counts draws
+in `next(int)`, the primitive every accessor funnels through. Note the limit
+found in testing: the per-game *total* does not discriminate RNG-stream
+displacement from ordinary consequence, because once play differs the game
+runs a different length and consumes different draws either way. Discriminating
+displacement needs draws consumed up to the first divergent decision, i.e. a
+per-decision counter — not yet built.
+
+- `forge-core/src/main/java/forge/util/CountingRandom.java` (new)
+- `forge-ai/src/main/java/forge/ai/ResearchActivation.java` (new)
+- `forge-ai/src/main/java/forge/ai/AiProfileUtil.java`
+- `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`

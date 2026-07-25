@@ -106,7 +106,7 @@ public class SimulateMatch {
         Long seed = null;
         if (params.containsKey("s")) {
             seed = Long.parseLong(params.get("s").get(0));
-            MyRandom.setRandom(new Random(seed));
+            MyRandom.setRandom(new forge.util.CountingRandom(seed));
         }
 
         final boolean perGameSeeding = parseSeedProtocol(System.getenv("FORGE_RESEARCH_SEED_PROTOCOL"));
@@ -276,7 +276,12 @@ public class SimulateMatch {
             int iGame = 0;
             while (!mc.isMatchOver()) {
                 // play games until the match ends
+                forge.util.CountingRandom.resetDraws();
+                forge.ai.ResearchActivation.reset();
                 simulateSingleMatch(mc, iGame, outputGamelog);
+                System.out.println("RESEARCH_ACTIVATION game=" + iGame
+                        + " draws=" + forge.util.CountingRandom.draws()
+                        + " " + forge.ai.ResearchActivation.summary());
                 iGame++;
             }
         } else {
@@ -289,10 +294,15 @@ public class SimulateMatch {
                     // game i is therefore the same game across arms until
                     // in-game play diverges, and a batch can be sharded by
                     // game without changing any game.
-                    MyRandom.setRandom(new Random(perGameSeed(seed, iGame)));
+                    MyRandom.setRandom(new forge.util.CountingRandom(perGameSeed(seed, iGame)));
                     mc = new Match(rules, pp, "Test");
                 }
+                forge.util.CountingRandom.resetDraws();
+                forge.ai.ResearchActivation.reset();
                 simulateSingleMatch(mc, iGame, outputGamelog);
+                System.out.println("RESEARCH_ACTIVATION game=" + iGame
+                        + " draws=" + forge.util.CountingRandom.draws()
+                        + " " + forge.ai.ResearchActivation.summary());
             }
         }
 

@@ -115,6 +115,9 @@ public class AiProfileUtil {
     }
 
     public static String getProperty(final Player p, final AiProps propName) {
+        // Research hook: count the read before answering it — see ResearchActivation.
+        ResearchActivation.record(p, propName);
+
         // Research hook: a seat-scoped override answers before the profile.
         final ResearchProfileOverrides overrides = ResearchProfileOverrides.forPlayer(p);
         if (overrides != null) {
