@@ -417,6 +417,12 @@ public class AiAttackController {
                 PlayerControllerAi aic = ((PlayerControllerAi) ai.getController());
                 pilotsNonAggroDeck = aic.pilotsNonAggroDeck();
                 playAggro = !pilotsNonAggroDeck || aic.getAi().getBoolProperty(AiProps.PLAY_AGGRO);
+                if (aic.getAi().usesCandidateVariant()
+                        && ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.PREDICT_PROBE)) {
+                    // Negative control for draw-count parity: pure extra deliberation,
+                    // result discarded, no decision can change. See ResearchPredictionRng.
+                    ComputerUtil.predictNextCombatsRemainingLife(ai, playAggro, pilotsNonAggroDeck, 0, notNeededAsBlockers);
+                }
             }
             // TODO make switchable via AI property
             int thresholdMod = 0;

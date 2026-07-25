@@ -3247,6 +3247,13 @@ public class ComputerUtil {
         return predictNextCombatsRemainingLife(ai, serious, checkDiff, payment, excludedBlockers, ai.getOpponents());
     }
     public static int predictNextCombatsRemainingLife(Player ai, boolean serious, boolean checkDiff, int payment, final CardCollection excludedBlockers, final List<Player> opps) {
+        // This hypothetical rolls the block dice; see ResearchPredictionRng for why
+        // that is optionally kept off the game's stream.
+        return ResearchPredictionRng.isolate(
+                () -> predictNextCombatsRemainingLifeImpl(ai, serious, checkDiff, payment, excludedBlockers, opps));
+    }
+
+    private static int predictNextCombatsRemainingLifeImpl(Player ai, boolean serious, boolean checkDiff, int payment, final CardCollection excludedBlockers, final List<Player> opps) {
         // life won't change
         int remainingLife = Integer.MAX_VALUE;
 
