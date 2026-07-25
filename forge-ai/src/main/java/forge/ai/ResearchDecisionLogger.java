@@ -98,7 +98,7 @@ final class ResearchDecisionLogger {
         // divergence between them is a policy difference; a mismatch means the
         // stream was displaced and the divergence cannot be attributed.
         if (forge.util.CountingRandom.instrumented()) {
-            appendNumberField(sb, "draws", (int) forge.util.CountingRandom.draws());
+            appendNumberField(sb, "rng_draws", (int) forge.util.CountingRandom.draws());
         }
         appendNumberField(sb, "stack_size", game.getStack().size());
         appendNumberField(sb, "player_life", player.getLife());
@@ -407,6 +407,11 @@ final class ResearchDecisionLogger {
         appendField(sb, "player", player.getName());
         appendField(sb, "phase", game.getPhaseHandler().getPhase().name());
         appendNumberField(sb, "turn", game.getPhaseHandler().getTurn());
+        // Same discriminator as the priority records: without it a divergence
+        // first visible in combat cannot be told from a displaced RNG stream.
+        if (forge.util.CountingRandom.instrumented()) {
+            appendNumberField(sb, "rng_draws", (int) forge.util.CountingRandom.draws());
+        }
         appendNumberField(sb, "player_life", player.getLife());
         Player opp = firstOpponent(player);
         appendNumberField(sb, "opponent_life", opp == null ? -1 : opp.getLife());
