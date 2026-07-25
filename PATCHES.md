@@ -4,6 +4,29 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): unified-aggro candidate — the aggression ladder sees deck archetype
+
+`AiAttackController` computes `playAggro` twice with different meanings. The
+hold-back loop uses `(!pilotsNonAggroDeck || PLAY_AGGRO)`, so deck archetype
+counts; the aggression ladder uses `PLAY_AGGRO` alone, so it never does. Under
+stock `Default.ai` (`PLAY_AGGRO=false`, true only in `Reckless`) that measured
+false on every one of 1420 logged attack decisions, meaning the collapse has
+never seen archetype in any evidence we hold.
+
+The `unified-aggro` candidate feature makes the ladder use the hold-back loop's
+formula. Seat-scoped via `AiVariant.CANDIDATE` plus
+`FORGE_AI_CANDIDATE_FEATURES=unified-aggro`; disabled is transcript-identical
+(verified: 48 combat records byte-identical against the prior jar at a fixed
+seed).
+
+Offline replay of the ladder over logged inputs — validated at 99.5% against
+recorded levels — puts the reachable effect at about 12% of attack decisions,
+after excluding the half of level changes where the attack set is already
+maximal and the level is therefore moot.
+
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+- `forge-ai/src/main/java/forge/ai/AiAttackController.java`
+
 ## fix(ai): deck-derived AI profile is detected every game, not only the first
 
 `PlayerControllerAi.pilotsNonAggroDeck` was set from `setupAutoProfile`, reached

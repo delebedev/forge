@@ -879,7 +879,15 @@ public class AiAttackController {
             AiController aic = ((PlayerControllerAi) ai.getController()).getAi();
             simAI = aic.usesSimulation();
             if (!simAI) {
+                // Upstream computes playAggro two ways: the hold-back loop uses
+                // (!pilotsNonAggroDeck || PLAY_AGGRO), this ladder uses the prop
+                // alone, so deck archetype never reaches the aggression collapse.
+                // The candidate makes them agree.
                 playAggro = aic.getBoolProperty(AiProps.PLAY_AGGRO);
+                if (aic.usesCandidateVariant()
+                        && ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.UNIFIED_AGGRO)) {
+                    playAggro = !((PlayerControllerAi) ai.getController()).pilotsNonAggroDeck() || playAggro;
+                }
                 chanceToAttackToTrade = aic.getIntProperty(AiProps.CHANCE_TO_ATTACK_INTO_TRADE);
                 tradeIfTappedOut = aic.getBoolProperty(AiProps.ATTACK_INTO_TRADE_WHEN_TAPPED_OUT);
                 extraChanceIfOppHasMana = aic.getIntProperty(AiProps.CHANCE_TO_ATKTRADE_WHEN_OPP_HAS_MANA);
