@@ -98,7 +98,7 @@ final class ResearchDecisionLogger {
         // divergence between them is a policy difference; a mismatch means the
         // stream was displaced and the divergence cannot be attributed.
         if (forge.util.CountingRandom.instrumented()) {
-            appendNumberField(sb, "draws", (int) forge.util.CountingRandom.draws());
+            appendNumberField(sb, "rng_draws", (int) forge.util.CountingRandom.draws());
         }
         appendNumberField(sb, "stack_size", game.getStack().size());
         appendNumberField(sb, "player_life", player.getLife());
