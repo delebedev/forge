@@ -1068,7 +1068,6 @@ public class AiBlockController {
 
         telemetry.tier = 1;
         telemetry.resets = 0;
-        telemetryBlockers = new ArrayList<>(possibleBlockers);
 
         diff = (ai.getLife() * 2) - 5; // This is the minimal gain for an unnecessary trade
         if (diff > 0 && AiProfileUtil.getBoolProperty(ai, AiProps.PLAY_AGGRO)) {
@@ -1095,6 +1094,11 @@ public class AiBlockController {
 
         // Begin with the weakest blockers
         CardLists.sortByPowerAsc(blockersLeft);
+
+        // Captured after the canBlock filter: the pre-filter list still holds
+        // creatures that legally cannot block (tapped, "can't block" statics),
+        // and offline analysis would read those as available options.
+        telemetryBlockers = new ArrayList<>(blockersLeft);
 
         // == 1. choose best blocks first ==
         makeGoodBlocks(combat);
