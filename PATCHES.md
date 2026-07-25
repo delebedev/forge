@@ -4,6 +4,37 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): FORGE_AI_PREDICT_RNG_ISOLATION — thinking stops consuming the game's RNG
+
+`ComputerUtil.predictNextCombatsRemainingLife` runs a hypothetical combat through
+`AiBlockController`, which rolls the random-trade and save-planeswalker dice out
+of the shared game stream. How much the AI *thinks* therefore shifts what the
+game later deals, and a treatment that changes how often it predicts
+desynchronises the arms of a paired experiment while deciding identically.
+
+`FORGE_AI_PREDICT_RNG_ISOLATION=true` runs each prediction against a private
+fixed-seed `Random` and restores the game's afterwards, so a prediction consumes
+nothing whatever the board size. It is a symmetric research control — set it for
+every arm or none — and off by default because it is **not inert**: under
+`Default.ai` the block-dice knobs are live (30–70), so frozen dice change the
+hypothetical and can change play.
+
+Upstream's `SpellAbilityPicker` seeds from `origRandom.nextLong()` for a
+neighbouring reason (repeatable dice across iterations of one decision), but that
+still spends one draw per call — enough to desync arms that differ in how often
+they predict.
+
+The `predict-probe` candidate feature is the matching negative control: one extra
+prediction whose result is discarded, so no decision can change by policy. With
+isolation off it displaces the stream and the two arms genuinely diverge; with it
+on the decision logs are byte-identical. Measured over 3 games at a fixed seed:
+diverged at record 279 of 1137/885 versus identical at 975 records.
+
+- `forge-ai/src/main/java/forge/ai/ResearchPredictionRng.java`
+- `forge-ai/src/main/java/forge/ai/ComputerUtil.java`
+- `forge-ai/src/main/java/forge/ai/AiAttackController.java`
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+
 ## fix(ai): deck-derived AI profile is detected every game, not only the first
 
 `PlayerControllerAi.pilotsNonAggroDeck` was set from `setupAutoProfile`, reached
