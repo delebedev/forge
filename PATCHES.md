@@ -744,7 +744,7 @@ in `next(int)`, the primitive every accessor funnels through. The per-game
 *total* is deliberately not the displacement statistic: once play differs the
 game runs a different length and consumes different draws either way. The
 discriminating statistic is draws consumed up to the first divergent decision,
-so **schema_version 4** adds `rng_draws` to each priority-decision record — the
+so **schema_version 4** adds `rng_draws` to each priority-decision record and to the combat envelope — the
 cumulative count at that decision. Two arms agreeing on it at every decision
 compared shared a random state, so a divergence between them is a policy
 difference; a mismatch means the stream was displaced and the divergence
