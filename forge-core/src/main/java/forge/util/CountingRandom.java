@@ -18,9 +18,21 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class CountingRandom extends Random {
     private static final long serialVersionUID = 1L;
     private static final AtomicLong DRAWS = new AtomicLong();
+    private static volatile boolean installed;
 
     public CountingRandom(final long seed) {
         super(seed);
+        installed = true;
+    }
+
+    /**
+     * Whether any counting RNG was ever installed in this JVM. Consumers must
+     * treat an uninstrumented run as unknown rather than as zero draws: a
+     * constant zero would read as "both arms consumed the same draws" and
+     * silently certify a divergence this instrument never measured.
+     */
+    public static boolean instrumented() {
+        return installed;
     }
 
     @Override
