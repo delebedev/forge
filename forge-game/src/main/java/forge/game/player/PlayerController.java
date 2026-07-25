@@ -326,6 +326,10 @@ public abstract class PlayerController {
     public CardCollectionView cheatShuffle(CardCollectionView list) { return list; }
     public Map<DeckSection, List<? extends PaperCard>> complainCardsCantPlayWell(Deck myDeck) { return null; }
 
+    /** Deck-derived AI profile detection. Runs per game: controllers are rebuilt by
+     *  {@link forge.game.Match#createGame()}, so anything inferred once per match is lost. */
+    public void setupAutoProfile(Deck myDeck) { }
+
     public void resetAtEndOfTurn() {
         // currently used by the AI to perform card memory cleanup
     }

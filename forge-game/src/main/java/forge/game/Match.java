@@ -324,6 +324,9 @@ public class Match {
 
             player.shuffle(null);
 
+            // Every game, not just the first: controllers are rebuilt per game.
+            player.getController().setupAutoProfile(myDeck.getLeft());
+
             if (isFirstGame) {
                 Map<DeckSection, List<? extends PaperCard>> cardsComplained = player.getController().complainCardsCantPlayWell(myDeck.getLeft());
                 if (cardsComplained != null && !cardsComplained.isEmpty()) {

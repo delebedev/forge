@@ -74,6 +74,7 @@ public class PlayerControllerAi extends PlayerController {
         return pilotsNonAggroDeck;
     }
 
+    @Override
     public void setupAutoProfile(Deck deck) {
         pilotsNonAggroDeck = deck.getName().contains("Control") || deck.getAverageCMC() > 3;
     }
@@ -1432,9 +1433,6 @@ public class PlayerControllerAi extends PlayerController {
 
     @Override
     public Map<DeckSection, List<? extends PaperCard>> complainCardsCantPlayWell(Deck myDeck) {
-        // TODO check if profile detection set to Auto
-        setupAutoProfile(myDeck);
-
         return brains.complainCardsCantPlayWell(myDeck);
     }
 

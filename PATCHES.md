@@ -4,6 +4,33 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## fix(ai): deck-derived AI profile is detected every game, not only the first
+
+`PlayerControllerAi.pilotsNonAggroDeck` was set from `setupAutoProfile`, reached
+only through `complainCardsCantPlayWell`, which `Match` calls under an
+`isFirstGame` guard. `Match.createGame()` rebuilds players and controllers per
+game, so from game two onward the flag kept its `false` default and was never
+recomputed: a Control deck piloted the first game as control and every later
+game as aggro. Measured with the combat log — game 0 `true`, games 1 and 2
+`false`.
+
+That matters because the flag gates the graded per-attacker hold-back in
+`AiAttackController.notNeededAsBlockers`; a seat classified aggro gets no
+graded hold-back at all, only a bail on the terminal sentinel. For a harness
+running several games per JVM it makes each match internally heterogeneous,
+with the split a function of games-per-match rather than of anything under test.
+
+Profile detection is now its own `PlayerController` hook, called unconditionally
+per game; `complainCardsCantPlayWell` goes back to only complaining. Verified
+inert where classification does not change: an aggro-vs-aggro match at a fixed
+seed emits byte-identical combat records before and after, and the puzzle corpus
+is unchanged (puzzle mode registers unnamed empty decks, so it always
+classified aggro anyway).
+
+- `forge-game/src/main/java/forge/game/player/PlayerController.java`
+- `forge-game/src/main/java/forge/game/Match.java`
+- `forge-ai/src/main/java/forge/ai/PlayerControllerAi.java`
+
 ## feat(ai): combat decision logging — declare-attackers/blockers records with posture
 
 `ResearchDecisionLogger` covered `chooseSpellAbilityToPlay` only, so combat was
