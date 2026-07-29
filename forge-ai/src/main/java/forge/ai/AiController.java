@@ -1721,11 +1721,13 @@ public class AiController {
                 : policyChoice.used ? policyChoice.choice : forgeChoice;
         // Bounded rerank runs last and only on an unaltered greedy choice: neural/policy
         // seams already had their say, and the eval-thread watchdog no longer applies.
+        ResearchTopKRerank.Result rerank = ResearchTopKRerank.Result.inactive(chosenSa);
         if (chosenSa == forgeChoice && !willPlayTail.isEmpty()) {
-            chosenSa = ResearchTopKRerank.choose(game, player, forgeChoice, willPlayTail, ResearchTopKRerank.minDelta());
+            rerank = ResearchTopKRerank.choose(game, player, forgeChoice, willPlayTail, ResearchTopKRerank.minDelta());
+            chosenSa = rerank.choice;
         }
         ResearchDecisionLogger.logPriorityDecision(game, player, saList, chosenSa, policyChoice.used, policyChoice.score,
-                policyChoice.seen, neuralChoice.used, neuralChoice.score, neuralChoice.margin, evaluatedReasons);
+                policyChoice.seen, neuralChoice.used, neuralChoice.score, neuralChoice.margin, evaluatedReasons, rerank);
         ResearchEvalFeatureLogger.logTurnFeatures(game, player);
 
         if (topOwnedByAI && !mustRespond && chosenSa != ComputerUtilAbility.getFirstCopySASpell(saList)) {

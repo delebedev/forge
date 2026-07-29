@@ -33,8 +33,10 @@ final class ResearchNeuralReranker {
         }
         // Scorer payload: no evaluated-reason map here (the reranker runs after the
         // greedy scan), so ai_play_decision stays blank — the scorer never used it.
+        // The top-k rerank runs strictly later, so its probe fields are absent too.
         String payload = ResearchDecisionLogger.buildPriorityDecisionJson(game, player, candidates, forgeChoice,
-                false, Double.NEGATIVE_INFINITY, 0, false, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, null);
+                false, Double.NEGATIVE_INFINITY, 0, false, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                null, null);
         HttpRequest request = HttpRequest.newBuilder(URI.create(SCORER_URL))
                 .timeout(Duration.ofMillis(TIMEOUT_MS))
                 .header("Content-Type", "application/json")

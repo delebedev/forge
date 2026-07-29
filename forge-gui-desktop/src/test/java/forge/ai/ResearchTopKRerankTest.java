@@ -14,6 +14,7 @@ import forge.game.GameRules;
 import forge.game.GameStage;
 import forge.game.GameType;
 import forge.game.Match;
+import forge.ai.simulation.GameStateEvaluator;
 import forge.game.card.Card;
 import forge.game.phase.PhaseType;
 import forge.game.player.Player;
@@ -89,8 +90,8 @@ public class ResearchTopKRerankTest extends AITest {
     public void emptyTailReturnsGreedyIdentity() {
         LethalBoard b = new LethalBoard(this, AiVariant.CANDIDATE, 2);
         b.divinationSa.setActivatingPlayer(b.p);
-        SpellAbility chosen = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa, new ArrayList<>(), 1);
-        AssertJUnit.assertSame(b.divinationSa, chosen);
+        ResearchTopKRerank.Result result = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa, new ArrayList<>(), 1);
+        AssertJUnit.assertSame(b.divinationSa, result.choice);
     }
 
     @Test
@@ -99,9 +100,9 @@ public class ResearchTopKRerankTest extends AITest {
         b.divinationSa.setActivatingPlayer(b.p);
         b.shockSa.setActivatingPlayer(b.p);
         b.shockSa.getTargets().add(b.opponent);
-        SpellAbility chosen = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
+        ResearchTopKRerank.Result result = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
                 Lists.newArrayList(b.shockSa), 1);
-        AssertJUnit.assertSame(b.shockSa, chosen);
+        AssertJUnit.assertSame(b.shockSa, result.choice);
         // Live game untouched by probing.
         AssertJUnit.assertEquals(2, b.opponent.getLife());
         AssertJUnit.assertTrue(b.game.getStack().isEmpty());
@@ -114,9 +115,9 @@ public class ResearchTopKRerankTest extends AITest {
         b.divinationSa.setActivatingPlayer(b.p);
         b.shockSa.setActivatingPlayer(b.p);
         b.shockSa.getTargets().add(b.opponent);
-        SpellAbility chosen = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
+        ResearchTopKRerank.Result result = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
                 Lists.newArrayList(b.shockSa), 1_000_000);
-        AssertJUnit.assertSame(b.divinationSa, chosen);
+        AssertJUnit.assertSame(b.divinationSa, result.choice);
         // The probed-but-unchosen alternative is restored to pristine state.
         AssertJUnit.assertEquals(0, b.shockSa.getTargets().size());
     }
@@ -143,9 +144,9 @@ public class ResearchTopKRerankTest extends AITest {
         murderSa.getTargets().add(bear);
         shockSa.getTargets().add(opponent);
 
-        SpellAbility chosen = ResearchTopKRerank.choose(game, p, murderSa,
+        ResearchTopKRerank.Result result = ResearchTopKRerank.choose(game, p, murderSa,
                 Lists.newArrayList(shockSa), 1);
-        AssertJUnit.assertSame(shockSa, chosen);
+        AssertJUnit.assertSame(shockSa, result.choice);
         // Greedy incumbent lost the rerank; its probe-time targets must not leak.
         AssertJUnit.assertEquals(0, murderSa.getTargets().size());
         AssertJUnit.assertTrue(bear.isInPlay());
@@ -161,9 +162,9 @@ public class ResearchTopKRerankTest extends AITest {
         Card ghost = createCard("Shock", b.p);
         SpellAbility ghostSa = ghost.getFirstSpellAbility();
         ghostSa.setActivatingPlayer(b.p);
-        SpellAbility chosen = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
+        ResearchTopKRerank.Result result = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
                 Lists.newArrayList(ghostSa), 1);
-        AssertJUnit.assertSame(b.divinationSa, chosen);
+        AssertJUnit.assertSame(b.divinationSa, result.choice);
     }
 
     @Test
@@ -213,5 +214,73 @@ public class ResearchTopKRerankTest extends AITest {
         AssertJUnit.assertNotNull(chosen);
         AssertJUnit.assertEquals(1, chosen.size());
         AssertJUnit.assertEquals("Divination", chosen.get(0).getHostCard().getName());
+    }
+
+    // --- probe telemetry (decision-log schema v5) ---
+
+    @Test
+    public void emptyTailReportsInactiveSoAKeptGreedyIsDistinguishable() {
+        LethalBoard b = new LethalBoard(this, AiVariant.CANDIDATE, 2);
+        b.divinationSa.setActivatingPlayer(b.p);
+        ResearchTopKRerank.Result result =
+                ResearchTopKRerank.choose(b.game, b.p, b.divinationSa, new ArrayList<>(), 1);
+        AssertJUnit.assertFalse(result.active);
+        AssertJUnit.assertEquals(0, result.kCollected);
+        AssertJUnit.assertEquals(0L, result.margin());
+    }
+
+    @Test
+    public void overrideReportsAPositiveMarginOverTheGreedyProbe() {
+        LethalBoard b = new LethalBoard(this, AiVariant.CANDIDATE, 2);
+        b.divinationSa.setActivatingPlayer(b.p);
+        b.shockSa.setActivatingPlayer(b.p);
+        b.shockSa.getTargets().add(b.opponent);
+        ResearchTopKRerank.Result result = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
+                Lists.newArrayList(b.shockSa), 1);
+        AssertJUnit.assertTrue(result.active);
+        AssertJUnit.assertTrue(result.overridden);
+        AssertJUnit.assertEquals(2, result.kCollected);
+        AssertJUnit.assertEquals(0, result.probeFailures);
+        // Lethal alternative: a WIN kind, so the margin is not an arithmetic
+        // difference of sentinels and must read zero.
+        AssertJUnit.assertEquals(GameStateEvaluator.Score.Kind.WIN, result.bestAltScore.kind);
+        AssertJUnit.assertEquals(0L, result.margin());
+    }
+
+    @Test
+    public void keptGreedyReportsTheMarginThatFailedTheThreshold() {
+        LethalBoard b = new LethalBoard(this, AiVariant.CANDIDATE, 20);
+        b.divinationSa.setActivatingPlayer(b.p);
+        b.shockSa.setActivatingPlayer(b.p);
+        b.shockSa.getTargets().add(b.opponent);
+        ResearchTopKRerank.Result result = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
+                Lists.newArrayList(b.shockSa), 1_000_000);
+        AssertJUnit.assertTrue(result.active);
+        AssertJUnit.assertFalse(result.overridden);
+        // Both probes scored finitely, so the shortfall is measurable: this is
+        // exactly the number min-delta tuning needs and the v4 log could not
+        // distinguish from a landslide.
+        AssertJUnit.assertEquals(GameStateEvaluator.Score.Kind.FINITE, result.greedyScore.kind);
+        AssertJUnit.assertEquals(GameStateEvaluator.Score.Kind.FINITE, result.bestAltScore.kind);
+        AssertJUnit.assertTrue(result.margin() < 1_000_000L);
+    }
+
+    @Test
+    public void simulationFailureIsCountedAndLeavesTheMarginUndefined() {
+        LethalBoard b = new LethalBoard(this, AiVariant.CANDIDATE, 2);
+        b.divinationSa.setActivatingPlayer(b.p);
+        Card ghost = createCard("Shock", b.p);
+        SpellAbility ghostSa = ghost.getFirstSpellAbility();
+        ghostSa.setActivatingPlayer(b.p);
+        ResearchTopKRerank.Result result = ResearchTopKRerank.choose(b.game, b.p, b.divinationSa,
+                Lists.newArrayList(ghostSa), 1);
+        // The probe throws rather than scoring: the seam still ran, so it must
+        // not read as "never attempted" — the kinds carry the unusability.
+        AssertJUnit.assertTrue(result.active);
+        AssertJUnit.assertFalse(result.overridden);
+        AssertJUnit.assertEquals(1, result.probeFailures);
+        AssertJUnit.assertEquals(GameStateEvaluator.Score.Kind.NONE, result.greedyScore.kind);
+        AssertJUnit.assertEquals(GameStateEvaluator.Score.Kind.NONE, result.bestAltScore.kind);
+        AssertJUnit.assertEquals(0L, result.margin());
     }
 }

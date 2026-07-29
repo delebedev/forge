@@ -44,20 +44,30 @@ final class ResearchTopKRerank {
                 && game.getStack().isEmpty();
     }
 
-    static SpellAbility choose(Game game, Player player, SpellAbility greedyChoice, List<SpellAbility> tail, int minDelta) {
+    static Result choose(Game game, Player player, SpellAbility greedyChoice, List<SpellAbility> tail, int minDelta) {
         if (greedyChoice == null || tail == null || tail.isEmpty()) {
-            return greedyChoice;
+            return Result.inactive(greedyChoice);
         }
+        int probeFailures = 0;
         try {
             GameStateEvaluator evaluator = new GameStateEvaluator();
             Score origScore = evaluator.getScoreForGameState(game, player);
             Score greedyScore = simulate(game, player, greedyChoice, origScore);
+            if (greedyScore.isSimFailure()) {
+                probeFailures++;
+            }
 
             SpellAbility bestTail = tail.get(0);
             Score bestTailScore = simulate(game, player, bestTail, origScore);
+            if (bestTailScore.isSimFailure()) {
+                probeFailures++;
+            }
             for (int i = 1; i < tail.size(); i++) {
                 SpellAbility candidate = tail.get(i);
                 Score candidateScore = simulate(game, player, candidate, origScore);
+                if (candidateScore.isSimFailure()) {
+                    probeFailures++;
+                }
                 if (candidateScore.value > bestTailScore.value) {
                     bestTail = candidate;
                     bestTailScore = candidateScore;
@@ -75,12 +85,15 @@ final class ResearchTopKRerank {
             if (overridden) {
                 restore(greedyChoice);
             }
-            return winner;
+            return Result.probed(winner, tail.size() + 1, overridden, greedyScore, bestTailScore, probeFailures);
         } catch (RuntimeException ex) {
             for (SpellAbility candidate : tail) {
                 restore(candidate);
             }
-            return greedyChoice;
+            // A probe that threw is a failed probe, not a seam that never ran:
+            // the comparison is unusable (NONE kinds) but the attempt is real,
+            // and a diagnostic read must be able to see it.
+            return Result.aborted(greedyChoice, tail.size() + 1, probeFailures + 1);
         }
     }
 
@@ -97,5 +110,57 @@ final class ResearchTopKRerank {
             s.resetTargets();
         }
         sa.setXManaCostPaid(null);
+    }
+
+    /**
+     * What the probe pass saw, for the decision log. {@code active} is false
+     * when the seam never simulated anything — no tail, or a probe threw — so
+     * a record distinguishes "did not run" from "ran and kept greedy".
+     */
+    static final class Result {
+        final SpellAbility choice;
+        final boolean active;
+        final int kCollected;
+        final boolean overridden;
+        final Score greedyScore;
+        final Score bestAltScore;
+        final int probeFailures;
+
+        private Result(SpellAbility choice, boolean active, int kCollected, boolean overridden,
+                Score greedyScore, Score bestAltScore, int probeFailures) {
+            this.choice = choice;
+            this.active = active;
+            this.kCollected = kCollected;
+            this.overridden = overridden;
+            this.greedyScore = greedyScore;
+            this.bestAltScore = bestAltScore;
+            this.probeFailures = probeFailures;
+        }
+
+        static Result inactive(SpellAbility choice) {
+            return new Result(choice, false, 0, false, Score.none(), Score.none(), 0);
+        }
+
+        static Result aborted(SpellAbility choice, int kCollected, int probeFailures) {
+            return new Result(choice, true, kCollected, false, Score.none(), Score.none(), probeFailures);
+        }
+
+        static Result probed(SpellAbility choice, int kCollected, boolean overridden,
+                Score greedyScore, Score bestAltScore, int probeFailures) {
+            return new Result(choice, true, kCollected, overridden, greedyScore, bestAltScore, probeFailures);
+        }
+
+        /**
+         * Best-alternative minus greedy, defined only when both probes scored
+         * finitely; zero otherwise. The exported kind fields, never this
+         * number, say whether a margin exists — Score treats kind as the source
+         * of truth and sentinels are never arithmetic operands.
+         */
+        long margin() {
+            if (!greedyScore.isFinite() || !bestAltScore.isFinite()) {
+                return 0L;
+            }
+            return Score.finiteDelta(bestAltScore, greedyScore);
+        }
     }
 }
