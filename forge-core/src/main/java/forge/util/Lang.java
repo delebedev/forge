@@ -29,7 +29,6 @@ public abstract class Lang {
     public static void createInstance(String localeID) {
         instance = initInstance(localeID);
 
-        // Create english instance for internal usage
         englishInstance = initInstance("en-US");
     }
 
@@ -42,6 +41,7 @@ public abstract class Lang {
             case "ja" -> new LangJapanese();
             case "ko" -> new LangKorean();
             case "fr" -> new LangFrench();
+            case "ru" -> new LangRussian();
             default -> new LangEnglish();
         });
     }

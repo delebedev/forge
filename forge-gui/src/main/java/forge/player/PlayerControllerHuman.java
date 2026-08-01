@@ -1584,7 +1584,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         if (showActionable) {
             if (paymentMode) {
                 for (ZoneType zone : ACTIONABLE_PAYMENT_ZONES) {
-                    for (Card c : player.getCardsIn(zone)) {
+                    for (Card c : player.getCardsIn(zone).threadSafeIterable()) {
                         if (cardHasPlayableManaAbility(c)) {
                             actionable.add(c.getView());
                         }
@@ -1613,7 +1613,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     private boolean cardHasPlayableManaAbility(Card c) {
         for (SpellAbility sa : c.getAllPossibleAbilities(player, true)) {
-            if (sa.isManaAbility() && sa.canPlay()) return true;
+            if (sa.isManaAbility()) return true;
         }
         return false;
     }
@@ -2434,7 +2434,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public boolean playTrigger(final Card host, final WrappedAbility wrapperAbility, final boolean isMandatory) {
-        return PlaySpellAbility.playSpellAbilityNoStack(this, player, wrapperAbility);
+        return PlaySpellAbility.playSpellAbilityNoStack(this, player, wrapperAbility, false);
     }
 
     @Override
