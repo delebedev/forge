@@ -3,6 +3,7 @@ package forge.player;
 import com.google.common.collect.*;
 import forge.LobbyPlayer;
 import forge.StaticData;
+import forge.ai.AIOption;
 import forge.ai.AvailableActions;
 import forge.game.GameState;
 import forge.ai.PlayerControllerAi;
@@ -1584,7 +1585,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         if (showActionable) {
             if (paymentMode) {
                 for (ZoneType zone : ACTIONABLE_PAYMENT_ZONES) {
-                    for (Card c : player.getCardsIn(zone)) {
+                    for (Card c : player.getCardsIn(zone).threadSafeIterable()) {
                         if (cardHasPlayableManaAbility(c)) {
                             actionable.add(c.getView());
                         }
@@ -1613,7 +1614,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     private boolean cardHasPlayableManaAbility(Card c) {
         for (SpellAbility sa : c.getAllPossibleAbilities(player, true)) {
-            if (sa.isManaAbility() && sa.canPlay()) return true;
+            if (sa.isManaAbility()) return true;
         }
         return false;
     }
@@ -2434,7 +2435,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public boolean playTrigger(final Card host, final WrappedAbility wrapperAbility, final boolean isMandatory) {
-        return PlaySpellAbility.playSpellAbilityNoStack(this, player, wrapperAbility);
+        return PlaySpellAbility.playSpellAbilityNoStack(this, player, wrapperAbility, false);
     }
 
     @Override
@@ -3737,7 +3738,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
         public void askAI(boolean useSimulation) {
             PlayerControllerAi ai = new PlayerControllerAi(player.getGame(), player, player.getOriginalLobbyPlayer());
-            ai.setUseSimulation(useSimulation);
+            ai.getAi().setUseSimulation(AIOption.USE_FULL_SIMULATION);
             player.runWithController(() -> {
                 List<SpellAbility> sas = ai.chooseSpellAbilityToPlay();
                 SpellAbility chosen = sas == null ? null : sas.get(0);
