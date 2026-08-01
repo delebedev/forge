@@ -1,6 +1,7 @@
 package forge.ai.simulation;
 
 
+import forge.ai.AIOption;
 import forge.ai.ComputerUtil;
 import forge.ai.PlayerControllerAi;
 import forge.ai.simulation.GameStateEvaluator.Score;
@@ -27,6 +28,20 @@ public class GameSimulator {
     private Score origScore;
     private SpellAbilityChoicesIterator interceptor;
 
+    // Verifying that the copied game scores identically to the original costs a second full
+    // evaluation (with debug string building enabled) for every simulator that gets constructed.
+    // That's worth paying for in development and in the test suite, where a game copy bug should
+    // fail loudly, but not in a shipped game where it only slows the AI down. Assertions are
+    // enabled by Maven Surefire, so the check still runs for every test.
+    private static final boolean CHECK_GAME_COPY_SCORE = areAssertionsEnabled();
+
+    @SuppressWarnings("AssertWithSideEffects")
+    private static boolean areAssertionsEnabled() {
+        boolean enabled = false;
+        assert enabled = true;
+        return enabled;
+    }
+
     public GameSimulator(SimulationController controller, Game origGame, Player origAiPlayer, PhaseType advanceToPhase) {
         this.controller = controller;
         copier = new GameCopier(origGame);
@@ -41,7 +56,7 @@ public class GameSimulator {
         debugPrint = false;
         origScore = eval.getScoreForGameState(origGame, origAiPlayer);
 
-        if (advanceToPhase == null) {
+        if (advanceToPhase == null && CHECK_GAME_COPY_SCORE) {
             ensureGameCopyScoreMatches(origGame, origAiPlayer);
         }
 
@@ -139,6 +154,14 @@ public class GameSimulator {
                 break;
             }
             result = saMatcher(GameActionUtil.getAlternativeCosts(cSa, aiPlayer, true), desc);
+        }
+
+        // this block is for OnePlaySafetyChecker
+        if (result != null && sa.hasParam("WithoutManaCost") && !result.hasParam("WithoutManaCost")) {
+            result = result.copyWithNoManaCost(aiPlayer);
+        }
+        if (result != null) {
+            result.setCastFromPlayEffect(sa.isCastFromPlayEffect());
         }
 
         return result;
@@ -263,7 +286,7 @@ public class GameSimulator {
     public static void resolveStack(final Game game, final Player opponent) {
         // TODO: This needs to set an AI controller for all opponents, in case of multiplayer.
         PlayerControllerAi sim = new PlayerControllerAi(game, opponent, opponent.getLobbyPlayer());
-        sim.setUseSimulation(true);
+        sim.getAi().setUseSimulation(AIOption.USE_FULL_SIMULATION);
         opponent.runWithController(() -> {
             final Set<Card> allAffectedCards = new HashSet<>();
             game.getAction().checkStateEffects(false, allAffectedCards);
