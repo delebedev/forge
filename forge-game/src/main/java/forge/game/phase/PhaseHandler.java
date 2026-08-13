@@ -97,6 +97,9 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
     private final transient Game game;
     private transient volatile Runnable mainGameLoopStartedHook;
     private transient volatile Runnable mainLoopStepCompletionHook;
+    private transient volatile Runnable attackersDeclaredCompletionHook;
+    private transient volatile Runnable blockersDeclaredCompletionHook;
+    private transient volatile Runnable combatEndedCompletionHook;
 
 
     public PhaseHandler(final Game game0) {
@@ -114,6 +117,21 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
      */
     public final void setMainLoopStepCompletionHook(final Runnable hook) {
         mainLoopStepCompletionHook = hook;
+    }
+
+    /** Installs a transient callback invoked after attacker declaration is complete. */
+    public final void setAttackersDeclaredCompletionHook(final Runnable hook) {
+        attackersDeclaredCompletionHook = hook;
+    }
+
+    /** Installs a transient callback invoked after blocker declaration is complete. */
+    public final void setBlockersDeclaredCompletionHook(final Runnable hook) {
+        blockersDeclaredCompletionHook = hook;
+    }
+
+    /** Installs a transient callback invoked after combat teardown and event dispatch. */
+    public final void setCombatEndedCompletionHook(final Runnable hook) {
+        combatEndedCompletionHook = hook;
     }
 
     public final PhaseType getPhase() {
@@ -318,19 +336,23 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                     break;
 
                 case COMBAT_DECLARE_ATTACKERS:
-                    combat.initConstraints();
-                    game.getStack().freezeStack(null);
-                    declareAttackersTurnBasedAction();
-                    game.getStack().unfreezeStack();
+                    runAttackersDeclaredMutation(() -> {
+                        combat.initConstraints();
+                        game.getStack().freezeStack(null);
+                        declareAttackersTurnBasedAction();
+                        game.getStack().unfreezeStack();
 
-                    givePriorityToPlayer = inCombat();
+                        givePriorityToPlayer = inCombat();
+                    });
                     break;
 
                 case COMBAT_DECLARE_BLOCKERS:
-                    combat.removeAbsentCombatants();
-                    game.getStack().freezeStack(null);
-                    declareBlockersTurnBasedAction();
-                    game.getStack().unfreezeStack();
+                    runBlockersDeclaredMutation(() -> {
+                        combat.removeAbsentCombatants();
+                        game.getStack().freezeStack(null);
+                        declareBlockersTurnBasedAction();
+                        game.getStack().unfreezeStack();
+                    });
                     break;
 
                 case COMBAT_FIRST_STRIKE_DAMAGE:
@@ -506,17 +528,19 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                 break;
 
             case COMBAT_END:
-                GameEventCombatEnded eventEndCombat = null;
-                if (inCombat()) {
-                    List<Card> attackers = combat.getAttackers();
-                    List<Card> blockers = combat.getAllBlockers();
-                    eventEndCombat = GameEventCombatEnded.fromCards(attackers, blockers);
-                }
-                endCombat();
+                runCombatEndedMutation(() -> {
+                    GameEventCombatEnded eventEndCombat = null;
+                    if (inCombat()) {
+                        List<Card> attackers = combat.getAttackers();
+                        List<Card> blockers = combat.getAllBlockers();
+                        eventEndCombat = GameEventCombatEnded.fromCards(attackers, blockers);
+                    }
+                    endCombat();
 
-                if (eventEndCombat != null) {
-                    game.fireEvent(eventEndCombat);
-                }
+                    if (eventEndCombat != null) {
+                        game.fireEvent(eventEndCombat);
+                    }
+                });
                 break;
 
             case CLEANUP:
@@ -1060,11 +1084,27 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
     }
 
     static void runCompletedStep(final Runnable body, final java.util.function.Supplier<Runnable> completionHookSupplier) {
+        runCompletedMutation(body, completionHookSupplier);
+    }
+
+    static void runCompletedMutation(final Runnable body, final java.util.function.Supplier<Runnable> completionHookSupplier) {
         body.run();
         final Runnable completionHook = completionHookSupplier.get();
         if (completionHook != null) {
             completionHook.run();
         }
+    }
+
+    void runAttackersDeclaredMutation(final Runnable body) {
+        runCompletedMutation(body, () -> attackersDeclaredCompletionHook);
+    }
+
+    void runBlockersDeclaredMutation(final Runnable body) {
+        runCompletedMutation(body, () -> blockersDeclaredCompletionHook);
+    }
+
+    void runCombatEndedMutation(final Runnable body) {
+        runCompletedMutation(body, () -> combatEndedCompletionHook);
     }
 
     private void runMainLoopStep() {
