@@ -95,10 +95,25 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
     private boolean givePriorityToPlayer = false;
 
     private final transient Game game;
+    private transient volatile Runnable mainGameLoopStartedHook;
+    private transient volatile Runnable mainLoopStepCompletionHook;
 
 
     public PhaseHandler(final Game game0) {
         game = game0;
+    }
+
+    /** Installs a transient callback invoked once immediately before the main loop. */
+    public final void setMainGameLoopStartedHook(final Runnable hook) {
+        mainGameLoopStartedHook = hook;
+    }
+
+    /**
+     * Installs a transient callback invoked after each completed main-loop mutation burst.
+     * Exceptions deliberately escape the game loop.
+     */
+    public final void setMainLoopStepCompletionHook(final Runnable hook) {
+        mainLoopStepCompletionHook = hook;
     }
 
     public final PhaseType getPhase() {
@@ -1030,6 +1045,10 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
     }
 
     public void mainGameLoop() {
+        final Runnable startHook = mainGameLoopStartedHook;
+        if (startHook != null) {
+            startHook.run();
+        }
         // MAIN GAME LOOP
         while (!game.isGameOver() && !(game.getAge() == GameStage.RestartedByKarn)) {
             mainLoopStep();
@@ -1037,6 +1056,18 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
     }
 
     public void mainLoopStep() {
+        runCompletedStep(this::runMainLoopStep, () -> mainLoopStepCompletionHook);
+    }
+
+    static void runCompletedStep(final Runnable body, final java.util.function.Supplier<Runnable> completionHookSupplier) {
+        body.run();
+        final Runnable completionHook = completionHookSupplier.get();
+        if (completionHook != null) {
+            completionHook.run();
+        }
+    }
+
+    private void runMainLoopStep() {
         if (givePriorityToPlayer) {
             if (DEBUG_PHASES) {
                 sw.start();
