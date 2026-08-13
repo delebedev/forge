@@ -22,7 +22,7 @@ accessors to mutable `Card` references require migration.
 - `GameEventFlipCoin` — enriched with flipper, source ability, and result
 
 ## Seams
-- `PhaseHandler` main-loop start and completed-step hooks — transient UI-neutral lifecycle callbacks
+- `PhaseHandler` main-loop and combat-mutation completion hooks — transient UI-neutral lifecycle callbacks
 - `SpellAbility`, `Trigger`, and `StaticAbility` definition IDs — stable identity retained across runtime copy chains; spell and source-trigger identity exposed through `SpellAbilityView`
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
 - `TriggerHandler.getDelayedTriggersSnapshot()` — read-only delayed trigger inspection
