@@ -32,7 +32,6 @@ import forge.error.ExceptionHandler;
 import forge.game.GameFormat;
 import forge.game.GameType;
 import forge.game.card.CardUtil;
-import forge.game.card.Card;
 import forge.game.spellability.Spell;
 import forge.gamemodes.gauntlet.GauntletData;
 import forge.gamemodes.limited.GauntletMini;
@@ -244,9 +243,6 @@ public final class FModel {
         }
 
         Spell.setPerformanceMode(getPreferences().getPrefBoolean(FPref.PERFORMANCE_MODE));
-        Card.setChangedTraitsFastpath(
-            getPreferences().getPrefBoolean(FPref.PERFORMANCE_TRAIT_FASTPATH)
-                || "true".equalsIgnoreCase(System.getenv("FORGE_PERF_TRAIT_FASTPATH")));
 
         if (progressBar != null) {
             FThreads.invokeInEdtLater(() -> progressBar.setDescription(Localizer.getInstance().getMessage("splash.loading.decks")));

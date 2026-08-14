@@ -81,8 +81,8 @@ public final class ResearchValueNet {
         double v = NET.forward(extractFeatures(simGame, simPlayer));
         int shift = (int) Math.round((v - 0.5) * 2 * NET_SCALE);
         int blended = (int) Math.round(score.value + LAMBDA * shift);
-        int blendedSummonSick = (int) Math.round(score.summonSickValue + LAMBDA * shift);
-        return new Score(blended, blendedSummonSick);
+        int blendedAvailable = (int) Math.round(score.availableValue + LAMBDA * shift);
+        return new Score(blended, blendedAvailable);
     }
 
     private static boolean isCandidateSeat(Player player) {

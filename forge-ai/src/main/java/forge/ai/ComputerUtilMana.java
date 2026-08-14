@@ -5,6 +5,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import forge.ai.AiCardMemory.MemorySet;
 import forge.ai.ability.AnimateAi;
 import forge.card.ColorSet;
@@ -93,11 +94,11 @@ public class ComputerUtilMana {
     }
 
     public static CardCollection getManaSourcesToPayCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean effect) {
-        final List<Mana> payment = payManaCost(cost, sa, ai, true, true, effect);
+        final List<SpellAbility> payment = payManaCost(cost, sa, ai, true, true, effect);
         if (payment == null) {
             return null;
         }
-        return new CardCollection(payment.stream().map(Mana::getSourceCard).filter(Objects::nonNull));
+        return new CardCollection(payment.stream().map(s -> s.getHostCard()));
     }
 
     private static Integer scoreManaProducingCard(final Card card) {
@@ -142,13 +143,8 @@ public class ComputerUtilMana {
             }
         }
 
-        // lower value means better choice; tie-break on card id so equal-scoring
-        // sources get a total, launch-stable order. Without the id key the sort is
-        // stable on score alone, so ties keep orderedCards' insertion order — which
-        // is the iteration order of the ManaCostShard-keyed sourcesForShards
-        // (a HashMap-backed multimap, iterated in JVM identity-hashcode order) and
-        // therefore varies per JVM launch.
-        orderedCards.sort(Comparator.<Card>comparingInt(manaCardMap::get).thenComparingInt(Card::getId));
+        // lower value means better choice
+        orderedCards.sort(Comparator.comparingInt(manaCardMap::get));
 
         if (DEBUG_MANA_PAYMENT) {
             System.out.print("Ordered Cards: " + orderedCards.size());
@@ -598,7 +594,7 @@ public class ComputerUtilMana {
     }
 
     // returns null if unpayable
-    private static List<Mana> payManaCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean test, boolean checkPlayable, boolean effect) {
+    private static List<SpellAbility> payManaCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean test, boolean checkPlayable, boolean effect) {
         if ((sa.isOffering() && sa.getSacrificedAsOffering() == null) || (sa.isEmerge() && sa.getSacrificedAsEmerge() == null)) {
             // nothing was chosen
             return null;
@@ -633,7 +629,7 @@ public class ComputerUtilMana {
         if (manapool.payManaCostFromPool(cost, sa, test, manaSpentToPay)) {
             CostPayment.handleOfferings(sa, test, cost.isPaid());
             // paid all from floating mana
-            return manaSpentToPay;
+            return paymentList;
         }
 
         int phyLifeToPay = 2;
@@ -780,14 +776,13 @@ public class ComputerUtilMana {
                 // subtract mana from mana pool
                 manapool.payManaFromAbility(sa, cost, saPayment);
 
-                // need to consider if another use is now prevented
-                if (!cost.isPaid() && saPayment.isActivatedAbility() && !saPayment.getRestrictions().canPlay(saPayment.getHostCard(), saPayment)) {
-                    sourcesForShards.values().removeIf(s -> s == saPayment);
-                }
-
                 if (hasConverge) {
                     // hack to prevent converge re-using sources
                     sourcesForShards.values().removeIf(CardTraitPredicates.isHostCard(saPayment.getHostCard()));
+                } else if (!cost.isPaid() && saPayment.isActivatedAbility() && !saPayment.canPlay()) {
+                    // need to consider if another use is now prevented
+                    sourcesForShards.values().removeIf(s -> s == saPayment ||
+                            (s.getHostCard().equals(saPayment.getHostCard()) && !s.canPlay()));
                 }
             }
         }
@@ -817,7 +812,7 @@ public class ComputerUtilMana {
             resetPayment(paymentList);
         }
 
-        return manaSpentToPay;
+        return paymentList;
     }
 
     private static void resetPayment(List<SpellAbility> payments) {
@@ -1085,13 +1080,8 @@ public class ComputerUtilMana {
 
     private static ManaCostShard getNextShardToPay(ManaCostBeingPaid cost, Multimap<ManaCostShard, SpellAbility> sourcesForShards) {
         List<ManaCostShard> shardsToPay = Lists.newArrayList(cost.getDistinctShards());
-        // optimize order so that the shards with less available sources are considered first;
-        // tie-break on enum ordinal (declaration order = fewest ways to pay first) so equal-
-        // source-count shards get a total, launch-stable order. getDistinctShards() is a
-        // HashMap keySet iterated in JVM identity-hashcode order, so without the ordinal key
-        // the tie order varies per JVM launch and picks a different source to tap.
-        shardsToPay.sort(Comparator.comparingInt((ManaCostShard shard) -> sourcesForShards.get(shard).size())
-                .thenComparingInt(ManaCostShard::ordinal));
+        // optimize order so that the shards with less available sources are considered first
+        shardsToPay.sort(Comparator.comparingInt(shard -> sourcesForShards.get(shard).size()));
         // mind the priorities
         // * Pay mono-colored first
         // * Pay 2/C with matching colors
@@ -1157,7 +1147,12 @@ public class ComputerUtilMana {
      */
     private static ListMultimap<ManaCostShard, SpellAbility> groupAndOrderToPayShards(final Player ai, final ListMultimap<Integer, SpellAbility> manaAbilityMap,
             final ManaCostBeingPaid cost) {
-        ListMultimap<ManaCostShard, SpellAbility> res = ArrayListMultimap.create();
+        // EnumMap-backed so keySet()/entries() iterate in ManaCostShard declaration order rather
+        // than the enum's identity-hash order (which varies per JVM run). sortManaAbilities and
+        // getNextShardToPay walk this keySet, so a nondeterministic order there made the AI's
+        // choice of which source to tap - and thus its whole line of play - nondeterministic.
+        ListMultimap<ManaCostShard, SpellAbility> res =
+                MultimapBuilder.enumKeys(ManaCostShard.class).arrayListValues().build();
 
         if ((cost.getGenericManaAmount() > 0 || cost.hasAnyKind(ManaAtom.OR_2_GENERIC)) && manaAbilityMap.containsKey(ManaAtom.GENERIC)) {
             res.putAll(ManaCostShard.GENERIC, manaAbilityMap.get(ManaAtom.GENERIC));
@@ -1351,6 +1346,10 @@ public class ComputerUtilMana {
         });
 
         final CardCollection sortedManaSources = new CardCollection();
+        if (manaSources.isEmpty()) {
+            return sortedManaSources;
+        }
+
         final CardCollection otherManaSources = new CardCollection();
         final CardCollection useLastManaSources = new CardCollection();
         final CardCollection colorlessManaSources = new CardCollection();
@@ -1367,6 +1366,8 @@ public class ComputerUtilMana {
         // 2. Search for mana sources that have a certain number of abilities
         // 3. Use lands that produce any color many
         // 4. all other sources (creature, costs, drawback, etc.)
+
+        final boolean canDieToTapDamage = ai.canLoseLife() && !ai.cantLoseForZeroOrLessLife();
         for (Card card : manaSources) {
             // exclude creature sources that will tap as a part of an attack declaration
             if (card.isCreature()) {
@@ -1378,7 +1379,7 @@ public class ComputerUtilMana {
                 }
             }
             // exclude cards that will deal lethal damage when tapped
-            if (ai.canLoseLife() && !ai.cantLoseForZeroOrLessLife()) {
+            if (canDieToTapDamage) {
                 boolean dealsLethalOnTap = false;
                 for (Trigger t : card.getTriggers()) {
                     if (t.getMode() == TriggerType.Taps || t.getMode() == TriggerType.TapsForMana) {

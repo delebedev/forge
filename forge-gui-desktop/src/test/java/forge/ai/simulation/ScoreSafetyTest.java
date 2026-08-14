@@ -160,11 +160,11 @@ public class ScoreSafetyTest {
     // --- addDelta: cached-effect shortcut arithmetic ---
 
     @Test
-    public void addDeltaAppliesToValueAndPreservesSummonSick() {
+    public void addDeltaAppliesToBothValues() {
         Score base = new Score(100, 80);
         Score result = base.addDelta(-30);
         assertEquals(70, result.value);
-        assertEquals(80, result.summonSickValue);
+        assertEquals(50, result.availableValue);
         assertTrue(result.isFinite());
     }
 

@@ -180,9 +180,11 @@ Now `Score` carries a `Kind` (`FINITE`/`WIN`/`LOSS`/`SIM_FAILURE`/`NONE`) with
 factories, and all threshold/delta math goes through kind-aware APIs:
 `meetsThreshold` (long arithmetic, failure never beats and is never beatable),
 saturating `addDelta`, and `finiteDelta` plus effect-cache suppression for
-non-finite scores. `.value` keeps the legacy sentinel ordinals so untouched
-comparison sites are behavior-identical; `equals` is kind-aware. Contract in
-`ScoreSafetyTest` (23 tests); `SpellAbilityPickerSimulationTest` (135) green.
+non-finite scores. Upstream's terminal turn discount remains in `.value`, while
+the kind—not an integer sentinel—identifies wins and losses; `availableValue`
+also preserves upstream's phased/summoning-sick distinction. `equals` is
+kind-aware. Contract in `ScoreSafetyTest`; upstream terminal/evaluator tests
+remain green.
 
 - `forge-ai/src/main/java/forge/ai/simulation/GameStateEvaluator.java`
 - `forge-ai/src/main/java/forge/ai/simulation/GameSimulator.java`
@@ -469,43 +471,6 @@ decision tree. Per-knob reasoning is commented inline in the profile file.
 - `forge-ai/src/main/java/forge/ai/AiController.java`
 - `forge-gui/res/ai/ChanceFree.ai` (new)
 
-## fix(ai): total-order mana tie-breaks — deterministic tap order across JVM launches
-
-Two mana-payment tie-breaks in `ComputerUtilMana` were resolved only up to a
-stable sort's *input* order, and that input order is the iteration order of
-`ManaCostShard`-keyed HashMaps. `ManaCostShard` is an enum, so its keys iterate
-in JVM identity-hashcode order, which varies per JVM launch (HotSpot's default
-`hashCode=5` is a per-launch xorshift). Equal-scoring mana sources (e.g. two
-equal dual lands) therefore tapped in a per-launch-varying order: a two-land tap swap when
-casting a board wipe cascades into a scry (top vs bottom) and a spell-choice
-flip that changes the game outcome. This set the real cross-invocation floor
-for paired comparison; pinned by a per-decision mana-order
-diff across two JVM launches (identical board, identical card ids, only the
-insertion order differed).
-
-Both sites get a total, launch-stable secondary key:
-- `sortManaAbilities`: `orderedCards.sort` was keyed on the score alone, so ties
-  kept insertion order (the `sourcesForShards.keySet()` iteration). Added a
-  card-id secondary key (`Card::getId`).
-- `getNextShardToPay`: `shardsToPay.sort` was keyed on source-count alone, so
-  ties kept `getDistinctShards()` (a HashMap keySet) order. Added an enum-ordinal
-  secondary key — the enum's declaration order is deliberately "fewest ways to
-  pay first," so this is a sensible as well as stable order.
-
-Card ids and enum ordinals are deterministic within a game (verified: the card
-ids at the divergent decision are identical across launches), so both tie-breaks
-are now launch-stable. This is a deliberate, minimal engine fix (not
-instrumentation): it deterministically changes which of two equal sources taps,
-so some game outcomes change vs the nondeterministic baseline — expected, since
-the goal is determinism, not preservation of the old (coin-flip) outcomes. The
-crucible puzzle corpus was re-checked against this jar; expectations unchanged.
-
-Verified by re-measurement: with the fix, K JVM launches of the fragile
-coordinate (mono-blue-winds vs esper-control, seed 13000) collapse to one
-trajectory (result-flip floor 0), where the clean pin split ~2 trajectories.
-
-- `forge-ai/src/main/java/forge/ai/ComputerUtilMana.java`
-
 ## feat(ai): log per-candidate AiPlayDecision (evaluated prefix) — schema_version 2
 
 Threads each candidate's veto-gauntlet `AiPlayDecision` into
@@ -538,28 +503,6 @@ tests green.
 - `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
 - `forge-ai/src/main/java/forge/ai/ResearchNeuralReranker.java`
 
-## perf(game): opt-in getChangedCardTraitsList empty-case fast-path
-
-A perf change (not instrumentation), carried opt-in and upstream-first, using
-Forge's own flag shape: a new `FPref.PERFORMANCE_TRAIT_FASTPATH` ("false") cached
-into a `Card` static at `FModel.initialize` — the same mechanism as
-`PERFORMANCE_MODE`. Enabled via that FPref (canonical/upstream) or, for headless
-harness toggling without the prefs file, the `FORGE_PERF_TRAIT_FASTPATH=true`
-environment override (matching the fork's `FORGE_*` convention). When enabled and
-both changed-trait tables are empty (the common case),
-`Card.getChangedCardTraitsList` skips the `Iterables.concat` + Guava
-`TreeBasedTable` cell iteration and returns only the Layer 4 land change.
-
-Default off is byte-identical to upstream (concat of two empties + `[x]` == `[x]`);
-verified flag-off preserves the fragile-coordinate transcript and the era-2019
-pool. Flag-on measured ~+25% engine at low load, outcome-neutral across the pool
-— but validate per-pool at low load before treating flag-on runs as evidence.
-Off by default, so default behavior and all recorded runs are unaffected.
-
-- `forge-game/src/main/java/forge/game/card/Card.java`
-- `forge-gui/src/main/java/forge/localinstance/properties/ForgePreferences.java`
-- `forge-gui/src/main/java/forge/model/FModel.java`
-
 ## fix(ai): deterministic mustAttack — run per-attacker checks synchronously
 
 `AiAttackController.declareAttackers` ran each attacker's forced/mustAttack
@@ -576,25 +519,6 @@ probe that yields 2 distinct decision transcripts on the pinned jar collapses to
 1 with this change.
 
 - `forge-ai/src/main/java/forge/ai/AiAttackController.java`
-
-## fix(game): deterministic simultaneous-trigger order — LinkedHashMap in TriggerWaiting
-
-When several triggered abilities fire from one event, the game stacks them in an
-order it must reproduce. `TriggerWaiting.setTriggers` collected the (ordered)
-triggers into `Maps.newHashMap()`; `getTriggers()` returns `keySet()`, which
-`TriggerHandler.runWaitingTrigger` iterates to put them on the stack. `Trigger`
-uses identity hashCode, so that iteration order varies per JVM launch —
-independent of the RNG seed — making the on-stack order of simultaneous
-same-controller triggers (and thus the game outcome) non-reproducible on ~8% of
-isolated launches on the era-2019 pool. Fix: `Maps.newLinkedHashMap()`, which
-preserves the collected sequence; the downstream APNAP + AI ordering
-(`orderPlaySa`) is unchanged. Confirmed with `-XX:hashCode=2` (constant identity
-hashcode collapses the divergence) and an event-log diff (Cavalier of Night death
-→ Midnight Reaper triggers stacked in a different order). Verified: isolated ×16
-and a 6-concurrent load probe both collapse from multiple distinct decision
-transcripts to one.
-
-- `forge-game/src/main/java/forge/game/trigger/TriggerWaiting.java`
 
 ## feat(ai): batch treatment-assignment and exposure telemetry
 

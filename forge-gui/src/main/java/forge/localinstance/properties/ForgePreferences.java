@@ -67,6 +67,7 @@ public class ForgePreferences extends AbstractPreferences<ForgePreferences.FPref
         UI_RANDOM_FOIL ("false"),
         UI_AVATARS ("0,1"),
         UI_SLEEVES ("0,1"),
+        UI_SLEEVE_ART_LIBRARY (""),
         UI_SHOW_CARD_OVERLAYS ("true"),
         UI_OVERLAY_CARD_NAME ("true"),
         UI_OVERLAY_CARD_POWER ("true"),
@@ -203,7 +204,6 @@ public class ForgePreferences extends AbstractPreferences<ForgePreferences.FPref
 
         ENFORCE_DECK_LEGALITY ("true"),
         PERFORMANCE_MODE ("false"),
-        PERFORMANCE_TRAIT_FASTPATH ("false"),
         FILTERED_HANDS ("false"),
         MULLIGAN_RULE(MulliganDefs.getDefaultRule().name()),
 
@@ -345,7 +345,9 @@ public class ForgePreferences extends AbstractPreferences<ForgePreferences.FPref
         SHORTCUT_PANELTABS("17 84"),
         SHORTCUT_CARDOVERLAYS("17 79"),
 
-        LAST_IMPORTED_CUBE_ID("");
+        LAST_IMPORTED_CUBE_ID(""),
+
+        ADV_DISPLAY_PRICE_IN_REWARD_SCREEN("true");
 
         private final String strDefaultVal;
 

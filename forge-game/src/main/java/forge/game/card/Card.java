@@ -1846,6 +1846,15 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
             if (!Keyword.smartValueOf(counterType.toString().split(":")[0]).isMultipleRedundant()) {
                 result.putParam("KeywordMultiplier", String.valueOf(getCounters(counterType)));
             }
+        } else if (counterType.is(CounterEnumType.HONE)) {
+            // Each hone counter on an Equipment grants +1/+0 to the equipped creature.
+            // The amount reads the live counter count, so it stays correct as counters change.
+            result = counterTypeKeywordStatic.computeIfAbsent(counterType, ct -> {
+                StaticAbility stAb = StaticAbility.create("Mode$ Continuous | EffectZone$ Battlefield | Affected$ Creature.EquippedBy | AddPower$ HoneCounters"
+                        + " | Description$ Equipped creature gets +1/+0 for each hone counter on this Equipment.", this, currentState, true);
+                stAb.setSVar("HoneCounters", "Count$CardCounters.HONE");
+                return stAb;
+            });
         } else {
             return false;
         }
@@ -3327,12 +3336,14 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
 
     public final boolean canProduceColorMana(final Set<String> colors) {
         for (final SpellAbility mana : getManaAbilities()) {
+            if (mana.getApi() == ApiType.ManaReflected) {
+                if (!Collections.disjoint(CardUtil.getReflectableManaColors(mana), colors)) {
+                    return true;
+                }
+                continue;
+            }
             for (String s : colors) {
-                if (mana.getApi() == ApiType.ManaReflected) {
-                    if (CardUtil.getReflectableManaColors(mana).contains(s)) {
-                        return true;
-                    }
-                } else if (mana.canProduce(MagicColor.toShortString(s))) {
+                if (mana.canProduce(MagicColor.toShortString(s))) {
                     return true;
                 }
             }
@@ -3407,6 +3418,9 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     }
 
     public boolean hasRemoveIntrinsic() {
+        if (changedCardTypes.isEmpty()) {
+            return false;
+        }
         // only Layer 4 are affected, and it's never intrinsic
         return changedCardTypes.values().stream().anyMatch(ICardChangedType::isRemoveLandTypes);
     }
@@ -4116,11 +4130,14 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         return changedCardKeywordsByText;
     }
 
-    public Iterable<IKeywordsChange> getChangedCardKeywordsList(final CardState state) {
+    public Iterable<? extends IKeywordsChange> getChangedCardKeywordsList(final CardState state) {
+        if (changedCardKeywordsByText.isEmpty() && changedCardKeywordsByWord.isEmpty() && changedCardKeywords.isEmpty()) {
+            return state.getLandTraitChanges();
+        }
         return Iterables.concat(
             changedCardKeywordsByText.values(), // Layer 3
             ImmutableList.of(changedCardKeywordsByWord), // Layer 3
-            ImmutableList.of(state.getLandTraitChanges()), // Layer 4
+            state.getLandTraitChanges(), // Layer 4
             changedCardKeywords.values() // Layer 6
         );
     }
@@ -4949,23 +4966,13 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         return changedCardTraitsByText.remove(timestamp, staticId) != null;
     }
 
-    // Opt-in perf fast-path, gated on FPref.PERFORMANCE_TRAIT_FASTPATH and cached here at
-    // FModel.initialize (same shape as PERFORMANCE_MODE). Default off is byte-identical to
-    // the concat below: with both trait tables empty the concat yields only the Layer 4
-    // land change, and so does ImmutableList.of.
-    private static boolean changedTraitsFastpath = false;
-
-    public static void setChangedTraitsFastpath(final boolean value) {
-        changedTraitsFastpath = value;
-    }
-
-    public Iterable<ICardTraitChanges> getChangedCardTraitsList(CardState state) {
-        if (changedTraitsFastpath && changedCardTraitsByText.isEmpty() && changedCardTraits.isEmpty()) {
-            return ImmutableList.of(state.getLandTraitChanges());
+    public Iterable<? extends ICardTraitChanges> getChangedCardTraitsList(CardState state) {
+        if (changedCardTraitsByText.isEmpty() && changedCardTraits.isEmpty()) {
+            return state.getLandTraitChanges();
         }
         return Iterables.<ICardTraitChanges>concat(
             changedCardTraitsByText.values(), // Layer 3
-            ImmutableList.of(state.getLandTraitChanges()), // Layer 4
+            state.getLandTraitChanges(), // Layer 4
             changedCardTraits.values() // Layer 6
         );
     }
@@ -7415,7 +7422,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         return getAllPossibleAbilities(player, removeUnplayable, null);
     }
     public List<SpellAbility> getAllPossibleAbilities(final Player player, final boolean removeUnplayable, final Multimap<SpellAbility, SpellAbility> unhiddenAltCost) {
-        CardState oState = getState(CardStateName.Original);
+        CardState oState = getOriginalState(CardStateName.Original);
         final List<SpellAbility> abilities = Lists.newArrayList();
         for (SpellAbility sa : getSpellAbilities()) {
             if (sa.isAdventure() && isOnAdventure()) {

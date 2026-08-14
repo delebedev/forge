@@ -38,10 +38,7 @@ public class TriggerWaiting {
     }
 
     public void setTriggers(final List<Trigger> trigs) {
-        // Determinism: preserve the collected (ordered) trigger sequence. A HashMap
-        // keySet() here iterates in identity-hashcode order, which varies per JVM
-        // launch and made the on-stack order of simultaneous same-controller triggers
-        // (and thus the game outcome) non-reproducible.
+        // keySet() drives simultaneous-trigger stacking, so preserve collection order
         this.triggers = Maps.newLinkedHashMap();
         for (Trigger t : trigs) {
             triggers.put(t, t.getHostCard().getController());
