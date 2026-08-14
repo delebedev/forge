@@ -1198,6 +1198,9 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     public CardCollectionView chooseCardsToDiscardFrom(final Player p, final SpellAbility sa,
                                                        final CardCollection valid, final int min, final int max,
                                                        final CardCollectionView visibleToChooser) {
+        if (min == 0 && max == 0) {
+            return CardCollection.EMPTY;
+        }
         boolean optional = min == 0;
 
         if (p != player) {
