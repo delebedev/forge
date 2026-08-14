@@ -25,6 +25,7 @@ accessors to mutable `Card` references require migration.
 - `PhaseHandler` main-loop and combat-mutation completion hooks — transient UI-neutral lifecycle callbacks
 - `SpellAbility`, `Trigger`, and `StaticAbility` definition IDs — stable identity retained across runtime copy chains; spell and source-trigger identity exposed through `SpellAbilityView`
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
+- `DiscardEffect` — routes revealed empty valid-card choices through the controller callback
 - `TriggerHandler.getDelayedTriggersSnapshot()` — read-only delayed trigger inspection
 - `TargetSelectionResult` — result type for the seam
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
