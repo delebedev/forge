@@ -47,13 +47,13 @@ with open(metadata_filename, "r") as metadata_file:
         # Skip empty lines
         if not line.strip():
             continue
-
+            
         try:
             object = json.loads(line.strip())
         except json.JSONDecodeError:
             print(f"Warning: Could not parse line: {line[:100]}...")
             continue
-
+            
         obj_type = object["object"]
         if obj_type == "card":
             card_name = object["name"]
