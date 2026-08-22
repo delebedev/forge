@@ -50,7 +50,10 @@ public class AmassEffect extends TokenEffectBase {
     public void resolve(SpellAbility sa) {
         final Card source = sa.getHostCard();
         final Game game = source.getGame();
-        final Player amasser = getTargetPlayers(sa).get(0);
+        final Player amasser = getTargetPlayers(sa).getFirst();
+        if (amasser == null) {
+            return;
+        }
         final int amount = AbilityUtils.calculateAmount(source, sa.getParamOrDefault("Num", "1"), sa);
         final String type = sa.getParam("Type");
 
@@ -62,7 +65,9 @@ public class AmassEffect extends TokenEffectBase {
             StringBuilder sb = new StringBuilder("b_0_0_");
             sb.append(sa.getOriginalParam("Type").toLowerCase()).append("_army");
 
-            final Card result = TokenInfo.getProtoType(sb.toString(), sa, amasser, false);
+            Card result = TokenInfo.getProtoType(sb.toString(), sa, amasser, false);
+            if (result == null) //Custom Amass type.
+                result = TokenInfo.getProtoType("b_0_0_army", sa, amasser, false);
             // need to alter the token to add the Type from the Parameter
             result.setCreatureTypes(Lists.newArrayList(type, "Army"));
             result.setName(type + " Army Token");
