@@ -20,7 +20,7 @@ public record GameEventSpellAbilityCast(
 ) implements GameEvent {
 
     /** Mana globe used to pay for this spell. */
-    public record ManaPaymentInfo(int sourceCardId, byte color) implements Serializable {}
+    public record ManaPaymentInfo(int sourceCardId, byte color, int abilityDefinitionId) implements Serializable {}
 
     public GameEventSpellAbilityCast(
             SpellAbilityView sa,
@@ -41,7 +41,12 @@ public record GameEventSpellAbilityCast(
         for (var mana : sa.getPayingMana()) {
             var source = mana.getSourceCard();
             if (source != null) {
-                payments.add(new ManaPaymentInfo(source.getId(), mana.getColor()));
+                var manaAbility = mana.getManaAbility();
+                var sourceAbility = manaAbility == null ? null : manaAbility.getSourceSA();
+                payments.add(new ManaPaymentInfo(
+                    source.getId(),
+                    mana.getColor(),
+                    sourceAbility == null ? 0 : sourceAbility.getDefinitionId()));
             }
         }
         return List.copyOf(payments);
