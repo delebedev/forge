@@ -39,3 +39,4 @@ accessors to mutable `Card` references require migration.
 
 ## Fixes
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
+- `InvestigateEffect` — token-created events contain only tokens from the current player iteration

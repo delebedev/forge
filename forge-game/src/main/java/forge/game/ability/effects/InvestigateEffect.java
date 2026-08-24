@@ -52,6 +52,7 @@ public class InvestigateEffect extends TokenEffectBase {
                     continue;
                 }
 
+                final int tokensBefore = triggerList.getCreatedTokens().size();
                 makeTokenTable(makeTokenTableInternal(p, "c_a_clue_draw", 1, sa), false, triggerList, combatChanged, sa);
 
                 p.addInvestigatedThisTurn();
@@ -60,7 +61,9 @@ public class InvestigateEffect extends TokenEffectBase {
                     card.addRemembered(p);
                 }
 
-                game.fireEvent(new GameEventTokenCreated(List.copyOf(triggerList.getCreatedTokens())));
+                final List<Card> newTokens = List.copyOf(triggerList.getCreatedTokens().subList(
+                        tokensBefore, triggerList.getCreatedTokens().size()));
+                game.fireEvent(new GameEventTokenCreated(newTokens));
             }
 
             triggerList.triggerChangesZoneAll(game, sa);
