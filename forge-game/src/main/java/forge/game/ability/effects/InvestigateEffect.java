@@ -13,6 +13,8 @@ import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.util.Lang;
 
+import java.util.List;
+
 public class InvestigateEffect extends TokenEffectBase {
 
     @Override
@@ -58,7 +60,7 @@ public class InvestigateEffect extends TokenEffectBase {
                     card.addRemembered(p);
                 }
 
-                game.fireEvent(new GameEventTokenCreated());
+                game.fireEvent(new GameEventTokenCreated(List.copyOf(triggerList.getCreatedTokens())));
             }
 
             triggerList.triggerChangesZoneAll(game, sa);
