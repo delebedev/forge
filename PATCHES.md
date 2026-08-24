@@ -9,7 +9,7 @@ Changes on top of upstream Card-Forge/forge. Update this file when adding or rem
 - `GameEventCardDestroyed` — immutable affected/source views plus stable source ability context
 - `GameEventCardDamaged` and `GameEventPlayerDamaged` — enriched with structural damage source kind (combat, spell/ability, or fight)
 - `GameEventCardSacrificed` — enriched with stable source ability and cost-payment context
-- `GameEventSpellAbilityCast` — enriched with mana payment info and stable source ability context
+- `GameEventSpellAbilityCast` — enriched with mana payment source, color, producing ability definition, and stable source ability context
 - `GameEventSpellResolved` — enriched with stable source ability context
 
 Legacy constructors remain for enriched event records. `GameEventCardDestroyed.card()` and
