@@ -612,6 +612,7 @@ feature vectors, with stock behavior bit-identical whenever the env is unset.
 - `forge-ai/src/main/java/forge/ai/PlayerControllerAi.java`
 - `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
 - `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
+- `forge-ai/src/main/java/forge/ai/simulation/GameStateEvaluator.java`
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 - `forge-gui-desktop/src/test/java/forge/ai/ResearchCreatureWeightsTest.java` (new)
 - `forge-gui-desktop/src/test/java/forge/ai/ResearchEvalWeightsAiTest.java` (new)

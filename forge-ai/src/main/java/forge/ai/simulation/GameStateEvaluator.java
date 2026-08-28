@@ -2,6 +2,7 @@ package forge.ai.simulation;
 
 import forge.ai.AiDeckStatistics;
 import forge.ai.CreatureEvaluator;
+import forge.ai.ResearchCreatureWeights;
 import forge.card.mana.ManaAtom;
 import forge.game.Game;
 import forge.game.card.Card;
@@ -323,10 +324,12 @@ public class GameStateEvaluator {
     private class SimulationCreatureEvaluator extends CreatureEvaluator {
         @Override
         protected int addValue(int value, String text) {
-            if (debugging && value != 0) {
-                GameSimulator.debugPrint(value + " via " + text);
+            ResearchCreatureWeights weights = ResearchCreatureWeights.current();
+            int adjusted = weights == null ? value : (int) Math.round(value * weights.multiplier(text));
+            if (debugging && adjusted != 0) {
+                GameSimulator.debugPrint(adjusted + " via " + text);
             }
-            return super.addValue(value, text);
+            return super.addValue(adjusted, text);
         }
     }
 

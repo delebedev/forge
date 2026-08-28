@@ -150,7 +150,7 @@ public final class ResearchCreatureWeights {
         }
     }
 
-    static ResearchCreatureWeights current() {
+    public static ResearchCreatureWeights current() {
         return CONTEXT.get();
     }
 }

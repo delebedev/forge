@@ -3,6 +3,7 @@ package forge.ai;
 import forge.game.Game;
 import forge.game.card.Card;
 import forge.game.player.Player;
+import forge.ai.simulation.GameStateEvaluator;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -88,5 +89,33 @@ public class ResearchEvalWeightsAiTest extends AITest {
 
         Assert.assertNotNull(weightedController.getAi().getEvalWeights());
         Assert.assertNull(stockController.getAi().getEvalWeights());
+    }
+
+    @Test
+    public void fittedWeightsChangeSimulationFutureRankingWhileIdentityIsInert() {
+        ResearchCreatureWeights fitted = ResearchCreatureWeights.parse(List.of(
+                "cmc = 0.0", "flying = 3.4841", "non-token = 0.0",
+                "power = 1.035", "toughness = 2.5316", "vigilance = 3.0927"), "evalfit-v1");
+        ResearchCreatureWeights identity = ResearchCreatureWeights.parse(List.of(), "identity");
+
+        int stockAngel = simulationScore("Serra Angel", null);
+        int stockBrontodon = simulationScore("Ancient Brontodon", null);
+        Assert.assertTrue(stockBrontodon > stockAngel);
+        Assert.assertEquals(simulationScore("Serra Angel", identity), stockAngel);
+        Assert.assertEquals(simulationScore("Ancient Brontodon", identity), stockBrontodon);
+        Assert.assertTrue(simulationScore("Serra Angel", fitted) > simulationScore("Ancient Brontodon", fitted));
+    }
+
+    private int simulationScore(String cardName, ResearchCreatureWeights weights) {
+        Game game = initAndCreateGame();
+        Player ai = game.getPlayers().get(1);
+        moveToMain2(game, ai);
+        addCard(cardName, ai);
+        ResearchCreatureWeights.setContext(weights);
+        try {
+            return new GameStateEvaluator().getScoreForGameState(game, ai).value;
+        } finally {
+            ResearchCreatureWeights.setContext(null);
+        }
     }
 }
