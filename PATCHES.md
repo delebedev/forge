@@ -4,6 +4,17 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## fix(ai): cast-trigger candidate prediction is RNG-neutral
+
+The `cast-trigger-main1` candidate asks whether a trigger-bearing creature is
+predicted to attack. Lazily building that predicted combat rolls attack dice and
+used to shift the game's RNG before the candidate's first decision. The lookup
+now always uses the existing private prediction RNG while the feature is active;
+disabled and baseline seats never enter the branch.
+
+- `forge-ai/src/main/java/forge/ai/ResearchPredictionRng.java`
+- `forge-ai/src/main/java/forge/ai/ComputerUtil.java`
+
 ## feat(ai): FORGE_AI_PREDICT_RNG_ISOLATION — thinking stops consuming the game's RNG
 
 `ComputerUtil.predictNextCombatsRemainingLife` runs a hypothetical combat through

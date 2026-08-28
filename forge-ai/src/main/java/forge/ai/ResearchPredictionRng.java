@@ -59,6 +59,10 @@ public final class ResearchPredictionRng {
         if (!ENABLED) {
             return prediction.getAsInt();
         }
+        return isolateAlways(prediction);
+    }
+
+    public static int isolateAlways(final IntSupplier prediction) {
         final Random gameRandom = MyRandom.getRandom();
         MyRandom.setRandom(new Random(SEED));
         try {

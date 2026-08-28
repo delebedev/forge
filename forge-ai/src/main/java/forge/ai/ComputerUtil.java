@@ -1400,7 +1400,8 @@ public class ComputerUtil {
                 if (!hasCombatPumpEffect(t.ensureAbility())) {
                     continue;
                 }
-                if (c.isCreature() && ComputerUtilCard.doesCreatureAttackAI(ai, c)) {
+                if (c.isCreature() && ResearchPredictionRng.isolateAlways(
+                        () -> ComputerUtilCard.doesCreatureAttackAI(ai, c) ? 1 : 0) == 1) {
                     return true;
                 }
             }
