@@ -17,9 +17,10 @@ public class ResearchCandidateFeaturesTest {
     public void parsesKnownSubset() {
         Set<String> one = ResearchCandidateFeatures.parse("mandatory-etb");
         Assert.assertEquals(one, Set.of(ResearchCandidateFeatures.MANDATORY_ETB));
-        Set<String> both = ResearchCandidateFeatures.parse(" cast-trigger-main1 , mandatory-etb ");
+        Set<String> both = ResearchCandidateFeatures.parse(" cast-trigger-main1 , turn-bundle-priority ");
         Assert.assertEquals(both,
-                Set.of(ResearchCandidateFeatures.CAST_TRIGGER_MAIN1, ResearchCandidateFeatures.MANDATORY_ETB));
+                Set.of(ResearchCandidateFeatures.CAST_TRIGGER_MAIN1,
+                        ResearchCandidateFeatures.TURN_BUNDLE_PRIORITY));
     }
 
     @Test
@@ -37,5 +38,6 @@ public class ResearchCandidateFeaturesTest {
         // The test JVM runs without FORGE_AI_CANDIDATE_FEATURES.
         Assert.assertTrue(ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.CAST_TRIGGER_MAIN1));
         Assert.assertTrue(ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.MANDATORY_ETB));
+        Assert.assertTrue(ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.TURN_BUNDLE_PRIORITY));
     }
 }

@@ -1804,6 +1804,11 @@ public class AiController {
             Sentry.captureMessage(ex.getMessage() + "\nAssertionError [verifyTransitivity]: " + assertex);
         }
 
+        if (usesCandidateVariant()
+                && ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.TURN_BUNDLE_PRIORITY)) {
+            ResearchTurnBundlePriority.prioritize(all, game, player);
+        }
+
         // in case of infinite loop reset below would not be reached
         timeoutReached = false;
 

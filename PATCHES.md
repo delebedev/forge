@@ -212,6 +212,18 @@ Match mode (`-m`) and puzzle-mode seeding are unchanged.
 - `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 4)
 - `forge-gui-desktop/src/main/java/forge/view/SimulateMatch.java`
 
+## feat(ai): candidate turn-bundle priority
+
+Candidate-only spell ordering for an affordable two-spell fixed-damage lethal
+bundle. `turn-bundle-priority` moves the first burn spell ahead of the normal
+mana-value order only for the candidate seat during its main phase. Baseline,
+wrong-seat, and feature-disabled paths do not evaluate the candidate helper.
+
+- `forge-ai/src/main/java/forge/ai/ResearchTurnBundlePriority.java` (new)
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchCandidateFeaturesTest.java`
+
 ## feat(ai): FORGE_AI_CANDIDATE_FEATURES — per-feature candidate gating
 
 `ResearchCandidateFeatures`: comma-separated env subset of the known
