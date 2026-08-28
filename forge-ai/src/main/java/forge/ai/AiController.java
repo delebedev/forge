@@ -152,6 +152,15 @@ public class AiController {
         return aiVariant == AiVariant.CANDIDATE;
     }
 
+    Comparator<SpellAbility> spellAbilityComparator() {
+        if (!usesCandidateVariant()) {
+            return ComputerUtilAbility.saEvaluator;
+        }
+        return ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.SPECTACLE_ORDER)
+                ? ComputerUtilAbility.saSpectacleOrderEvaluator
+                : ComputerUtilAbility.saEvaluator;
+    }
+
     private boolean topKRerankActive() {
         return usesCandidateVariant() && ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.TOPK_RERANK)
                 && ResearchTopKRerank.eligible(game, player);
@@ -856,12 +865,13 @@ public class AiController {
 
         List<SpellAbility> all = ComputerUtilAbility.getSpellAbilities(cards, player);
 
+        final Comparator<SpellAbility> comparator = spellAbilityComparator();
         try {
-            all.sort(ComputerUtilAbility.saEvaluator); // put best spells first
+            all.sort(comparator); // put best spells first
             ComputerUtilAbility.sortCreatureSpells(all);
         } catch (IllegalArgumentException ex) {
             System.err.println(ex.getMessage());
-            String assertex = ComparatorUtil.verifyTransitivity(ComputerUtilAbility.saEvaluator, all);
+            String assertex = ComparatorUtil.verifyTransitivity(comparator, all);
             Sentry.captureMessage(ex.getMessage() + "\nAssertionError [verifyTransitivity]: " + assertex);
         }
 
@@ -1795,12 +1805,13 @@ public class AiController {
         if (all == null || all.isEmpty())
             return null;
 
+        final Comparator<SpellAbility> comparator = spellAbilityComparator();
         try {
-            all.sort(ComputerUtilAbility.saEvaluator); // put best spells first
+            all.sort(comparator); // put best spells first
             ComputerUtilAbility.sortCreatureSpells(all);
         } catch (IllegalArgumentException ex) {
             System.err.println(ex.getMessage());
-            String assertex = ComparatorUtil.verifyTransitivity(ComputerUtilAbility.saEvaluator, all);
+            String assertex = ComparatorUtil.verifyTransitivity(comparator, all);
             Sentry.captureMessage(ex.getMessage() + "\nAssertionError [verifyTransitivity]: " + assertex);
         }
 

@@ -17,9 +17,9 @@ public class ResearchCandidateFeaturesTest {
     public void parsesKnownSubset() {
         Set<String> one = ResearchCandidateFeatures.parse("mandatory-etb");
         Assert.assertEquals(one, Set.of(ResearchCandidateFeatures.MANDATORY_ETB));
-        Set<String> both = ResearchCandidateFeatures.parse(" cast-trigger-main1 , mandatory-etb ");
+        Set<String> both = ResearchCandidateFeatures.parse(" cast-trigger-main1 , spectacle-order ");
         Assert.assertEquals(both,
-                Set.of(ResearchCandidateFeatures.CAST_TRIGGER_MAIN1, ResearchCandidateFeatures.MANDATORY_ETB));
+                Set.of(ResearchCandidateFeatures.CAST_TRIGGER_MAIN1, ResearchCandidateFeatures.SPECTACLE_ORDER));
     }
 
     @Test

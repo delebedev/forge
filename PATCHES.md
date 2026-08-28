@@ -4,6 +4,22 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): spectacle-order candidate — restore comparator antisymmetry
+
+The normal and cheaper Spectacle forms of one spell could each compare after
+the other, violating the comparator contract and leaving priority selection to
+a partially sorted list after TimSort rejected it. The `spectacle-order`
+candidate feature gives only the selected candidate controller the intended
+cheaper-form-first scalar cost key; baseline controllers retain the pinned
+pairwise behavior. A scalar key avoids recreating a cycle through an equal-cost
+third form.
+
+- `forge-ai/src/main/java/forge/ai/ComputerUtilAbility.java`
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ComputerUtilAbilityTest.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchCandidateFeaturesTest.java`
+
 ## feat(ai): FORGE_AI_PREDICT_RNG_ISOLATION — thinking stops consuming the game's RNG
 
 `ComputerUtil.predictNextCombatsRemainingLife` runs a hypothetical combat through

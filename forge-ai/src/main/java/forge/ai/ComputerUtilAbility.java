@@ -237,10 +237,17 @@ public class ComputerUtilAbility {
         return true;
     }
 
-    public final static saComparator saEvaluator = new saComparator();
+    public final static saComparator saEvaluator = new saComparator(false);
+    public final static saComparator saSpectacleOrderEvaluator = new saComparator(true);
 
     // not sure "playing biggest spell" matters?
     public final static class saComparator implements Comparator<SpellAbility> {
+        private final boolean correctSpectacleOrder;
+
+        private saComparator(final boolean correctSpectacleOrder) {
+            this.correctSpectacleOrder = correctSpectacleOrder;
+        }
+
         @Override
         public int compare(final SpellAbility a, final SpellAbility b) {
             return compareEvaluator(a, b, false);
@@ -250,6 +257,10 @@ public class ComputerUtilAbility {
             // we want the highest costs first
             int a1 = a.getPayCosts().getTotalMana().getCMC();
             int b1 = b.getPayCosts().getTotalMana().getCMC();
+            if (correctSpectacleOrder) {
+                a1 = spectacleOrderKey(a, a1);
+                b1 = spectacleOrderKey(b, b1);
+            }
 
             // deprioritize SAs explicitly marked as preferred to be activated last compared to all other SAs
             if (a.hasParam("AIActivateLast") && !b.hasParam("AIActivateLast")) {
@@ -314,7 +325,7 @@ public class ComputerUtilAbility {
                 return 1;
             }
 
-            if (a.getHostCard().equals(b.getHostCard()) && a.getApi() == b.getApi()) {
+            if (!correctSpectacleOrder && a.getHostCard().equals(b.getHostCard()) && a.getApi() == b.getApi()) {
                 // Cheaper Spectacle costs should be preferred
                 // FIXME: Any better way to identify that these are the same ability, one with Spectacle and one not?
                 // (looks like it's not a full-fledged alternative cost as such, and is not processed with other alt costs)
@@ -336,6 +347,14 @@ public class ComputerUtilAbility {
             }
 
             return b1 - a1;
+        }
+
+        private static int spectacleOrderKey(final SpellAbility sa, final int cost) {
+            if (!sa.isSpectacle() || sa.getHostCard() == null) {
+                return cost;
+            }
+            final int normalCost = sa.getHostCard().getManaCost().getCMC();
+            return cost < normalCost ? normalCost + 1 : cost;
         }
 
         private static int getSpellAbilityPriority(SpellAbility sa) {
