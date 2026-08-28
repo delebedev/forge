@@ -696,7 +696,8 @@ public class DamageDealAi extends DamageAiBase {
 
                 if ((freePing && !avoidTargetP(ai, sa))
                         || (((phase.is(PhaseType.END_OF_TURN) && phase.getNextTurn().equals(ai))
-                        || (isSorcerySpeed(sa, ai) && phase.is(PhaseType.MAIN2))
+                        || (isSorcerySpeed(sa, ai) && (phase.is(PhaseType.MAIN2)
+                        || ComputerUtil.castTriggerPumpsAttacker(ai, sa)))
                         || ("BurnCreatures".equals(logic) && !enemy.getCreaturesInPlay().isEmpty()))
                         && ((sa.isPwAbility() && sa.getPayCosts().hasSpecificCostType(CostPutCounter.class))
                         || shouldTgtP(ai, sa, dmg, noPrevention)))) {

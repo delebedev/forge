@@ -257,10 +257,12 @@ trigger with a Pump/PumpAll/PutCounter effect on a creature already
 predicted to attack — the generic form of the hand-annotated `BuffedBy` /
 keyword-Prowess special cases (keyword Prowess is itself an intrinsic
 SpellCast trigger). Consulted from `castSpellInMain1` and
-`castPermanentInMain1`, evaluated only for the `AiVariant.CANDIDATE` seat;
-baseline seats are unchanged.
+`castPermanentInMain1`, and from `DamageDealAi` when deciding whether a
+sorcery-speed player-targeting spell should be used before combat. Evaluated
+only for the `AiVariant.CANDIDATE` seat; baseline seats are unchanged.
 
 - `forge-ai/src/main/java/forge/ai/ComputerUtil.java`
+- `forge-ai/src/main/java/forge/ai/ability/DamageDealAi.java`
 
 ## feat(puzzle): FORGE_AI_VARIANT seat routing in headless puzzle mode
 
