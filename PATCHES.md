@@ -4,6 +4,28 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): pumpall-x-admission candidate — evaluate destructive X sweepers
+
+`PumpAllAi` evaluates X-dependent parameters before any call to
+`ComputerUtilCost.setMaxXValue`. Day of Black Sun therefore resolves
+`Creature.cmcLEX` at X=0 during admission. Its destructive effect is in a
+`DestroyAll` sub-ability rather than negative pump parameters, so the expert
+also evaluates it as a beneficial pump instead of a curse. Finally, the
+mandatory `DestroyAll` drawback evaluates `Card.IsRemembered` before the root
+effect has populated that runtime set and vetoes the otherwise accepted root.
+
+On a candidate seat with the `pumpall-x-admission` feature, X-cost PumpAll
+spells assign their maximum payable X before the expert reads parameters or
+valid-card filters, and PumpAll chains ending in `DestroyAll` use the expert's
+existing curse comparison. A remembered-card `DestroyAll` sub-ability no longer
+re-vetoes that accepted root before its remembered set exists. Baseline seats,
+nonspells, triggers, and unrelated PumpAll abilities are unchanged.
+
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+- `forge-ai/src/main/java/forge/ai/ability/PumpAllAi.java`
+- `forge-ai/src/main/java/forge/ai/ability/DestroyAllAi.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchCandidateFeaturesTest.java`
+
 ## feat(ai): preserve per-API veto provenance — schema_version 5
 
 `AiController.canPlaySa` reduced every non-willing `AiAbilityDecision` from a

@@ -2,6 +2,7 @@ package forge.ai.ability;
 
 import forge.ai.*;
 import forge.card.MagicColor;
+import forge.game.ability.ApiType;
 import forge.game.card.*;
 import forge.game.combat.Combat;
 import forge.game.cost.Cost;
@@ -33,6 +34,13 @@ public class DestroyAllAi extends SpellAbilityAi {
 
     @Override
     public AiAbilityDecision chkDrawback(Player aiPlayer, SpellAbility sa) {
+        if ("Card.IsRemembered".equals(sa.getParam("ValidCards"))
+                && sa.getRootAbility().getApi() == ApiType.PumpAll
+                && aiPlayer.getController() instanceof PlayerControllerAi controller
+                && controller.getAi().usesCandidateVariant()
+                && ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.PUMPALL_X_ADMISSION)) {
+            return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
+        }
         return doMassRemovalLogic(aiPlayer, sa);
     }
 
