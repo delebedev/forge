@@ -4,6 +4,23 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): preserve per-API veto provenance — schema_version 5
+
+`AiController.canPlaySa` reduced every non-willing `AiAbilityDecision` from a
+per-API expert to the outer `CantPlayAi` label. Decision logs therefore mixed
+phase restrictions, cost rejection, expert-specific vetoes, and low ratings in
+one bucket.
+
+The greedy scan now carries the already-computed inner decision, rating, and
+willingness into its existing thread-confined instrumentation result. Candidate
+records add those fields plus `rejection_stage`, which distinguishes an
+`ability_ai` veto from a later controller veto. Synthetic PASS and candidates
+after the first willing action remain blank. The scan still short-circuits at
+the same action and never evaluates a candidate Forge would have skipped.
+
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java` (schema_version 5)
+
 ## feat(ai): FORGE_AI_PREDICT_RNG_ISOLATION — thinking stops consuming the game's RNG
 
 `ComputerUtil.predictNextCombatsRemainingLife` runs a hypothetical combat through
