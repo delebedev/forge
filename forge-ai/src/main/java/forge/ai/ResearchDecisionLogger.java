@@ -31,6 +31,12 @@ final class ResearchDecisionLogger {
     private ResearchDecisionLogger() {
     }
 
+    record AbilityAiDecision(AiPlayDecision decision, int rating, boolean willing) {
+    }
+
+    record CandidateEvaluation(AiPlayDecision outerDecision, AbilityAiDecision abilityAiDecision) {
+    }
+
     private static synchronized int gameIndexFor(Game game) {
         int identity = System.identityHashCode(game);
         if (identity != lastGameIdentity) {
@@ -56,7 +62,7 @@ final class ResearchDecisionLogger {
 
     static void logPriorityDecision(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
             boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
-            Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
+            Map<SpellAbility, CandidateEvaluation> evaluatedReasons) {
         if (LOG_PATH == null || LOG_PATH.isEmpty()) {
             return;
         }
@@ -75,11 +81,11 @@ final class ResearchDecisionLogger {
 
     static String buildPriorityDecisionJson(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
             boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
-            Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
+            Map<SpellAbility, CandidateEvaluation> evaluatedReasons) {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
-        appendField(sb, "schema", "priority_decision_v4");
-        appendNumberField(sb, "schema_version", 4);
+        appendField(sb, "schema", "priority_decision_v5");
+        appendNumberField(sb, "schema_version", 5);
         appendField(sb, "kind", "priority");
         appendField(sb, "run_id", RUN_ID);
         appendField(sb, "game_id", gameIdFor(game));
@@ -123,26 +129,23 @@ final class ResearchDecisionLogger {
         appendNumberField(sb, "chosen_candidate_index", chosenCandidateIndex(candidates, chosen));
         appendField(sb, "chosen", describe(chosen));
         sb.append(",\"candidates\":[");
-        appendCandidate(sb, 0, null, "");
+        appendCandidate(sb, 0, null, null);
         for (int i = 0; i < candidates.size(); i++) {
             sb.append(',');
-            appendCandidate(sb, i + 1, candidates.get(i), aiPlayDecisionFor(evaluatedReasons, candidates.get(i)));
+            appendCandidate(sb, i + 1, candidates.get(i), evaluationFor(evaluatedReasons, candidates.get(i)));
         }
         sb.append("]}");
         return sb.toString();
     }
 
-    // The AiPlayDecision the greedy scan computed for this candidate, or "" when
-    // it was never evaluated. schema_version 2: only the prefix the scan reached
-    // before the first WillPlay carries a decision (see AiController); candidates
-    // after the winner — and the synthetic PASS candidate — are blank by design,
-    // not missing data. Present-and-blank so every candidate has the same keys.
-    private static String aiPlayDecisionFor(Map<SpellAbility, AiPlayDecision> evaluatedReasons, SpellAbility sa) {
+    // The greedy scan's completed evaluation, or null when it never evaluated
+    // this candidate. Candidates after the first winner and synthetic PASS stay
+    // blank; forcing expert evaluation would change play through its side effects.
+    private static CandidateEvaluation evaluationFor(Map<SpellAbility, CandidateEvaluation> evaluatedReasons, SpellAbility sa) {
         if (evaluatedReasons == null || sa == null) {
-            return "";
+            return null;
         }
-        AiPlayDecision decision = evaluatedReasons.get(sa);
-        return decision == null ? "" : decision.name();
+        return evaluatedReasons.get(sa);
     }
 
     private static void appendField(StringBuilder sb, String name, String value) {
@@ -166,12 +169,31 @@ final class ResearchDecisionLogger {
         sb.append('"').append(name).append("\":").append(value);
     }
 
-    private static void appendCandidate(StringBuilder parent, int index, SpellAbility sa, String aiPlayDecision) {
+    private static void appendNullableNumberField(StringBuilder sb, String name, Integer value) {
+        if (sb.length() > 1) {
+            sb.append(',');
+        }
+        sb.append('"').append(name).append("\":").append(value == null ? "null" : value);
+    }
+
+    private static void appendNullableBoolField(StringBuilder sb, String name, Boolean value) {
+        if (sb.length() > 1) {
+            sb.append(',');
+        }
+        sb.append('"').append(name).append("\":").append(value == null ? "null" : value);
+    }
+
+    private static void appendCandidate(StringBuilder parent, int index, SpellAbility sa, CandidateEvaluation evaluation) {
+        AbilityAiDecision abilityAi = evaluation == null ? null : evaluation.abilityAiDecision();
         StringBuilder sb = new StringBuilder();
         sb.append('{');
         appendNumberField(sb, "index", index);
-        appendField(sb, "action_schema", "priority_action_v2");
-        appendField(sb, "ai_play_decision", aiPlayDecision);
+        appendField(sb, "action_schema", "priority_action_v3");
+        appendField(sb, "ai_play_decision", evaluation == null ? "" : evaluation.outerDecision().name());
+        appendField(sb, "rejection_stage", rejectionStage(evaluation));
+        appendField(sb, "ability_ai_decision", abilityAi == null ? "" : abilityAi.decision().name());
+        appendNullableNumberField(sb, "ability_ai_rating", abilityAi == null ? null : abilityAi.rating());
+        appendNullableBoolField(sb, "ability_ai_willing", abilityAi == null ? null : abilityAi.willing());
         appendField(sb, "action_id", actionId(sa));
         appendField(sb, "id", describe(sa));
         appendField(sb, "host_card", hostName(sa));
@@ -187,6 +209,17 @@ final class ResearchDecisionLogger {
         appendField(sb, "text", sa == null ? "PASS" : sa.toString());
         sb.append('}');
         parent.append(sb);
+    }
+
+    private static String rejectionStage(CandidateEvaluation evaluation) {
+        if (evaluation == null) {
+            return "";
+        }
+        if (evaluation.outerDecision() == AiPlayDecision.WillPlay) {
+            return "accepted";
+        }
+        AbilityAiDecision abilityAi = evaluation.abilityAiDecision();
+        return abilityAi != null && !abilityAi.willing() ? "ability_ai" : "controller";
     }
 
     private static String describe(SpellAbility sa) {

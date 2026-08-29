@@ -70,6 +70,7 @@ import io.sentry.Sentry;
 
 import java.util.*;
 import java.util.concurrent.FutureTask;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -939,6 +940,11 @@ public class AiController {
     }
 
     private AiPlayDecision canPlayAndPayFor(final SpellAbility sa) {
+        return canPlayAndPayFor(sa, null);
+    }
+
+    private AiPlayDecision canPlayAndPayFor(final SpellAbility sa,
+            Consumer<ResearchDecisionLogger.AbilityAiDecision> abilityAiDecisionOut) {
         final Card host = sa.getHostCard();
 
         if (sa instanceof Spell sp) {
@@ -956,7 +962,7 @@ public class AiController {
         }
 
         try {
-            return canPlayAndPayForFace(sa);
+            return canPlayAndPayForFace(sa, abilityAiDecisionOut);
         } finally {
             // in addition to engine some AI api can also switch host
             if (sa.getHostCard() != host) {
@@ -969,7 +975,8 @@ public class AiController {
     }
 
     // This is for playing spells regularly (no Cascade/Ripple etc.)
-    private AiPlayDecision canPlayAndPayForFace(final SpellAbility sa) {
+    private AiPlayDecision canPlayAndPayForFace(final SpellAbility sa,
+            Consumer<ResearchDecisionLogger.AbilityAiDecision> abilityAiDecisionOut) {
         final Card host = sa.getHostCard();
 
         if (sa.hasParam("AICheckSVar") && !aiShouldRun(sa, sa, host, null)) {
@@ -977,7 +984,7 @@ public class AiController {
         }
 
         // this is the "heaviest" check, which also sets up targets, defines X, etc.
-        AiPlayDecision canPlay = canPlaySa(sa);
+        AiPlayDecision canPlay = canPlaySa(sa, abilityAiDecisionOut);
 
         if (canPlay != AiPlayDecision.WillPlay) {
             return canPlay;
@@ -1000,11 +1007,16 @@ public class AiController {
     }
 
     public AiPlayDecision canPlaySa(SpellAbility sa) {
+        return canPlaySa(sa, null);
+    }
+
+    private AiPlayDecision canPlaySa(SpellAbility sa,
+            Consumer<ResearchDecisionLogger.AbilityAiDecision> abilityAiDecisionOut) {
         if (!checkAiSpecificRestrictions(sa)) {
             return AiPlayDecision.CantPlayAi;
         }
         if (sa instanceof WrappedAbility) {
-            return canPlaySa(((WrappedAbility) sa).getWrappedAbility());
+            return canPlaySa(((WrappedAbility) sa).getWrappedAbility(), abilityAiDecisionOut);
         }
 
         if (!sa.canCastTiming(player)) {
@@ -1031,7 +1043,12 @@ public class AiController {
             Sentry.setExtra("Card", card.getName());
             Sentry.setExtra("SA", sa.toString());
 
-            boolean canPlay = SpellApiToAi.Converter.get(sa).canPlayWithSubs(player, sa).willingToPlay();
+            AiAbilityDecision abilityAiDecision = SpellApiToAi.Converter.get(sa).canPlayWithSubs(player, sa);
+            boolean canPlay = abilityAiDecision.willingToPlay();
+            if (abilityAiDecisionOut != null) {
+                abilityAiDecisionOut.accept(new ResearchDecisionLogger.AbilityAiDecision(
+                        abilityAiDecision.decision(), abilityAiDecision.rating(), canPlay));
+            }
 
             // remove added extra
             Sentry.removeExtra("Card");
@@ -1718,7 +1735,7 @@ public class AiController {
         //update LivingEndPlayer
         useLivingEnd = IterableUtil.any(player.getZone(ZoneType.Library), CardPredicates.nameEquals("Living End"));
 
-        Map<SpellAbility, AiPlayDecision> evaluatedReasons = new IdentityHashMap<>();
+        Map<SpellAbility, ResearchDecisionLogger.CandidateEvaluation> evaluatedReasons = new IdentityHashMap<>();
         List<SpellAbility> willPlayTail = new ArrayList<>();
         SpellAbility forgeChoice = chooseSpellAbilityToPlayFromList(saList, true, evaluatedReasons, willPlayTail);
         ResearchNeuralReranker.Result neuralChoice = ResearchNeuralReranker.choose(game, player, saList, forgeChoice);
@@ -1750,7 +1767,8 @@ public class AiController {
     // the AiPlayDecision it computed for every candidate it actually evaluated,
     // plus (candidate seat only) the WillPlay candidates scanned after it for the
     // top-k rerank. willPlayTail is never null; empty when not collecting.
-    private record ScanResult(SpellAbility chosen, Map<SpellAbility, AiPlayDecision> reasons,
+    private record ScanResult(SpellAbility chosen,
+            Map<SpellAbility, ResearchDecisionLogger.CandidateEvaluation> reasons,
             List<SpellAbility> willPlayTail) {
     }
 
@@ -1777,7 +1795,7 @@ public class AiController {
     // leaves it untouched rather than being read while the eval thread may still
     // mutate it. Capturing an already-computed decision adds no gameplay work.
     private SpellAbility chooseSpellAbilityToPlayFromList(final List<SpellAbility> all, boolean skipCounter,
-            final Map<SpellAbility, AiPlayDecision> evaluatedReasonsOut) {
+            final Map<SpellAbility, ResearchDecisionLogger.CandidateEvaluation> evaluatedReasonsOut) {
         return chooseSpellAbilityToPlayFromList(all, skipCounter, evaluatedReasonsOut, null);
     }
 
@@ -1789,7 +1807,8 @@ public class AiController {
     // Modal (Charm) candidates are excluded — restoring committed modes is out of
     // v1 scope — and a modal greedy incumbent disables collection entirely.
     private SpellAbility chooseSpellAbilityToPlayFromList(final List<SpellAbility> all, boolean skipCounter,
-            final Map<SpellAbility, AiPlayDecision> evaluatedReasonsOut, final List<SpellAbility> willPlayTailOut) {
+            final Map<SpellAbility, ResearchDecisionLogger.CandidateEvaluation> evaluatedReasonsOut,
+            final List<SpellAbility> willPlayTailOut) {
         if (all == null || all.isEmpty())
             return null;
 
@@ -1810,7 +1829,7 @@ public class AiController {
 
         FutureTask<ScanResult> future = new FutureTask<>(() -> {
             // Thread-confined; published to evaluatedReasonsOut/willPlayTailOut only via this task's result.
-            final Map<SpellAbility, AiPlayDecision> reasons = new IdentityHashMap<>();
+            final Map<SpellAbility, ResearchDecisionLogger.CandidateEvaluation> reasons = new IdentityHashMap<>();
             final List<SpellAbility> tail = collectTail ? new ArrayList<>() : null;
             SpellAbility chosen = null;
             //avoid ComputerUtil.aiLifeInDanger in loops as it slows down a lot.. call this outside loops will generally be fast...
@@ -1879,7 +1898,9 @@ public class AiController {
                     sa.setLastStateGraveyard(game.getLastStateGraveyard());
                 }
                 //override decision for living end player
-                AiPlayDecision opinion = useLivingEnd && AiPlayDecision.WillPlay.equals(aiPlayDecision) ? aiPlayDecision : canPlayAndPayFor(sa);
+                final List<ResearchDecisionLogger.AbilityAiDecision> abilityAiDecisions = new ArrayList<>(1);
+                AiPlayDecision opinion = useLivingEnd && AiPlayDecision.WillPlay.equals(aiPlayDecision)
+                        ? aiPlayDecision : canPlayAndPayFor(sa, abilityAiDecisions::add);
 
                 // reset LastStateBattlefield
                 sa.clearLastState();
@@ -1887,7 +1908,9 @@ public class AiController {
                 // System.out.printf("Ai thinks '%s' of %s -> %s @ %s %s >>> \n", opinion, sa.getHostCard(), sa, Lang.getInstance().getPossesive(ph.getPlayerTurn().getName()), ph.getPhase());
 
                 // Instrumentation only: record the decision this evaluated candidate got.
-                reasons.put(sa, opinion);
+                ResearchDecisionLogger.AbilityAiDecision abilityAiDecision = abilityAiDecisions.isEmpty()
+                        ? null : abilityAiDecisions.get(abilityAiDecisions.size() - 1);
+                reasons.put(sa, new ResearchDecisionLogger.CandidateEvaluation(opinion, abilityAiDecision));
 
                 if (opinion != AiPlayDecision.WillPlay) {
                     continue;
