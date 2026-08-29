@@ -1097,11 +1097,7 @@ public class RewardActor extends Actor implements Disposable, ImageFetcher.Callb
             else
                 flipProcess = 1;
 
-            if (isAndroidorHasGamepad()) {
-                if (holdTooltip != null && !getListeners().contains(holdTooltip, true)) {
-                    addListener(holdTooltip);
-                }
-            } else {
+            if (!isAndroidorHasGamepad()) {
                 if (tooltip != null && !getListeners().contains(tooltip, true)) {
                     addListener(tooltip);
                 }
