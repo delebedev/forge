@@ -4,6 +4,7 @@ import forge.ai.*;
 import forge.game.Game;
 import forge.game.GameObject;
 import forge.game.ability.AbilityUtils;
+import forge.game.ability.ApiType;
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.card.CardLists;
@@ -33,6 +34,10 @@ public class PumpAllAi extends PumpAiBase {
         final Cost abCost = sa.getPayCosts();
         final String logic = sa.getParamOrDefault("AILogic", "");
 
+        assignMaxXForCandidate(ai, sa);
+        final boolean curse = sa.isCurse() || candidateEnabled(ai)
+                && sa.findSubAbilityByType(ApiType.DestroyAll) != null;
+
         if (logic.equals("UntapCombatTrick")) {
             PhaseHandler ph = ai.getGame().getPhaseHandler();
             if (!(ph.is(PhaseType.COMBAT_DECLARE_BLOCKERS, ai)
@@ -50,13 +55,13 @@ public class PumpAllAi extends PumpAiBase {
         final Player opp = ai.getStrongestOpponent();
 
         if (sa.usesTargeting()) {
-            if (sa.canTarget(opp) && sa.isCurse()) {
+            if (sa.canTarget(opp) && curse) {
                 sa.resetTargets();
                 sa.getTargets().add(opp);
                 return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
             }
 
-            if (sa.canTarget(ai) && !sa.isCurse()) {
+            if (sa.canTarget(ai) && !curse) {
                 sa.resetTargets();
                 sa.getTargets().add(ai);
                 return new AiAbilityDecision(100, AiPlayDecision.WillPlay);
@@ -73,7 +78,7 @@ public class PumpAllAi extends PumpAiBase {
         CardCollection comp = CardLists.getValidCards(ai.getCardsIn(ZoneType.Battlefield), valid, source.getController(), source, sa);
         CardCollection human = CardLists.getValidCards(opp.getCardsIn(ZoneType.Battlefield), valid, source.getController(), source, sa);
 
-        if (sa.isCurse()) {
+        if (curse) {
             if (defense < 0) { // try to destroy creatures
                 comp = CardLists.filter(comp, c -> {
                     if (c.getNetToughness() <= -defense) {
@@ -131,6 +136,25 @@ public class PumpAllAi extends PumpAiBase {
         boolean result = ai.getCreaturesInPlay().anyMatch(c -> c.isValid(valid, source.getController(), source, sa)
                 && ComputerUtilCard.shouldPumpCard(ai, sa, c, defense, power, keywords));
         return result ? new AiAbilityDecision(100, AiPlayDecision.WillPlay) : new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
+    }
+
+    private static void assignMaxXForCandidate(final Player ai, final SpellAbility sa) {
+        if (!candidateEnabled(ai) || !"Count$xPaid".equals(sa.getSVar("X"))) {
+            return;
+        }
+        final SpellAbility root = sa.getRootAbility();
+        if (!root.isSpell()) {
+            return;
+        }
+        root.setXManaCostPaid(null);
+        ComputerUtilCost.setMaxXValue(root, ai, sa.isTrigger());
+        sa.getHostCard().setCastSA(root);
+    }
+
+    private static boolean candidateEnabled(final Player ai) {
+        return ai.getController() instanceof PlayerControllerAi controller
+                && controller.getAi().usesCandidateVariant()
+                && ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.PUMPALL_X_ADMISSION);
     }
 
     @Override
