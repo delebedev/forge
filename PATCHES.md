@@ -4,6 +4,21 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): sorcery-tap-pump candidate — admit the only legal window
+
+`PumpAi.checkPhaseRestrictions` rejects every empty-stack precombat Pump whose
+activation cost taps its source before reaching its later sorcery-speed check.
+Sorcery-only abilities such as Hashep Oasis therefore cannot be activated in
+their only legal combat-relevant window.
+
+On a candidate seat with the `sorcery-tap-pump` feature, a sorcery-speed Pump
+passes the generic precombat tap hold and continues through the existing timing
+and target logic. Baseline seats and instant-speed tap abilities are unchanged.
+
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+- `forge-ai/src/main/java/forge/ai/ability/PumpAi.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchCandidateFeaturesTest.java`
+
 ## feat(ai): preserve per-API veto provenance — schema_version 5
 
 `AiController.canPlaySa` reduced every non-willing `AiAbilityDecision` from a
