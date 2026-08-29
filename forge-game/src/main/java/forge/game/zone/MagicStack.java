@@ -750,7 +750,8 @@ public class MagicStack /* extends MyObservable */ implements Iterable<SpellAbil
     }
 
     public final SpellAbility peekAbility() {
-        return stack.peekFirst().getSpellAbility();
+        final SpellAbilityStackInstance instance = stack.peekFirst();
+        return instance == null ? null : instance.getSpellAbility();
     }
 
     public final void remove(final SpellAbilityStackInstance si) {
