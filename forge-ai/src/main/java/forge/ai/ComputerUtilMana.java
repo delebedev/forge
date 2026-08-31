@@ -79,7 +79,10 @@ public class ComputerUtilMana {
      */
     public static int getConvergeCount(final SpellAbility sa, final Player ai) {
         ManaCostBeingPaid cost = calculateManaCost(sa.getPayCosts(), sa, ai, true, 0, false);
-        if (payManaCost(cost, sa, ai, true, true, false) != null) {
+        ResearchDecisionLogger.ManaPaymentCapture capture = ResearchDecisionLogger.beginConvergePayment(sa);
+        boolean payable = payManaCost(cost, sa, ai, true, true, false, capture) != null;
+        ResearchDecisionLogger.finishConvergePayment(capture, cost, payable);
+        if (payable) {
             return cost.getSunburst();
         }
         // TODO return -1 so API can bail out since it's unpayable
@@ -596,6 +599,13 @@ public class ComputerUtilMana {
 
     // returns null if unpayable
     private static List<SpellAbility> payManaCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai, final boolean test, boolean checkPlayable, boolean effect) {
+        return payManaCost(cost, sa, ai, test, checkPlayable, effect, null);
+    }
+
+    // Optional capture observes the existing test payment; it never asks the solver twice.
+    private static List<SpellAbility> payManaCost(final ManaCostBeingPaid cost, final SpellAbility sa, final Player ai,
+            final boolean test, boolean checkPlayable, boolean effect,
+            ResearchDecisionLogger.ManaPaymentCapture capture) {
         if ((sa.isOffering() && sa.getSacrificedAsOffering() == null) || (sa.isEmerge() && sa.getSacrificedAsEmerge() == null)) {
             // nothing was chosen
             return null;
@@ -762,6 +772,9 @@ public class ComputerUtilMana {
                 }
 
                 String manaProduced = predictMana(saPayment, ai, toPay);
+                if (capture != null) {
+                    capture.addStep(saPayment.getHostCard(), String.valueOf(toPay), manaProduced);
+                }
                 payMultipleMana(cost, manaProduced, ai);
 
                 // remove to prevent re-usage since resources don't get consumed

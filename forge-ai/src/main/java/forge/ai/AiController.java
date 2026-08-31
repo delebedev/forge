@@ -1010,7 +1010,7 @@ public class AiController {
         return canPlaySa(sa, null);
     }
 
-    private AiPlayDecision canPlaySa(SpellAbility sa,
+    AiPlayDecision canPlaySa(SpellAbility sa,
             Consumer<ResearchDecisionLogger.AbilityAiDecision> abilityAiDecisionOut) {
         if (!checkAiSpecificRestrictions(sa)) {
             return AiPlayDecision.CantPlayAi;
@@ -1899,8 +1899,16 @@ public class AiController {
                 }
                 //override decision for living end player
                 final List<ResearchDecisionLogger.AbilityAiDecision> abilityAiDecisions = new ArrayList<>(1);
-                AiPlayDecision opinion = useLivingEnd && AiPlayDecision.WillPlay.equals(aiPlayDecision)
-                        ? aiPlayDecision : canPlayAndPayFor(sa, abilityAiDecisions::add);
+                final ResearchDecisionLogger.CandidateScope diagnosticsScope =
+                        ResearchDecisionLogger.beginCandidateDiagnostics();
+                final ResearchDecisionLogger.CandidateDiagnostics diagnostics;
+                final AiPlayDecision opinion;
+                try {
+                    opinion = useLivingEnd && AiPlayDecision.WillPlay.equals(aiPlayDecision)
+                            ? aiPlayDecision : canPlayAndPayFor(sa, abilityAiDecisions::add);
+                } finally {
+                    diagnostics = ResearchDecisionLogger.endCandidateDiagnostics(diagnosticsScope);
+                }
 
                 // reset LastStateBattlefield
                 sa.clearLastState();
@@ -1910,7 +1918,7 @@ public class AiController {
                 // Instrumentation only: record the decision this evaluated candidate got.
                 ResearchDecisionLogger.AbilityAiDecision abilityAiDecision = abilityAiDecisions.isEmpty()
                         ? null : abilityAiDecisions.get(abilityAiDecisions.size() - 1);
-                reasons.put(sa, new ResearchDecisionLogger.CandidateEvaluation(opinion, abilityAiDecision));
+                reasons.put(sa, new ResearchDecisionLogger.CandidateEvaluation(opinion, abilityAiDecision, diagnostics));
 
                 if (opinion != AiPlayDecision.WillPlay) {
                     continue;

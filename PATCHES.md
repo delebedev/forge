@@ -4,6 +4,24 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): preserve payment and replay-target provenance — schema_version 6
+
+Converge refusals now retain the payment result, colors, and already-selected
+mana-source plan. ReplaySpell target selection retains each graveyard card and
+spell ability's nested AI verdict, nullable cost result, and selected target.
+Stable card references use owner, zone, name, and same-name zone ordinal rather
+than runtime IDs.
+
+Both traces observe work the AI already performs. Converge uses the existing
+solver call, and ReplaySpell keeps the existing nested-veto short-circuit, so
+logging never evaluates a skipped cost or candidate.
+
+- forge-ai/src/main/java/forge/ai/AiController.java
+- forge-ai/src/main/java/forge/ai/ComputerUtil.java
+- forge-ai/src/main/java/forge/ai/ComputerUtilMana.java
+- forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java (schema_version 6)
+- forge-gui-desktop/src/test/java/forge/ai/ResearchEvalWeightsAiTest.java
+
 ## feat(ai): preserve per-API veto provenance — schema_version 5
 
 `AiController.canPlaySa` reduced every non-willing `AiAbilityDecision` from a
