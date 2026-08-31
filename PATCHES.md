@@ -22,6 +22,7 @@ accessors to mutable `Card` references require migration.
 - `GameEventFlipCoin` — enriched with flipper, source ability, and result
 
 ## Seams
+- `GameState.beforeStateEffects()` — lets specialized imports finish state restoration before the single settling state check
 - `PhaseHandler` main-loop and combat-mutation completion hooks — transient UI-neutral lifecycle callbacks
 - `SpellAbility`, `Trigger`, and `StaticAbility` definition IDs — stable identity retained across runtime copy chains; spell and source-trigger identity exposed through `SpellAbilityView`
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection

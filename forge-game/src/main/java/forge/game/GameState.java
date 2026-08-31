@@ -655,6 +655,7 @@ public class GameState {
             }
         }
 
+        beforeStateEffects(game);
         game.getAction().checkStateEffects(true); //ensure state based effects and triggers are updated
 
         // prevent interactions with objects from old state
@@ -671,6 +672,10 @@ public class GameState {
                 game.getPlayers().get(i).setLife(life, null);
             }
         }
+    }
+
+    /** Complete specialized state imports before the imported position is settled. */
+    protected void beforeStateEffects(final Game game) {
     }
 
     private String processManaPool(ManaPool manaPool) {
