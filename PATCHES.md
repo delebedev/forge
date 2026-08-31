@@ -4,6 +4,40 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): topk-rerank probe telemetry — decision-log schema_version 5
+
+`ResearchTopKRerank` returned only the winning `SpellAbility`, so the decision
+log recorded *which* spell the rerank kept and nothing about why. An override
+that barely cleared `min-delta=1` and one that won by a landslide were the same
+record, which leaves two readings of a null strength result — a treatment
+diluted across the pool, or a threshold so permissive that most overrides were
+coin-flips — with no evidence able to separate them. The margin distribution is
+also the only thing that can tune `min-delta` for a next iteration.
+
+`choose` now returns a `Result` carrying what the probe pass saw:
+`kCollected`, `overridden`, both probe `Score`s, and a count of failed probes.
+Three states stay distinct — never ran (no tail), ran and compared, ran and
+aborted — because a seam that threw is a failed probe, not a seam that never
+attempted, and a diagnostic read must not confuse them.
+
+Scores export as a **clamped numeric label plus the kind string**, never a raw
+`Integer.MIN/MAX` sentinel: `Score` treats kind as the source of truth and
+sentinels are never arithmetic operands. `rerank_margin` is the finite delta
+only when both probes scored finitely, and zero otherwise — the kind fields,
+not the number, say whether a margin exists.
+
+`schema_version` goes 4 -> 5 and `rerank_active` is always present; every other
+`rerank_*` field appears only when the seam ran. A run without the feature is
+therefore unchanged apart from the version field, which the referee contract
+pins. `bench`'s divergence comparator reads an explicit decision-field
+allowlist, so this telemetry cannot register as a policy difference.
+
+- `forge-ai/src/main/java/forge/ai/ResearchTopKRerank.java`
+- `forge-ai/src/main/java/forge/ai/ResearchDecisionLogger.java`
+- `forge-ai/src/main/java/forge/ai/ResearchNeuralReranker.java`
+- `forge-ai/src/main/java/forge/ai/AiController.java`
+- `forge-gui-desktop/src/test/java/forge/ai/ResearchTopKRerankTest.java`
+
 ## feat(ai): FORGE_AI_PREDICT_RNG_ISOLATION — thinking stops consuming the game's RNG
 
 `ComputerUtil.predictNextCombatsRemainingLife` runs a hypothetical combat through

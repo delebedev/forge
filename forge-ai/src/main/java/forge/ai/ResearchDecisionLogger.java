@@ -1,5 +1,6 @@
 package forge.ai;
 
+import forge.ai.simulation.GameStateEvaluator;
 import forge.game.Game;
 import forge.game.GameEntity;
 import forge.game.card.Card;
@@ -56,13 +57,13 @@ final class ResearchDecisionLogger {
 
     static void logPriorityDecision(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
             boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
-            Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
+            Map<SpellAbility, AiPlayDecision> evaluatedReasons, ResearchTopKRerank.Result rerank) {
         if (LOG_PATH == null || LOG_PATH.isEmpty()) {
             return;
         }
 
         String json = buildPriorityDecisionJson(game, player, candidates, chosen, policyUsed, policyScore, policySeen,
-                neuralUsed, neuralScore, neuralMargin, evaluatedReasons);
+                neuralUsed, neuralScore, neuralMargin, evaluatedReasons, rerank);
         synchronized (ResearchDecisionLogger.class) {
             try (FileWriter writer = new FileWriter(LOG_PATH, true)) {
                 writer.write(json);
@@ -75,11 +76,11 @@ final class ResearchDecisionLogger {
 
     static String buildPriorityDecisionJson(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
             boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
-            Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
+            Map<SpellAbility, AiPlayDecision> evaluatedReasons, ResearchTopKRerank.Result rerank) {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
-        appendField(sb, "schema", "priority_decision_v4");
-        appendNumberField(sb, "schema_version", 4);
+        appendField(sb, "schema", "priority_decision_v5");
+        appendNumberField(sb, "schema_version", 5);
         appendField(sb, "kind", "priority");
         appendField(sb, "run_id", RUN_ID);
         appendField(sb, "game_id", gameIdFor(game));
@@ -120,6 +121,19 @@ final class ResearchDecisionLogger {
         appendBoolField(sb, "neural_used", neuralUsed);
         appendField(sb, "neural_score", String.valueOf(neuralScore));
         appendField(sb, "neural_margin", String.valueOf(neuralMargin));
+        // schema_version 5: what the bounded top-k rerank probed. Emitted only
+        // when the seam actually simulated, so a run without it is unchanged.
+        // Score kinds export as a clamped numeric label plus the kind string —
+        // a raw MIN/MAX sentinel must never reach an analytic consumer.
+        appendBoolField(sb, "rerank_active", rerank != null && rerank.active);
+        if (rerank != null && rerank.active) {
+            appendNumberField(sb, "rerank_k_collected", rerank.kCollected);
+            appendBoolField(sb, "rerank_override", rerank.overridden);
+            appendScoreFields(sb, "rerank_greedy_score", rerank.greedyScore);
+            appendScoreFields(sb, "rerank_best_alt_score", rerank.bestAltScore);
+            appendLongField(sb, "rerank_margin", rerank.margin());
+            appendNumberField(sb, "rerank_probe_failures", rerank.probeFailures);
+        }
         appendNumberField(sb, "chosen_candidate_index", chosenCandidateIndex(candidates, chosen));
         appendField(sb, "chosen", describe(chosen));
         sb.append(",\"candidates\":[");
@@ -157,6 +171,27 @@ final class ResearchDecisionLogger {
             sb.append(',');
         }
         sb.append('"').append(name).append("\":").append(value);
+    }
+
+    private static void appendLongField(StringBuilder sb, String name, long value) {
+        if (sb.length() > 1) {
+            sb.append(',');
+        }
+        sb.append('"').append(name).append("\":").append(value);
+    }
+
+    // Largest magnitude a score label may carry. Terminal and failure kinds hold
+    // Integer.MIN/MAX sentinels whose arithmetic meaning is undefined; clamping
+    // keeps the numeric column readable while the kind column stays authoritative.
+    private static final int SCORE_LABEL_CAP = 1_000_000_000;
+
+    private static void appendScoreFields(StringBuilder sb, String name, GameStateEvaluator.Score score) {
+        appendNumberField(sb, name, clampScoreLabel(score));
+        appendField(sb, name + "_kind", score.kind.name());
+    }
+
+    private static int clampScoreLabel(GameStateEvaluator.Score score) {
+        return Math.max(-SCORE_LABEL_CAP, Math.min(SCORE_LABEL_CAP, score.value));
     }
 
     private static void appendBoolField(StringBuilder sb, String name, boolean value) {
