@@ -4,6 +4,19 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): candidate Clone phase admission and target selection
+
+Two independently selectable candidate features cover activated Clone
+abilities. `clone-phase-admission` admits rules-legal sorcery-speed
+activations instead of applying the instant-speed timing heuristic.
+`clone-target-selection` selects a strictly better nonfatal creature for an
+unannotated activated self-copy, enumerating affordable X values when target
+legality depends on X. Both require the candidate seat; baseline and wrong-seat
+controllers do not consult feature selection.
+
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+- `forge-ai/src/main/java/forge/ai/ability/CloneAi.java`
+
 ## feat(ai): preserve payment and replay-target provenance — schema_version 6
 
 Converge refusals now retain the payment result, colors, and already-selected

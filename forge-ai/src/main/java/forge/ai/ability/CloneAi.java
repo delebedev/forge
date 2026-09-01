@@ -3,6 +3,9 @@ package forge.ai.ability;
 import forge.ai.AiAbilityDecision;
 import forge.ai.AiPlayDecision;
 import forge.ai.ComputerUtilCard;
+import forge.ai.ComputerUtilCost;
+import forge.ai.PlayerControllerAi;
+import forge.ai.ResearchCandidateFeatures;
 import forge.ai.SpellAbilityAi;
 import forge.game.Game;
 import forge.game.ability.AbilityUtils;
@@ -35,7 +38,7 @@ public class CloneAi extends SpellAbilityAi {
 
         if (sa.usesTargeting()) {
             sa.resetTargets();
-            useAbility &= cloneTgtAI(sa, false);
+            useAbility &= cloneTgtAI(ai, sa, false);
         } else {
             final List<Card> defined = AbilityUtils.getDefinedCards(source, sa.getParam("Defined"), sa);
 
@@ -74,7 +77,7 @@ public class CloneAi extends SpellAbilityAi {
         boolean chance = true;
 
         if (sa.usesTargeting()) {
-            chance = cloneTgtAI(sa, false);
+            chance = cloneTgtAI(aiPlayer, sa, false);
         }
 
         return chance ? new AiAbilityDecision(100, AiPlayDecision.WillPlay)
@@ -87,7 +90,7 @@ public class CloneAi extends SpellAbilityAi {
         boolean chance = true;
 
         if (sa.usesTargeting()) {
-            chance = cloneTgtAI(sa, mandatory);
+            chance = cloneTgtAI(aiPlayer, sa, mandatory);
         } else {
             if (sa.isReplacementAbility() && host.isCloned()) {
                 // prevent StackOverflow from infinite loop copying another ETB RE
@@ -124,20 +127,45 @@ public class CloneAi extends SpellAbilityAi {
      *            a {@link forge.game.spellability.SpellAbility} object.
      * @return a boolean.
      */
-    private boolean cloneTgtAI(final SpellAbility sa, boolean mandatory) {
-        CardCollection targets = CardUtil.getValidCardsToTarget(sa);
+    private boolean cloneTgtAI(final Player ai, final SpellAbility sa, boolean mandatory) {
+        final boolean candidateSelfCopy = candidateFeatureEnabled(ai,
+                ResearchCandidateFeatures.CLONE_TARGET_SELECTION)
+                && sa.isActivatedAbility() && !sa.hasParam("AILogic")
+                && !sa.hasParam("CloneTarget") && !sa.hasParam("Choices")
+                && sa.getHostCard().isCreature();
+        final boolean candidatePayX = candidateSelfCopy && sa.getPayCosts().hasXInAnyCostPart()
+                && "Count$xPaid".equals(sa.getSVar("X"));
+        CardCollection targets = new CardCollection();
+        if (candidatePayX) {
+            final int maxX = ComputerUtilCost.setMaxXValue(sa, ai, false);
+            for (int x = 0; x <= maxX; x++) {
+                sa.setXManaCostPaid(x);
+                targets.addAll(CardUtil.getValidCardsToTarget(sa));
+            }
+        } else {
+            targets.addAll(CardUtil.getValidCardsToTarget(sa));
+        }
         if (targets.isEmpty()) {
             return false;
         }
 
-        if (mandatory || "CloneBestCreature".equals(sa.getParam("AILogic"))) {
+        final boolean candidateBestSelfCopy = candidateSelfCopy && targets.stream().allMatch(Card::isCreature);
+        if (mandatory || "CloneBestCreature".equals(sa.getParam("AILogic")) || candidateBestSelfCopy) {
             CardCollection viable = ComputerUtilCard.filterOutFatalCopies(targets, sa.getActivatingPlayer());
             if (!viable.isEmpty()) {
                 targets = viable;
             } else if (!mandatory) {
                 return false;
             }
-            sa.getTargets().add(ComputerUtilCard.getBestCreatureAI(targets));
+            final Card best = ComputerUtilCard.getBestCreatureAI(targets);
+            if (candidateBestSelfCopy
+                    && ComputerUtilCard.evaluateCreature(best) <= ComputerUtilCard.evaluateCreature(sa.getHostCard())) {
+                return false;
+            }
+            if (candidateBestSelfCopy && candidatePayX) {
+                sa.setXManaCostPaid(best.getCMC());
+            }
+            sa.getTargets().add(best);
             return true;
         }
 
@@ -239,6 +267,11 @@ public class CloneAi extends SpellAbilityAi {
      * @see forge.ai.SpellAbilityAi#checkPhaseRestrictions(forge.game.player.Player, forge.game.spellability.SpellAbility, forge.game.phase.PhaseHandler)
      */
     protected boolean checkPhaseRestrictions(final Player ai, final SpellAbility sa, final PhaseHandler ph) {
+        if (candidateFeatureEnabled(ai, ResearchCandidateFeatures.CLONE_PHASE_ADMISSION)
+                && sa.isActivatedAbility() && isSorcerySpeed(sa, ai)) {
+            return true;
+        }
+
         // don't use instant speed clone abilities outside computers
         // Combat_Begin step
         if (!ph.is(PhaseType.COMBAT_BEGIN)
@@ -255,5 +288,11 @@ public class CloneAi extends SpellAbilityAi {
 
         // don't activate during main2 unless this effect is permanent
         return !ph.is(PhaseType.MAIN2) || !sa.hasParam("Duration");
+    }
+
+    private static boolean candidateFeatureEnabled(final Player ai, final String feature) {
+        return ai.getController() instanceof PlayerControllerAi
+                && ((PlayerControllerAi) ai.getController()).getAi().usesCandidateVariant()
+                && ResearchCandidateFeatures.isEnabled(feature);
     }
 }

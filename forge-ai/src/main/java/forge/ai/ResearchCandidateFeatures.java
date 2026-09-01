@@ -16,13 +16,16 @@ import java.util.Set;
  */
 public final class ResearchCandidateFeatures {
     public static final String CAST_TRIGGER_MAIN1 = "cast-trigger-main1";
+    public static final String CLONE_PHASE_ADMISSION = "clone-phase-admission";
+    public static final String CLONE_TARGET_SELECTION = "clone-target-selection";
     public static final String MANDATORY_ETB = "mandatory-etb";
     public static final String TOPK_RERANK = "topk-rerank";
     /** Negative control: extra hypothetical prediction, no decision change. */
     public static final String PREDICT_PROBE = "predict-probe";
 
     private static final Set<String> KNOWN = new LinkedHashSet<>(Arrays.asList(
-            CAST_TRIGGER_MAIN1, MANDATORY_ETB, TOPK_RERANK, PREDICT_PROBE));
+            CAST_TRIGGER_MAIN1, CLONE_PHASE_ADMISSION, CLONE_TARGET_SELECTION,
+            MANDATORY_ETB, TOPK_RERANK, PREDICT_PROBE));
 
     /** null = all features enabled. */
     private static final Set<String> ENABLED = parse(System.getenv("FORGE_AI_CANDIDATE_FEATURES"));
