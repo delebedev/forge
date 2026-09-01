@@ -1632,7 +1632,7 @@ public class Player extends GameEntity implements Comparable<Player> {
         game.getTriggerHandler().runTrigger(TriggerType.Shuffled, runParams, false);
 
         // Play the shuffle sound
-        game.fireEvent(new GameEventShuffle(this));
+        game.fireEvent(new GameEventShuffle(this, sa));
     }
 
     public final Card playLand(final Card land, SpellAbility cause) {

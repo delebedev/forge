@@ -20,6 +20,7 @@ accessors to mutable `Card` references require migration.
 - `GameEventControllerChanged` — new, fired on controller change
 - `GameEventExtrinsicKeywordAdded` — new, fired on keyword grants
 - `GameEventFlipCoin` — enriched with flipper, source ability, and result
+- `GameEventShuffle` — enriched with the resolving source ability
 
 ## Seams
 - `PhaseHandler` main-loop and combat-mutation completion hooks — transient UI-neutral lifecycle callbacks
