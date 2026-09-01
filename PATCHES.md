@@ -43,3 +43,4 @@ accessors to mutable `Card` references require migration.
 - `InvestigateEffect` — token-created events contain only tokens from the current player iteration
 - `MagicStack.peekAbility()` — returns no ability when the stack is empty
 - `MagicStack` — synchronizes an existing stack-item view with its spell ability before publishing a stack-entry event
+- `DiscoverEffect` — treats a declined play-effect cast as the hand fallback
