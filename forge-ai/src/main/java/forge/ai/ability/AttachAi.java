@@ -1341,7 +1341,14 @@ public class AttachAi extends SpellAbilityAi {
         // Filter AI-specific targets if provided
         prefList = ComputerUtil.filterAITgts(sa, aiPlayer, prefList, true);
 
-        Card c = attachGeneralAI(aiPlayer, sa, prefList, mandatory, attachSource, sa.getParam("AILogic"));
+        String logic = sa.getParam("AILogic");
+        if (logic == null && aiPlayer.getController() instanceof PlayerControllerAi
+                && ((PlayerControllerAi) aiPlayer.getController()).getAi().usesCandidateVariant()
+                && ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.METAMORPHIC_ATTACH_ADMISSION)
+                && attachSource.hasSVar("ResearchAttachAILogic")) {
+            logic = attachSource.getSVar("ResearchAttachAILogic");
+        }
+        Card c = attachGeneralAI(aiPlayer, sa, prefList, mandatory, attachSource, logic);
 
         AiController aic = ((PlayerControllerAi)aiPlayer.getController()).getAi();
         if (c != null && attachSource.isEquipment()

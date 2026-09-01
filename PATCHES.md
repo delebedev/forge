@@ -4,6 +4,20 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): candidate-gate Metamorphic Alteration target admission
+
+Metamorphic Alteration was the only Aura with an as-enters replacement choice
+that lacked `AttachAILogic`, so optional AttachAi admission always returned no
+target. The named, seat-scoped candidate feature reads a research-only script
+annotation and reuses the existing `HighestEvaluation` target policy. Baseline
+and unselected candidate seats do not inspect the annotation. Upstream
+extraction is the one-line `SVar:AttachAILogic:HighestEvaluation` card-script
+fix; the research gate is fork-only attribution scaffolding.
+
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+- `forge-ai/src/main/java/forge/ai/ability/AttachAi.java`
+- `forge-gui/res/cardsfolder/m/metamorphic_alteration.txt`
+
 ## feat(ai): preserve payment and replay-target provenance — schema_version 6
 
 Converge refusals now retain the payment result, colors, and already-selected
