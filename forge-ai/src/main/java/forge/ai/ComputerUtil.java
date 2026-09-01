@@ -1306,6 +1306,10 @@ public class ComputerUtil {
             return true;
         }
 
+        if (discardPayoffInMain1(ai, sa)) {
+            return true;
+        }
+
         if (castTriggerPumpsAttacker(ai, sa)) {
             return true;
         }
@@ -1362,6 +1366,120 @@ public class ComputerUtil {
             return castSpellInMain1(ai, sub);
         }
 
+        return false;
+    }
+
+    /** Precombat value that is guaranteed by paying or resolving a discard. */
+    public static boolean discardPayoffInMain1(final Player ai, final SpellAbility sa) {
+        if (!isCandidateAiVariant(ai)
+                || !ResearchCandidateFeatures.isEnabled(ResearchCandidateFeatures.DISCARD_PAYOFF_MAIN1)
+                || !sa.isSpell()) {
+            return false;
+        }
+        final PhaseHandler ph = ai.getGame().getPhaseHandler();
+        if (!ph.isPlayerTurn(ai) || !ph.getPhase().isBefore(PhaseType.COMBAT_DECLARE_ATTACKERS)) {
+            return false;
+        }
+        return hasDiscardPumpAttacker(ai, sa) || hasGuaranteedMadnessDestroy(ai, sa);
+    }
+
+    private static boolean hasDiscardPumpAttacker(final Player ai, final SpellAbility sa) {
+        if (!causesOwnDiscard(ai, sa)) {
+            return false;
+        }
+        for (final Card c : ai.getCardsIn(ZoneType.Battlefield)) {
+            if (!c.isCreature() || !ComputerUtilCard.doesCreatureAttackAI(ai, c)) {
+                continue;
+            }
+            for (final Trigger t : c.getTriggers()) {
+                if (t.getMode() != TriggerType.Discarded || t.isSuppressed()
+                        || !t.zonesCheck(ai.getGame().getZoneOf(c))
+                        || t.hasParam("ValidCause")
+                        || t.hasParam("ValidCard") && !"Card.YouCtrl".equals(t.getParam("ValidCard"))
+                        || !t.matchesValidParam("ValidPlayer", ai)
+                        || !hasCombatPumpEffect(t.ensureAbility())) {
+                    continue;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean causesOwnDiscard(final Player ai, final SpellAbility sa) {
+        final Cost cost = sa.getPayCosts();
+        if (cost != null) {
+            for (final CostPart part : cost.getCostParts()) {
+                if (part instanceof CostDiscard && part.getAbilityAmount(sa) > 0) {
+                    return true;
+                }
+            }
+        }
+        final Card source = sa.getHostCard();
+        int available = ai.getCardsIn(ZoneType.Hand).size();
+        if (source != null && source.isInZone(ZoneType.Hand)) {
+            available--;
+        }
+        if (available < 1) {
+            return false;
+        }
+        for (SpellAbility effect = sa; effect != null; effect = effect.getSubAbility()) {
+            if (effect.getApi() != ApiType.Discard || effect.usesTargeting()
+                    || effect.hasParam("Optional") || effect.hasParam("AnyNumber")) {
+                continue;
+            }
+            final int amount = effect.hasParam("NumCards")
+                    ? AbilityUtils.calculateAmount(source, effect.getParam("NumCards"), effect) : 1;
+            if (amount > 0 && AbilityUtils.getDefinedPlayers(source, effect.getParam("Defined"), effect).contains(ai)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasGuaranteedMadnessDestroy(final Player ai, final SpellAbility sa) {
+        if (ai.getOpponents().stream().allMatch(p -> p.getCreaturesInPlay().isEmpty())) {
+            return false;
+        }
+        final Cost cost = sa.getPayCosts();
+        if (cost == null) {
+            return false;
+        }
+        for (final CostPart part : cost.getCostParts()) {
+            if (!(part instanceof CostDiscard discard) || discard.payCostFromSource()) {
+                continue;
+            }
+            final CardCollection eligible = new CardCollection(ai.getCardsIn(ZoneType.Hand));
+            eligible.remove(sa.getHostCard());
+            final String type = discard.getType();
+            if (!"Card".equals(type) && !"Random".equals(type) && !"Hand".equals(type)) {
+                eligible.retainAll(CardLists.getValidCards(eligible, type.split(";"), ai, sa.getHostCard(), sa));
+            }
+            final int amount = Math.min(discard.getAbilityAmount(sa), eligible.size());
+            if (amount < 1) {
+                continue;
+            }
+            int payoffs = 0;
+            for (final Card card : eligible) {
+                if (card.hasKeyword(Keyword.MADNESS) && hasDestroyEffect(card)) {
+                    payoffs++;
+                }
+            }
+            if (payoffs > eligible.size() - amount) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasDestroyEffect(final Card card) {
+        for (final SpellAbility spell : card.getSpellAbilities()) {
+            for (SpellAbility effect = spell; effect != null; effect = effect.getSubAbility()) {
+                if (effect.getApi() == ApiType.Destroy || effect.getApi() == ApiType.DestroyAll) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 

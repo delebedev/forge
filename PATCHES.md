@@ -4,6 +4,17 @@ Research instrumentation patches on branch `crucible`, applied on top of
 upstream `master`. Each entry: name, purpose, files touched. Keep this list
 tiny and in sync with the branch — one entry per commit.
 
+## feat(ai): candidate seat-scoped discard-payoff MAIN1 admission
+
+`ComputerUtil.discardPayoffInMain1` admits a precombat spell when its discard
+is guaranteed to pump an attacker through an active `Discarded` trigger, or
+when its discard cost must include a Madness spell with a destroy effect.
+The recognizers use script structure rather than card names and run only for
+the selected candidate seat with the `discard-payoff-main1` feature.
+
+- `forge-ai/src/main/java/forge/ai/ComputerUtil.java`
+- `forge-ai/src/main/java/forge/ai/ResearchCandidateFeatures.java`
+
 ## feat(ai): preserve payment and replay-target provenance — schema_version 6
 
 Converge refusals now retain the payment result, colors, and already-selected
