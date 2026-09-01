@@ -4703,7 +4703,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
 
         setTapped(true);
         view.updateNeedsTapAnimation(tapAnimation);
-        getGame().fireEvent(new GameEventCardTapped(this, true));
+        getGame().fireEvent(new GameEventCardTapped(this, true, cause));
         return true;
     }
 
