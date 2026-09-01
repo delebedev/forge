@@ -21,8 +21,10 @@ accessors to mutable `Card` references require migration.
 - `GameEventControllerChanged` — new, fired on controller change
 - `GameEventExtrinsicKeywordAdded` — new, fired on keyword grants
 - `GameEventFlipCoin` — enriched with flipper, source ability, and result
+- `GameEventShuffle` — enriched with the resolving source ability
 
 ## Seams
+- `GameState.beforeStateEffects()` — lets specialized imports finish state restoration before the single settling state check
 - `PhaseHandler` main-loop and combat-mutation completion hooks — transient UI-neutral lifecycle callbacks
 - `SpellAbility`, `Trigger`, and `StaticAbility` definition IDs — stable identity retained across runtime copy chains; spell and source-trigger identity exposed through `SpellAbilityView`
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
@@ -43,3 +45,4 @@ accessors to mutable `Card` references require migration.
 - `InvestigateEffect` — token-created events contain only tokens from the current player iteration
 - `MagicStack.peekAbility()` — returns no ability when the stack is empty
 - `MagicStack` — synchronizes an existing stack-item view with its spell ability before publishing a stack-entry event
+- `DiscoverEffect` — treats a declined play-effect cast as the hand fallback
