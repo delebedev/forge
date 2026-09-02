@@ -165,15 +165,6 @@ public class TargetSelection {
                 }
             }
         }
-        else if (validTargets.size() == 1 && minTargets != 0 && ability.isTrigger() && !tgt.canTgtPlayer()) {
-            //if only one valid target card for triggered ability, auto-target that card
-            //only do this for triggered abilities to prevent auto-targeting when user chooses
-            //to play a spell or activate an ability
-            if (ability.isDividedAsYouChoose()) {
-                ability.addDividedAllocation(validTargets.get(0), ability.getStillToDivide());
-            }
-            return ability.getTargets().add(validTargets.get(0));
-        }
         final Map<PlayerView, Object> playersWithValidTargets = Maps.newHashMap();
         for (Card card : validTargets) {
             playersWithValidTargets.put(PlayerView.get(card.getController()), null);
