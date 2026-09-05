@@ -14,6 +14,10 @@ public record AiAbilityDecision(int rating, AiPlayDecision decision, SpellAbilit
     }
 
     public boolean willingToPlay() {
+        return willingToPlay(sa);
+    }
+
+    public boolean willingToPlay(SpellAbility sa) {
         if (!decision.willingToPlay()) {
             return false;
         }
