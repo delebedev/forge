@@ -12,6 +12,7 @@ public class Adventure implements Disposable {
     boolean sceneWasSwapped;
     private SpriteBatch transitionBatch, uiBatch;
     public boolean renderTransitionScreen = true;
+    private boolean isDisposed = false;
 
     private Adventure() {
         sceneWasSwapped = false;
@@ -84,9 +85,9 @@ public class Adventure implements Disposable {
     }
     @Override
     public void dispose() {
-        if (transitionBatch != null)
-            transitionBatch.dispose();
-        if (uiBatch != null)
-            uiBatch.dispose();
+        if (!isDisposed) {
+            isDisposed = true;
+            Forge.safeDispose(transitionBatch, uiBatch);
+        }
     }
 }
