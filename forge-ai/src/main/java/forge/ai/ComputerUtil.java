@@ -3113,22 +3113,41 @@ public class ComputerUtil {
             if (withoutPayingManaCost && c.getManaCost() != null && c.getManaCost().countX() > 0) {
                 // The AI will otherwise cheat with the mana payment, announcing X > 0 for spells like Heat Ray when replaying them
                 // without paying their mana cost.
+                ResearchDecisionLogger.recordReplayOption(c, -1, null,
+                        "free_x", null, null, null);
                 continue;
             }
+            int abilityOrdinal = 0;
             for (SpellAbility ab : c.getSpellAbilities()) {
                 if (ab.getApi() == null) {
                     // only API-based SAs are supported, other things may lead to a NPE (e.g. Ancestral Vision Suspend SA)
+                    ResearchDecisionLogger.recordReplayOption(c, abilityOrdinal++, ab,
+                            "no_api", null, null, null);
                     continue;
                 } else if (ab.getApi() == ApiType.Mana && "ManaRitual".equals(ab.getParam("AILogic"))) {
                     // TODO Mana Ritual cards are too complex for the AI to consider casting through a spell effect and will
                     // lead to a stack overflow. Consider improving.
+                    ResearchDecisionLogger.recordReplayOption(c, abilityOrdinal++, ab,
+                            "mana_ritual", null, null, null);
                     continue;
                 }
                 SpellAbility abTest = withoutPayingManaCost ? ab.copyWithNoManaCost() : ab.copy();
                 // at this point, we're assuming that card will be castable from whichever zone it's in by the AI player.
                 abTest.setActivatingPlayer(ai);
                 abTest.getRestrictions().setZone(c.getZone().getZoneType());
-                if (AiPlayDecision.WillPlay == aic.canPlaySa(abTest) && ComputerUtilCost.canPayCost(abTest, ai, false)) {
+                List<ResearchDecisionLogger.AbilityAiDecision> abilityAiDecisions = new ArrayList<>(1);
+                AiPlayDecision nestedDecision = aic.canPlaySa(abTest, abilityAiDecisions::add);
+                ResearchDecisionLogger.AbilityAiDecision abilityAiDecision = abilityAiDecisions.isEmpty()
+                        ? null : abilityAiDecisions.get(abilityAiDecisions.size() - 1);
+                Boolean costPayable = null;
+                if (AiPlayDecision.WillPlay == nestedDecision) {
+                    costPayable = ComputerUtilCost.canPayCost(abTest, ai, false);
+                }
+                String disposition = AiPlayDecision.WillPlay != nestedDecision ? "nested_veto"
+                        : Boolean.TRUE.equals(costPayable) ? "eligible" : "unpayable";
+                ResearchDecisionLogger.recordReplayOption(c, abilityOrdinal++, abTest,
+                        disposition, nestedDecision, abilityAiDecision, costPayable);
+                if (AiPlayDecision.WillPlay == nestedDecision && Boolean.TRUE.equals(costPayable)) {
                     targets.add(c);
                 }
             }
@@ -3142,7 +3161,9 @@ public class ComputerUtil {
             }
         }
 
-        sa.getTargets().add(ComputerUtilCard.getBestAI(targets));
+        Card selected = ComputerUtilCard.getBestAI(targets);
+        sa.getTargets().add(selected);
+        ResearchDecisionLogger.recordSelectedReplayTarget(selected);
         return true;
     }
 

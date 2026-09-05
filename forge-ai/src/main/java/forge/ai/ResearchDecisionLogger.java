@@ -1,16 +1,19 @@
 package forge.ai;
 
+import forge.card.MagicColor;
 import forge.game.Game;
 import forge.game.GameEntity;
 import forge.game.card.Card;
 import forge.game.combat.Combat;
 import forge.game.keyword.Keyword;
+import forge.game.mana.ManaCostBeingPaid;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.game.zone.ZoneType;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +32,139 @@ final class ResearchDecisionLogger {
     private static int lastGameIdentity = 0;
 
     private ResearchDecisionLogger() {
+    }
+
+    record AbilityAiDecision(AiPlayDecision decision, int rating, boolean willing) {
+    }
+
+    record CardRef(String owner, String zone, String name, int sameNameOrdinal) {
+    }
+
+    record ManaPaymentStep(CardRef source, String paidShard, List<String> produced) {
+        ManaPaymentStep {
+            produced = List.copyOf(produced);
+        }
+    }
+
+    record ManaPaymentAttempt(String api, boolean payable, int convergeCount,
+            List<String> colorsPaid, List<ManaPaymentStep> paymentPlan) {
+        ManaPaymentAttempt {
+            colorsPaid = List.copyOf(colorsPaid);
+            paymentPlan = List.copyOf(paymentPlan);
+        }
+    }
+
+    record ReplayOption(CardRef card, int abilityOrdinal, String api, String manaCost, String payCost,
+            String disposition, AiPlayDecision outerDecision, AbilityAiDecision abilityAiDecision,
+            Boolean costPayable) {
+    }
+
+    record CandidateDiagnostics(List<ManaPaymentAttempt> manaPaymentAttempts,
+            List<ReplayOption> replayOptions, CardRef selectedReplayTarget) {
+        static final CandidateDiagnostics EMPTY = new CandidateDiagnostics(List.of(), List.of(), null);
+
+        CandidateDiagnostics {
+            manaPaymentAttempts = List.copyOf(manaPaymentAttempts);
+            replayOptions = List.copyOf(replayOptions);
+        }
+    }
+
+    record CandidateEvaluation(AiPlayDecision outerDecision, AbilityAiDecision abilityAiDecision,
+            CandidateDiagnostics diagnostics) {
+        CandidateEvaluation {
+            diagnostics = diagnostics == null ? CandidateDiagnostics.EMPTY : diagnostics;
+        }
+    }
+
+    private static final class MutableCandidateDiagnostics {
+        private final List<ManaPaymentAttempt> manaPaymentAttempts = new ArrayList<>();
+        private final List<ReplayOption> replayOptions = new ArrayList<>();
+        private CardRef selectedReplayTarget;
+
+        private CandidateDiagnostics freeze() {
+            return new CandidateDiagnostics(manaPaymentAttempts, replayOptions, selectedReplayTarget);
+        }
+    }
+
+    static final class CandidateScope {
+        private final MutableCandidateDiagnostics previous;
+        private final MutableCandidateDiagnostics current;
+
+        private CandidateScope(MutableCandidateDiagnostics previous, MutableCandidateDiagnostics current) {
+            this.previous = previous;
+            this.current = current;
+        }
+    }
+
+    private static final ThreadLocal<MutableCandidateDiagnostics> CURRENT_CANDIDATE = new ThreadLocal<>();
+
+    static CandidateScope beginCandidateDiagnostics() {
+        MutableCandidateDiagnostics previous = CURRENT_CANDIDATE.get();
+        MutableCandidateDiagnostics current = enabled() ? new MutableCandidateDiagnostics() : null;
+        if (current != null) {
+            CURRENT_CANDIDATE.set(current);
+        }
+        return new CandidateScope(previous, current);
+    }
+
+    static CandidateDiagnostics endCandidateDiagnostics(CandidateScope scope) {
+        if (scope.current == null) {
+            return CandidateDiagnostics.EMPTY;
+        }
+        if (scope.previous == null) {
+            CURRENT_CANDIDATE.remove();
+        } else {
+            CURRENT_CANDIDATE.set(scope.previous);
+        }
+        return scope.current.freeze();
+    }
+
+    static final class ManaPaymentCapture {
+        private final String api;
+        private final List<ManaPaymentStep> steps = new ArrayList<>();
+
+        private ManaPaymentCapture(String api) {
+            this.api = api;
+        }
+
+        void addStep(Card source, String paidShard, String produced) {
+            steps.add(new ManaPaymentStep(cardRef(source), paidShard, manaSymbols(produced)));
+        }
+    }
+
+    static ManaPaymentCapture beginConvergePayment(SpellAbility sa) {
+        if (CURRENT_CANDIDATE.get() == null) {
+            return null;
+        }
+        return new ManaPaymentCapture(sa.getApi() == null ? "" : sa.getApi().name());
+    }
+
+    static void finishConvergePayment(ManaPaymentCapture capture, ManaCostBeingPaid cost, boolean payable) {
+        MutableCandidateDiagnostics diagnostics = CURRENT_CANDIDATE.get();
+        if (capture == null || diagnostics == null) {
+            return;
+        }
+        diagnostics.manaPaymentAttempts.add(new ManaPaymentAttempt(capture.api, payable,
+                payable ? cost.getSunburst() : 0, colorsPaid(cost.getColorsPaid()), capture.steps));
+    }
+
+    static void recordReplayOption(Card card, int abilityOrdinal, SpellAbility ability,
+            String disposition, AiPlayDecision outerDecision, AbilityAiDecision abilityAiDecision,
+            Boolean costPayable) {
+        MutableCandidateDiagnostics diagnostics = CURRENT_CANDIDATE.get();
+        if (diagnostics == null) {
+            return;
+        }
+        diagnostics.replayOptions.add(new ReplayOption(cardRef(card), abilityOrdinal,
+                ability == null || ability.getApi() == null ? "" : ability.getApi().name(),
+                manaCost(ability), payCost(ability), disposition, outerDecision, abilityAiDecision, costPayable));
+    }
+
+    static void recordSelectedReplayTarget(Card card) {
+        MutableCandidateDiagnostics diagnostics = CURRENT_CANDIDATE.get();
+        if (diagnostics != null) {
+            diagnostics.selectedReplayTarget = cardRef(card);
+        }
     }
 
     private static synchronized int gameIndexFor(Game game) {
@@ -56,7 +192,7 @@ final class ResearchDecisionLogger {
 
     static void logPriorityDecision(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
             boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
-            Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
+            Map<SpellAbility, CandidateEvaluation> evaluatedReasons) {
         if (LOG_PATH == null || LOG_PATH.isEmpty()) {
             return;
         }
@@ -75,11 +211,11 @@ final class ResearchDecisionLogger {
 
     static String buildPriorityDecisionJson(Game game, Player player, List<SpellAbility> candidates, SpellAbility chosen,
             boolean policyUsed, double policyScore, int policySeen, boolean neuralUsed, double neuralScore, double neuralMargin,
-            Map<SpellAbility, AiPlayDecision> evaluatedReasons) {
+            Map<SpellAbility, CandidateEvaluation> evaluatedReasons) {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
-        appendField(sb, "schema", "priority_decision_v4");
-        appendNumberField(sb, "schema_version", 4);
+        appendField(sb, "schema", "priority_decision_v6");
+        appendNumberField(sb, "schema_version", 6);
         appendField(sb, "kind", "priority");
         appendField(sb, "run_id", RUN_ID);
         appendField(sb, "game_id", gameIdFor(game));
@@ -123,26 +259,23 @@ final class ResearchDecisionLogger {
         appendNumberField(sb, "chosen_candidate_index", chosenCandidateIndex(candidates, chosen));
         appendField(sb, "chosen", describe(chosen));
         sb.append(",\"candidates\":[");
-        appendCandidate(sb, 0, null, "");
+        appendCandidate(sb, 0, null, null);
         for (int i = 0; i < candidates.size(); i++) {
             sb.append(',');
-            appendCandidate(sb, i + 1, candidates.get(i), aiPlayDecisionFor(evaluatedReasons, candidates.get(i)));
+            appendCandidate(sb, i + 1, candidates.get(i), evaluationFor(evaluatedReasons, candidates.get(i)));
         }
         sb.append("]}");
         return sb.toString();
     }
 
-    // The AiPlayDecision the greedy scan computed for this candidate, or "" when
-    // it was never evaluated. schema_version 2: only the prefix the scan reached
-    // before the first WillPlay carries a decision (see AiController); candidates
-    // after the winner — and the synthetic PASS candidate — are blank by design,
-    // not missing data. Present-and-blank so every candidate has the same keys.
-    private static String aiPlayDecisionFor(Map<SpellAbility, AiPlayDecision> evaluatedReasons, SpellAbility sa) {
+    // The greedy scan's completed evaluation, or null when it never evaluated
+    // this candidate. Candidates after the first winner and synthetic PASS stay
+    // blank; forcing expert evaluation would change play through its side effects.
+    private static CandidateEvaluation evaluationFor(Map<SpellAbility, CandidateEvaluation> evaluatedReasons, SpellAbility sa) {
         if (evaluatedReasons == null || sa == null) {
-            return "";
+            return null;
         }
-        AiPlayDecision decision = evaluatedReasons.get(sa);
-        return decision == null ? "" : decision.name();
+        return evaluatedReasons.get(sa);
     }
 
     private static void appendField(StringBuilder sb, String name, String value) {
@@ -166,12 +299,31 @@ final class ResearchDecisionLogger {
         sb.append('"').append(name).append("\":").append(value);
     }
 
-    private static void appendCandidate(StringBuilder parent, int index, SpellAbility sa, String aiPlayDecision) {
+    private static void appendNullableNumberField(StringBuilder sb, String name, Integer value) {
+        if (sb.length() > 1) {
+            sb.append(',');
+        }
+        sb.append('"').append(name).append("\":").append(value == null ? "null" : value);
+    }
+
+    private static void appendNullableBoolField(StringBuilder sb, String name, Boolean value) {
+        if (sb.length() > 1) {
+            sb.append(',');
+        }
+        sb.append('"').append(name).append("\":").append(value == null ? "null" : value);
+    }
+
+    private static void appendCandidate(StringBuilder parent, int index, SpellAbility sa, CandidateEvaluation evaluation) {
+        AbilityAiDecision abilityAi = evaluation == null ? null : evaluation.abilityAiDecision();
         StringBuilder sb = new StringBuilder();
         sb.append('{');
         appendNumberField(sb, "index", index);
-        appendField(sb, "action_schema", "priority_action_v2");
-        appendField(sb, "ai_play_decision", aiPlayDecision);
+        appendField(sb, "action_schema", "priority_action_v4");
+        appendField(sb, "ai_play_decision", evaluation == null ? "" : evaluation.outerDecision().name());
+        appendField(sb, "rejection_stage", rejectionStage(evaluation));
+        appendField(sb, "ability_ai_decision", abilityAi == null ? "" : abilityAi.decision().name());
+        appendNullableNumberField(sb, "ability_ai_rating", abilityAi == null ? null : abilityAi.rating());
+        appendNullableBoolField(sb, "ability_ai_willing", abilityAi == null ? null : abilityAi.willing());
         appendField(sb, "action_id", actionId(sa));
         appendField(sb, "id", describe(sa));
         appendField(sb, "host_card", hostName(sa));
@@ -185,8 +337,128 @@ final class ResearchDecisionLogger {
         appendBoolField(sb, "is_land_ability", sa != null && sa.isLandAbility());
         appendBoolField(sb, "uses_targeting", sa != null && sa.usesTargeting());
         appendField(sb, "text", sa == null ? "PASS" : sa.toString());
+        CandidateDiagnostics diagnostics = evaluation == null
+                ? CandidateDiagnostics.EMPTY : evaluation.diagnostics();
+        appendManaPaymentAttempts(sb, diagnostics.manaPaymentAttempts());
+        appendReplayOptions(sb, diagnostics.replayOptions());
+        appendCardRefField(sb, "selected_replay_target", diagnostics.selectedReplayTarget());
         sb.append('}');
         parent.append(sb);
+    }
+
+    private static void appendManaPaymentAttempts(StringBuilder sb, List<ManaPaymentAttempt> attempts) {
+        appendArrayPrefix(sb, "mana_payment_attempts");
+        for (int i = 0; i < attempts.size(); i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            ManaPaymentAttempt attempt = attempts.get(i);
+            StringBuilder entry = new StringBuilder("{");
+            appendField(entry, "api", attempt.api());
+            appendBoolField(entry, "payable", attempt.payable());
+            appendNumberField(entry, "converge_count", attempt.convergeCount());
+            appendStringArray(entry, "colors_paid", attempt.colorsPaid());
+            appendArrayPrefix(entry, "payment_plan");
+            for (int j = 0; j < attempt.paymentPlan().size(); j++) {
+                if (j > 0) {
+                    entry.append(',');
+                }
+                ManaPaymentStep step = attempt.paymentPlan().get(j);
+                StringBuilder stepJson = new StringBuilder("{");
+                appendCardRefField(stepJson, "source", step.source());
+                appendField(stepJson, "paid_shard", step.paidShard());
+                appendStringArray(stepJson, "produced", step.produced());
+                stepJson.append('}');
+                entry.append(stepJson);
+            }
+            entry.append("]}");
+            sb.append(entry);
+        }
+        sb.append(']');
+    }
+
+    private static void appendReplayOptions(StringBuilder sb, List<ReplayOption> options) {
+        appendArrayPrefix(sb, "replay_options");
+        for (int i = 0; i < options.size(); i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            ReplayOption option = options.get(i);
+            AbilityAiDecision abilityAi = option.abilityAiDecision();
+            StringBuilder entry = new StringBuilder("{");
+            appendCardRefField(entry, "card", option.card());
+            appendNumberField(entry, "ability_ordinal", option.abilityOrdinal());
+            appendField(entry, "api", option.api());
+            appendField(entry, "mana_cost", option.manaCost());
+            appendField(entry, "pay_cost", option.payCost());
+            appendField(entry, "disposition", option.disposition());
+            appendField(entry, "ai_play_decision", option.outerDecision() == null ? "" : option.outerDecision().name());
+            appendField(entry, "rejection_stage", rejectionStage(option.outerDecision(), abilityAi));
+            appendField(entry, "ability_ai_decision", abilityAi == null ? "" : abilityAi.decision().name());
+            appendNullableNumberField(entry, "ability_ai_rating", abilityAi == null ? null : abilityAi.rating());
+            appendNullableBoolField(entry, "ability_ai_willing", abilityAi == null ? null : abilityAi.willing());
+            appendNullableBoolField(entry, "cost_payable", option.costPayable());
+            entry.append('}');
+            sb.append(entry);
+        }
+        sb.append(']');
+    }
+
+    private static void appendArrayPrefix(StringBuilder sb, String name) {
+        if (sb.length() > 1) {
+            sb.append(',');
+        }
+        sb.append('"').append(name).append("\":[");
+    }
+
+    private static void appendStringArray(StringBuilder sb, String name, List<String> values) {
+        appendArrayPrefix(sb, name);
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append('"').append(escape(values.get(i))).append('"');
+        }
+        sb.append(']');
+    }
+
+    private static void appendCardRefField(StringBuilder sb, String name, CardRef ref) {
+        if (sb.length() > 1) {
+            sb.append(',');
+        }
+        sb.append('"').append(name).append("\":");
+        if (ref == null) {
+            sb.append("null");
+            return;
+        }
+        StringBuilder entry = new StringBuilder("{");
+        appendField(entry, "owner", ref.owner());
+        appendField(entry, "zone", ref.zone());
+        appendField(entry, "name", ref.name());
+        appendNumberField(entry, "same_name_ordinal", ref.sameNameOrdinal());
+        entry.append('}');
+        sb.append(entry);
+    }
+
+    private static String rejectionStage(CandidateEvaluation evaluation) {
+        if (evaluation == null) {
+            return "";
+        }
+        if (evaluation.outerDecision() == AiPlayDecision.WillPlay) {
+            return "accepted";
+        }
+        AbilityAiDecision abilityAi = evaluation.abilityAiDecision();
+        return abilityAi != null && !abilityAi.willing() ? "ability_ai" : "controller";
+    }
+
+    private static String rejectionStage(AiPlayDecision outerDecision, AbilityAiDecision abilityAi) {
+        if (outerDecision == null) {
+            return "";
+        }
+        if (outerDecision == AiPlayDecision.WillPlay) {
+            return "accepted";
+        }
+        return abilityAi != null && !abilityAi.willing() ? "ability_ai" : "controller";
     }
 
     private static String describe(SpellAbility sa) {
@@ -269,6 +541,44 @@ final class ResearchDecisionLogger {
         return String.join("|", sa == null ? "PASS" : String.valueOf(sa.getApi()), hostName(sa), hostZone(sa), manaCost(sa),
                 payCost(sa), String.valueOf(sa != null && sa.isSpell()), String.valueOf(sa != null && sa.isAbility()),
                 String.valueOf(sa != null && sa.isLandAbility()), String.valueOf(sa != null && sa.usesTargeting()));
+    }
+
+    static CardRef cardRef(Card card) {
+        if (card == null) {
+            return null;
+        }
+        String name = card.getName();
+        String zone = card.getZone() == null ? "NO_ZONE" : card.getZone().getZoneType().name();
+        int ordinal = 0;
+        if (card.getZone() != null) {
+            for (Card candidate : card.getZone()) {
+                if (candidate == card) {
+                    break;
+                }
+                if (candidate.getName().equals(name)) {
+                    ordinal++;
+                }
+            }
+        }
+        Player owner = card.getOwner();
+        return new CardRef(owner == null ? "" : owner.getName(), zone, name, ordinal);
+    }
+
+    private static List<String> colorsPaid(byte mask) {
+        List<String> colors = new ArrayList<>(5);
+        for (byte color : MagicColor.WUBRG) {
+            if ((mask & color) != 0) {
+                colors.add(MagicColor.toShortString(color));
+            }
+        }
+        return colors;
+    }
+
+    private static List<String> manaSymbols(String produced) {
+        if (produced == null || produced.isBlank()) {
+            return List.of();
+        }
+        return List.of(produced.trim().split("\\s+"));
     }
 
     /** Battlefield census shared by the JSON decision log and {@link ResearchValueNet}'s feature extraction. */
