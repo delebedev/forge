@@ -42,6 +42,7 @@ accessors to mutable `Card` references require migration.
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
 
 ## Fixes
+- `ComputerUtilMana` — pays selected mana-source costs through a human player's cost decision maker
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
 - `InvestigateEffect` — token-created events contain only tokens from the current player iteration
 - `MagicStack.peekAbility()` — returns no ability when the stack is empty
