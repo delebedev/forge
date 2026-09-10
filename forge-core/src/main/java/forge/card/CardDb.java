@@ -1252,7 +1252,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
 
     @Override
     public boolean contains(String name) {
-        return allCardsByName.containsKey(getNormalizedName(name));
+        return !getAllCards(name).isEmpty();
     }
 
     @Override
