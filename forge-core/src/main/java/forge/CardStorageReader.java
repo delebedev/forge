@@ -29,6 +29,8 @@ import org.apache.commons.lang3.time.StopWatch;
 
 import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.BiFunction;
@@ -57,6 +59,10 @@ public class CardStorageReader {
     }
 
     private static final String CARD_FILE_DOT_EXTENSION = ".txt";
+    private static final String CARD_NAME_INDEX = "cardsfolder.index";
+    private static final int CARD_NAME_INDEX_MAGIC = 0x46434931; // FCI1
+    // Increment when the format, name normalization, or alias precedence changes.
+    private static final int CARD_NAME_INDEX_VERSION = 1;
     private static final String UPCOMING = "upcoming";
 
     /** Default charset when loading from files. */
@@ -107,8 +113,7 @@ public class CardStorageReader {
         this.charset = Charset.forName(CardStorageReader.DEFAULT_CHARSET_NAME);
 
         if (loadCardsLazily) {
-            zipEntriesByCardName = zip == null ? Collections.emptyNavigableMap()
-                    : buildCardNameIndex(getZipEntries(), this::loadCard);
+            zipEntriesByCardName = zip == null ? Collections.emptyNavigableMap() : loadZipNameIndex();
             cardFilesByCardName = buildCardNameIndex(collectCardFiles(new ArrayList<>(), cardsfolder), this::loadCard);
         } else {
             zipEntriesByCardName = Collections.emptyNavigableMap();
@@ -193,6 +198,11 @@ public class CardStorageReader {
     }
 
     private <T> NavigableMap<String, T> buildCardNameIndex(List<T> sources, BiFunction<CardRules.Reader, T, CardRules> loader) {
+        return buildCardNameIndex(sources, loader, false);
+    }
+
+    private <T> NavigableMap<String, T> buildCardNameIndex(List<T> sources,
+            BiFunction<CardRules.Reader, T, CardRules> loader, boolean failOnOmission) {
         final StopWatch sw = new StopWatch();
         sw.start();
         final NavigableMap<String, T> index = new TreeMap<>();
@@ -203,9 +213,15 @@ public class CardStorageReader {
             try {
                 rules = loader.apply(rulesReader, source);
             } catch (RuntimeException e) {
+                if (failOnOmission) {
+                    throw new IllegalStateException("Cannot index card script " + source, e);
+                }
                 continue; // a script that cannot be parsed cannot satisfy a lookup either
             }
             if (rules == null) {
+                if (failOnOmission) {
+                    throw new IllegalStateException("Card script produced no rules: " + source);
+                }
                 continue;
             }
             for (String name : primaryNamesOf(rules)) {
@@ -220,6 +236,136 @@ public class CardStorageReader {
         }
         sw.stop();
         System.out.printf("Lazy card database: indexed %d card names from %d files in %d ms%n", index.size(), sources.size(), sw.getTime());
+        return index;
+    }
+
+    private NavigableMap<String, ZipEntry> loadZipNameIndex() {
+        final List<ZipEntry> entries = getZipEntries();
+        final File indexFile = new File(cardsfolder, CARD_NAME_INDEX);
+        if (indexFile.isFile()) {
+            try {
+                final NavigableMap<String, ZipEntry> index = readZipNameIndex(indexFile.toPath(), entries);
+                System.out.printf("Lazy card database: loaded %d card names from %s%n", index.size(), indexFile.getName());
+                return index;
+            } catch (IOException | RuntimeException e) {
+                System.err.printf("Cannot use lazy card index %s: %s. Rebuilding it from card scripts.%n",
+                        indexFile.getAbsolutePath(), e.getMessage());
+            }
+        }
+        return buildCardNameIndex(entries, this::loadCard);
+    }
+
+    /**
+     * Writes and verifies the lazy name index for the card archive in {@code cardDataDir}.
+     * The archive is always parsed, even when a sidecar already exists.
+     *
+     * @return number of indexed aliases
+     */
+    public static int writeZipNameIndex(String cardDataDir, String outputPath) throws IOException {
+        final CardStorageReader reader = new CardStorageReader(cardDataDir, ProgressObserver.emptyObserver, false);
+        try {
+            if (reader.zip == null) {
+                throw new IOException("Card archive is unavailable in " + cardDataDir);
+            }
+            final List<ZipEntry> entries = reader.getZipEntries();
+            final NavigableMap<String, ZipEntry> expected;
+            try {
+                expected = reader.buildCardNameIndex(entries, reader::loadCard, true);
+            } catch (RuntimeException e) {
+                throw new IOException("Cannot generate card name index", e);
+            }
+
+            final Path output = Path.of(outputPath).toAbsolutePath();
+            final Path parent = output.getParent();
+            if (parent == null) {
+                throw new IOException("Index output has no parent directory: " + outputPath);
+            }
+            java.nio.file.Files.createDirectories(parent);
+            final Path temporary = java.nio.file.Files.createTempFile(parent, ".cardsfolder-index-", ".tmp");
+            try {
+                writeZipNameIndex(temporary, entries, expected);
+                final NavigableMap<String, ZipEntry> actual = reader.readZipNameIndex(temporary, entries);
+                if (!expected.equals(actual)) {
+                    throw new IOException("Generated card name index did not verify");
+                }
+                try {
+                    java.nio.file.Files.move(temporary, output, StandardCopyOption.ATOMIC_MOVE,
+                            StandardCopyOption.REPLACE_EXISTING);
+                } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                    java.nio.file.Files.move(temporary, output, StandardCopyOption.REPLACE_EXISTING);
+                }
+                return expected.size();
+            } finally {
+                java.nio.file.Files.deleteIfExists(temporary);
+            }
+        } finally {
+            if (reader.zip != null) {
+                reader.zip.close();
+            }
+        }
+    }
+
+    private static void writeZipNameIndex(Path output, List<ZipEntry> entries,
+            NavigableMap<String, ZipEntry> index) throws IOException {
+        final IdentityHashMap<ZipEntry, Integer> ordinals = new IdentityHashMap<>();
+        for (int i = 0; i < entries.size(); i++) {
+            ordinals.put(entries.get(i), i);
+        }
+        try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(
+                java.nio.file.Files.newOutputStream(output)))) {
+            out.writeInt(CARD_NAME_INDEX_MAGIC);
+            out.writeInt(CARD_NAME_INDEX_VERSION);
+            out.writeInt(entries.size());
+            for (ZipEntry entry : entries) {
+                out.writeUTF(entry.getName());
+                out.writeLong(entry.getCrc());
+                out.writeLong(entry.getSize());
+            }
+            out.writeInt(index.size());
+            for (Map.Entry<String, ZipEntry> alias : index.entrySet()) {
+                out.writeUTF(alias.getKey());
+                out.writeInt(ordinals.get(alias.getValue()));
+            }
+        }
+    }
+
+    private NavigableMap<String, ZipEntry> readZipNameIndex(Path path, List<ZipEntry> entries) throws IOException {
+        final NavigableMap<String, ZipEntry> index = new TreeMap<>();
+        try (DataInputStream in = new DataInputStream(new BufferedInputStream(
+                java.nio.file.Files.newInputStream(path)))) {
+            if (in.readInt() != CARD_NAME_INDEX_MAGIC || in.readInt() != CARD_NAME_INDEX_VERSION) {
+                throw new IOException("unsupported format");
+            }
+            if (in.readInt() != entries.size()) {
+                throw new IOException("card archive entry count changed");
+            }
+            for (ZipEntry entry : entries) {
+                if (!entry.getName().equals(in.readUTF()) || entry.getCrc() != in.readLong()
+                        || entry.getSize() != in.readLong()) {
+                    throw new IOException("card archive contents changed");
+                }
+            }
+            final int aliases = in.readInt();
+            if (aliases < 0) {
+                throw new IOException("negative alias count");
+            }
+            String previous = null;
+            for (int i = 0; i < aliases; i++) {
+                final String key = in.readUTF();
+                final int ordinal = in.readInt();
+                if (key.isEmpty() || (previous != null && previous.compareTo(key) >= 0)) {
+                    throw new IOException("aliases are not strictly ordered");
+                }
+                if (ordinal < 0 || ordinal >= entries.size()) {
+                    throw new IOException("card archive entry ordinal is out of range");
+                }
+                index.put(key, entries.get(ordinal));
+                previous = key;
+            }
+            if (in.read() != -1) {
+                throw new IOException("trailing index data");
+            }
+        }
         return index;
     }
 
