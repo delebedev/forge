@@ -38,6 +38,7 @@ accessors to mutable `Card` references require migration.
 - `HumanCostDecision` collect-evidence selection — routes weighted mana-value choices through `PlayerController.chooseCardsForCollectEvidence()`
 
 ## Utilities
+- `SpellAbility.getRootAbility()` — reads each parent once, avoiding malformed loop output in the browser JIT
 - `CardStorageReader` — accepts a verified build-generated ZIP name index, with ordinary lazy scan fallback
 - Card text newline formatting — uses literal replacement without regex compilation
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses

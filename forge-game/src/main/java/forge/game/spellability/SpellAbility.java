@@ -1673,11 +1673,13 @@ public abstract class SpellAbility extends CardTraitBase implements ISpellAbilit
     }
 
     public SpellAbility getRootAbility() {
-        SpellAbility parent = this;
-        while (null != parent.getParent()) {
-            parent = parent.getParent();
+        SpellAbility root = this;
+        SpellAbility parent = root.getParent();
+        while (parent != null) {
+            root = parent;
+            parent = root.getParent();
         }
-        return parent;
+        return root;
     }
     public SpellAbility getTailAbility() {
         SpellAbility tailend = this;
