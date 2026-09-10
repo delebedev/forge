@@ -149,8 +149,10 @@ public class FileSection {
         return this.getInt(fieldName, 0);
     }
     public int getInt(final String fieldName, final int defaultValue) {
+        final String field = this.get(fieldName);
+        if (field == null) return defaultValue;
         try {
-            return Integer.parseInt(this.get(fieldName));
+            return Integer.parseInt(field);
         } catch (final NumberFormatException ex) {
             return defaultValue;
         }

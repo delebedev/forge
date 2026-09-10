@@ -39,6 +39,7 @@ accessors to mutable `Card` references require migration.
 
 ## Utilities
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
+- `FileSection.getInt()` — returns the configured default for absent optional values without exception-driven parsing
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
 
 ## Fixes
