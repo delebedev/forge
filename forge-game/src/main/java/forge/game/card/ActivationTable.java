@@ -28,7 +28,8 @@ public class ActivationTable extends ForwardingTable<SpellAbility, Optional<Stat
         if (root.isTrigger()) {
             original = root.getTrigger().getOverridingAbility();
         } else {
-            original = Objects.requireNonNullElse(root.getOriginalAbility(), root);
+            SpellAbility originalAbility = root.getOriginalAbility();
+            original = originalAbility == null ? root : originalAbility;
         }
         return original;
     }
