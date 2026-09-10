@@ -3142,8 +3142,8 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         }
 
         // Ensure no more escaped linebreak are present
-        desc = desc.replace("\\r", "\r")
-            .replace("\\n", "\n");
+        desc = TextUtil.fastReplace(desc, "\\r", "\r");
+        desc = TextUtil.fastReplace(desc, "\\n", "\n");
 
         return desc.trim();
     }

@@ -35,4 +35,21 @@ public class TextUtilTest {
             Assert.assertEquals(TextUtil.fastReplace(input, "\\n", "\r\n\r\n"), expected);
         }
     }
+
+    @Test
+    public void fastReplacePreservesEscapedLinebreakUnescaping() {
+        String[] inputs = {
+                "prefix\\r\\nsuffix\\r\\n",
+                "\\r\\n\\r\\n",
+                "$\\r\\n\\\\text$\\n",
+                "actual\r\nnewline\n$\\\\text",
+                "absent $\\\\text"
+        };
+
+        for (String input : inputs) {
+            String expected = input.replace("\\r", "\r").replace("\\n", "\n");
+            String actual = TextUtil.fastReplace(TextUtil.fastReplace(input, "\\r", "\r"), "\\n", "\n");
+            Assert.assertEquals(actual, expected);
+        }
+    }
 }
