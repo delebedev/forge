@@ -40,7 +40,6 @@ accessors to mutable `Card` references require migration.
 ## Utilities
 - `CardStorageReader` — accepts a verified build-generated ZIP name index, with ordinary lazy scan fallback
 - Card text newline formatting — uses literal replacement without regex compilation
-- `ActivationTable.getOriginal()` — uses an explicit original-ability fallback for runtime compatibility
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
 - `FileSection.getInt()` — returns the configured default for absent optional values without exception-driven parsing
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
