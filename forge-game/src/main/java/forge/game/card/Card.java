@@ -2948,7 +2948,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         }
 
         // Give spellText line breaks for easier reading
-        sb.append(text.replaceAll("\\\\r\\\\n", "\r\n"));
+        sb.append(TextUtil.fastReplace(text, "\\r\\n", "\r\n"));
         sb.append(linebreak);
 
         // Triggered abilities
@@ -2963,7 +2963,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
                 }
                 String trigStr = trig.replaceAbilityText(trig.toString(), state);
                 if (disabled) sb.append(grayTag);
-                sb.append(trigStr.replaceAll("\\\\r\\\\n", "\r\n"));
+                sb.append(TextUtil.fastReplace(trigStr, "\\r\\n", "\r\n"));
                 if (disabled) sb.append(endTag);
                 sb.append(linebreak);
             }
@@ -3030,7 +3030,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
                 }
                 sbSA.append(namedFace.getName()).append("\r\n");
                 sbSA.append(namedFace.getType()).append("\r\n");
-                sbSA.append(namedFace.getOracleText().replaceAll("\\\\n", "\r\n"));
+                sbSA.append(TextUtil.fastReplace(namedFace.getOracleText(), "\\n", "\r\n"));
                 sbSA.append(linebreak);
                 sAbility = sbSA.toString();
             }
@@ -3152,7 +3152,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         final StringBuilder sb = new StringBuilder();
 
         // Give spellText line breaks for easier reading
-        String spellText = text.replaceAll("\\\\r\\\\n", "\r\n");
+        String spellText = TextUtil.fastReplace(text, "\\r\\n", "\r\n");
         sb.append(spellText);
 
         // NOTE:

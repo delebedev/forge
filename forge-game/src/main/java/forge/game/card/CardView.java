@@ -1401,7 +1401,7 @@ public class CardView extends GameEntityView {
             return get(TrackableProperty.OracleText);
         }
         void setOracleText(String oracleText) {
-            set(TrackableProperty.OracleText, oracleText.replace("\\n", "\r\n\r\n").trim());
+            set(TrackableProperty.OracleText, TextUtil.fastReplace(oracleText, "\\n", "\r\n\r\n").trim());
         }
 
         public String getFunctionalVariantName() {

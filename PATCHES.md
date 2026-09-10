@@ -38,6 +38,7 @@ accessors to mutable `Card` references require migration.
 - `HumanCostDecision` collect-evidence selection — routes weighted mana-value choices through `PlayerController.chooseCardsForCollectEvidence()`
 
 ## Utilities
+- Card text newline formatting — uses literal replacement without regex compilation
 - `ActivationTable.getOriginal()` — uses an explicit original-ability fallback for runtime compatibility
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
 - `FileSection.getInt()` — returns the configured default for absent optional values without exception-driven parsing
