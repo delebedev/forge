@@ -604,7 +604,8 @@ public class FCollection<T> implements List<T>, /*Set<T>,*/ FCollectionView<T>, 
         if (obj == null) {
             return null;
         }
-        for(T x : this) {
+        for (int i = 0; i < list.size(); i++) {
+            final T x = list.get(i);
             if (x.equals(obj)) {
                 return x;
             }
@@ -619,7 +620,13 @@ public class FCollection<T> implements List<T>, /*Set<T>,*/ FCollectionView<T>, 
 
     @Override
     public boolean anyMatch(Predicate<? super T> test) {
-        return list.stream().anyMatch(test);
+        Objects.requireNonNull(test);
+        for (int i = 0; i < list.size(); i++) {
+            if (test.test(list.get(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
