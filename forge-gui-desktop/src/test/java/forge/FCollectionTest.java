@@ -2,14 +2,84 @@ package forge;
 
 import forge.game.card.Card;
 import forge.game.card.CardCollection;
+import forge.util.collect.FCollection;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class FCollectionTest {
+    private static final class DirectionalEquality {
+        private final String value;
+        private final boolean acceptsEqualValue;
+
+        private DirectionalEquality(final String value, final boolean acceptsEqualValue) {
+            this.value = value;
+            this.acceptsEqualValue = acceptsEqualValue;
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            return this == obj || acceptsEqualValue
+                    && obj instanceof DirectionalEquality
+                    && value.equals(((DirectionalEquality) obj).value);
+        }
+
+        @Override
+        public int hashCode() {
+            return value.hashCode();
+        }
+    }
+
+    @Test
+    void testGetUsesStoredEqualityAndReturnsStoredInstance() {
+        final DirectionalEquality stored = new DirectionalEquality("match", true);
+        final DirectionalEquality probe = new DirectionalEquality("match", false);
+        final DirectionalEquality absent = new DirectionalEquality("absent", false);
+        final FCollection<DirectionalEquality> collection = new FCollection<>(stored);
+
+        assertSame(collection.get(probe), stored);
+        assertSame(collection.get(absent), absent);
+        assertNull(collection.get(null));
+    }
+
+    @Test
+    void testAnyMatchPreservesEncounterOrderAndShortCircuits() {
+        final FCollection<Integer> collection = new FCollection<>(List.of(1, 2, 3));
+        final List<Integer> visited = new ArrayList<>();
+
+        assertTrue(collection.anyMatch(value -> {
+            visited.add(value);
+            return value == 2;
+        }));
+        assertEquals(visited, List.of(1, 2));
+    }
+
+    @Test
+    void testAnyMatchChecksEveryElementWhenAbsent() {
+        final FCollection<Integer> collection = new FCollection<>(List.of(1, 2, 3));
+        final List<Integer> visited = new ArrayList<>();
+
+        assertFalse(collection.anyMatch(value -> {
+            visited.add(value);
+            return false;
+        }));
+        assertEquals(visited, List.of(1, 2, 3));
+    }
+
+    @Test
+    void testAnyMatchNullPredicateBehavior() {
+        expectThrows(NullPointerException.class, () -> new FCollection<Integer>().anyMatch(null));
+        assertFalse(FCollection.<Integer>getEmpty().anyMatch(null));
+    }
+
     /**
      * Just a quick test for FCollection.
      */

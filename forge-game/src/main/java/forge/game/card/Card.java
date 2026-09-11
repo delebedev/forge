@@ -2438,8 +2438,195 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         return sb.toString();
     }
 
+    private boolean appendKeywordDetails(final String keyword, final KeywordInterface inst,
+            final StringBuilder sb, final StringBuilder sbLong) {
+        if (keyword.startsWith("etbCounter")) {
+            final String[] p = keyword.split(":");
+            final StringBuilder s = new StringBuilder();
+            if (p.length > 4) {
+                if (!"no desc".equals(p[4])) {
+                    s.append(p[4]);
+                }
+            } else {
+                s.append(getName()).append(" enters with ");
+                s.append(Lang.nounWithNumeralExceptOne(p[2],
+                        CounterType.getType(p[1]).getName().toLowerCase() + " counter"));
+                s.append(" on it.");
+            }
+            sbLong.append(s).append("\r\n");
+        } else if (keyword.startsWith("DeckLimit")) {
+            final String[] k = keyword.split(":");
+            sbLong.append(k[2]).append("\r\n");
+        } else if (keyword.startsWith("Enchant") && inst instanceof KeywordWithType kwt) {
+            String desc = kwt.getTypeDescription();
+            sbLong.append("Enchant ").append(desc).append("\r\n");
+        } else if (keyword.startsWith("Morph") || keyword.startsWith("Megamorph")
+                || keyword.startsWith("Multikicker") || keyword.startsWith("Echo")
+                || keyword.startsWith("Disguise") || keyword.startsWith("Reflect")
+                || keyword.startsWith("Mayhem") || keyword.startsWith("Recover")
+                || keyword.startsWith("Sneak") || keyword.startsWith("Squad")
+                || keyword.startsWith("Emerge") || keyword.startsWith("More Than Meets the Eye")
+                || keyword.startsWith("Level up") || keyword.startsWith("Plot")
+                || keyword.startsWith("Impending") || keyword.equals("Suspend")) {
+            sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
+            sbLong.append("\r\n");
+        } else if (keyword.startsWith("Escape") || keyword.startsWith("Foretell:")
+                || keyword.startsWith("Madness:") || keyword.startsWith("Reconfigure")
+                || keyword.startsWith("Miracle") || keyword.startsWith("Offspring")) {
+            String[] k = keyword.split(":");
+            sbLong.append(k[0]);
+            if (k.length > 1) {
+                final Cost mCost;
+                if ("ManaCost".equals(k[1])) {
+                    ManaCost cost;
+                    if (keyword.startsWith("Miracle") && k.length > 2) {
+                        // TODO better handle 2 hybrid, these should not be reduced?
+                        ManaCostBeingPaid mcbp = new ManaCostBeingPaid(getManaCost());
+                        mcbp.decreaseGenericMana(Integer.valueOf(k[2]));
+                        cost = mcbp.toManaCost();
+                    } else {
+                        cost = getManaCost();
+                    }
+                    mCost = new Cost(cost, true);
+                } else {
+                    mCost = new Cost(k[1], true);
+                }
+                if (mCost.isOnlyManaCost()) {
+                    sbLong.append(" ");
+                } else {
+                    sbLong.append("—");
+                }
+                if (keyword.startsWith("Reconfigure") && k.length > 2) {
+                    final String[] altCost = new Cost(k[2], true).toString().split(" ");
+                    sbLong.append("—").append(altCost[0]).append(" ").append(mCost.toString()).append(" or ").append(altCost[1]);
+                } else {
+                    sbLong.append(mCost.toString());
+                    if (!mCost.isOnlyManaCost()) {
+                        sbLong.append(".");
+                    }
+                    if (k.length > 3) {
+                        sbLong.append(". ").append(k[3]);
+                    }
+                }
+                sbLong.append(" (").append(inst.getReminderText()).append(")");
+                sbLong.append("\r\n");
+            }
+        } else if (keyword.startsWith("Cumulative upkeep")) {
+            sbLong.append("Cumulative upkeep ");
+            final String[] upkeepCostParams = keyword.split(":");
+            sbLong.append(upkeepCostParams.length > 2 ? "— " + upkeepCostParams[2] : ManaCostParser.parse(upkeepCostParams[1]));
+            sbLong.append("\r\n");
+        } else if (keyword.startsWith("AlternateAdditionalCost")) {
+            final String[] costs = keyword.split(":", 2)[1].split(":");
+            sbLong.append("As an additional cost to cast this spell, ");
+            for (int n = 0; n < costs.length; n++) {
+                final Cost cost = new Cost(costs[n], false);
+                if (cost.isOnlyManaCost()) {
+                    sbLong.append(" pay ");
+                }
+                sbLong.append(StringUtils.uncapitalize(cost.toSimpleString()));
+                sbLong.append(n + 1 == costs.length ? ".\r\n\r\n" : n + 2 == costs.length && costs.length > 2
+                        ? ", or " : n + 2 == costs.length ? " or " : ", ");
+            }
+        } else if (keyword.startsWith("Kicker")) {
+            sbLong.append(kickerDesc(keyword, inst.getReminderText())).append("\r\n");
+        } else if (keyword.startsWith("Trample:")) {
+            sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")").append("\r\n");
+        } else if (keyword.startsWith("Hexproof:")) {
+            final String[] k = keyword.split(":");
+            sbLong.append(inst.getTitle());
+            // skip reminder text for more complicated Hexproofs
+            if (k.length <= 2 || !k[2].contains(" and ") && !k[2].contains("each")) {
+                sbLong.append(" (").append(inst.getReminderText()).append(")");
+            }
+            sbLong.append("\r\n");
+        } else if (keyword.startsWith("Protection:")) {
+            final String[] k = keyword.split(":");
+            if (k.length > 2) {
+                sbLong.append("Protection from ").append(k[2]);
+            } else {
+                sbLong.append(inst.getTitle());
+            }
+            sbLong.append("\r\n");
+        } else if (inst.getKeyword().equals(Keyword.COMPANION)) {
+            sbLong.append("Companion — ");
+            sbLong.append(((Companion)inst).getDescription());
+        } else if (keyword.startsWith("MayFlash")) {
+            // Pseudo keywords, only print Reminder
+            sbLong.append(inst.getReminderText()).append("\r\n");
+        } else if (keyword.equals("Provoke") || keyword.equals("Ingest") || keyword.equals("Unleash")
+                || keyword.equals("Living Weapon") || keyword.equals("Myriad") || keyword.equals("Exploit")
+                || keyword.equals("Changeling") || keyword.equals("Delve") || keyword.equals("Decayed")
+                || keyword.equals("Split second") || keyword.equals("Sunburst") || keyword.equals("Riot")
+                || keyword.equals("Soulbond") || keyword.equals("Retrace")
+                || keyword.equals("Double team") || keyword.equals("Living metal")
+                || keyword.equals("Foretell") // for the ones without cost
+                || keyword.equals("Ascend") || keyword.equals("Umbra armor")
+                || keyword.equals("Battle cry") || keyword.equals("Devoid")
+                || keyword.equals("Daybound") || keyword.equals("Nightbound")
+                || keyword.equals("Increment")
+                || keyword.equals("Choose a Background") || keyword.equals("Compleated")
+                || keyword.equals("Space sculptor") || keyword.equals("Doctor's companion")
+                || keyword.equals("Start your engines") || keyword.startsWith("Modular")
+                || keyword.startsWith("Bloodthirst") || keyword.startsWith("Dredge")
+                || keyword.startsWith("Fabricate") || keyword.startsWith("Soulshift") || keyword.startsWith("Bushido")
+                || keyword.startsWith("Saddle") || keyword.startsWith("Tribute") || keyword.startsWith("Absorb")
+                || keyword.startsWith("Graft") || keyword.startsWith("Fading") || keyword.startsWith("Vanishing:")
+                || keyword.startsWith("Afterlife") || keyword.startsWith("Hideaway") || keyword.startsWith("Toxic")
+                || keyword.startsWith("Afflict") || keyword.startsWith ("Poisonous") || keyword.startsWith("Rampage")
+                || keyword.startsWith("Renown") || keyword.startsWith("Annihilator") || keyword.startsWith("Ripple")
+                || keyword.startsWith("Ward")) {
+            sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
+        } else if (keyword.startsWith("Partner with:")) {
+            final String[] k = keyword.split(":");
+            sbLong.append("Partner with ").append(k[1]).append(" (").append(inst.getReminderText()).append(")");
+        } else if (keyword.startsWith("Partner")) {
+            sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
+        } else if (keyword.startsWith("Prototype")) {
+            final String[] k = keyword.split(":");
+            final Cost cost = new Cost(k[1], false);
+            sbLong.append(k[0]).append(" ").append(cost.toSimpleString()).append(" ").append("[").append(k[2]);
+            sbLong.append("/").append(k[3]).append("] ").append("(").append(inst.getReminderText()).append(")");
+        } else if (keyword.startsWith("Crew")) {
+            final String[] k = keyword.split(":");
+            sbLong.append("Crew ").append(k[1]);
+            if (k.length > 2) {
+                if (k[2].contains("ActivationLimit$ 1")) {
+                    sbLong.append(". Activate only once each turn.");
+                }
+            }
+            sbLong.append(" (").append(inst.getReminderText()).append(")");
+        } else if (keyword.startsWith("Casualty")) {
+            final String[] k = keyword.split(":");
+            sbLong.append("Casualty ").append(k[1]);
+            if (k.length >= 4) {
+                sbLong.append(". ").append(k[3]);
+            }
+            sbLong.append(" (").append(inst.getReminderText()).append(")");
+        } else if (keyword.equals("Gift")) {
+            sbLong.append(keyword);
+            Trigger trig = inst.getTriggers().stream().findFirst().orElse(null);
+            if (trig != null && trig.getCardState().getFirstSpellAbilityWithFallback().hasAdditionalAbility("GiftAbility")) {
+                sbLong.append(" ").append(trig.getCardState().getFirstSpellAbilityWithFallback().getAdditionalAbility("GiftAbility").getParam("GiftDescription"));
+            }
+            sbLong.append("\r\n");
+        } else if (keyword.startsWith("Starting intensity")) {
+            sbLong.append(TextUtil.fastReplace(keyword, ":", " "));
+        } else if (keyword.contains("Haunt")) {
+            sb.append("\r\nHaunt (").append(inst.getReminderText()).append(")");
+        } else if (keyword.startsWith("Bands with other")) {
+            final String[] k = keyword.split(":");
+            String desc = k.length > 2 ? k[2] : CardType.getPluralType(k[1]);
+            sbLong.append(k[0]).append(" ").append(desc).append(" (").append(inst.getReminderText()).append(")");
+        } else {
+            return false;
+        }
+        return true;
+    }
+
     // convert a keyword list to the String that should be displayed in game
     private String keywordsToText(final Collection<KeywordInterface> keywords) {
+        // Keep this formatter split to avoid CheerpJ 4.3 local-variable collisions in large methods.
         final StringBuilder sb = new StringBuilder();
         final StringBuilder sbLong = new StringBuilder();
 
@@ -2449,185 +2636,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         for (KeywordInterface inst : keywords) {
             String keyword = inst.getOriginal();
             try {
-                if (keyword.startsWith("etbCounter")) {
-                    final String[] p = keyword.split(":");
-                    final StringBuilder s = new StringBuilder();
-                    if (p.length > 4) {
-                        if (!"no desc".equals(p[4])) {
-                            s.append(p[4]);
-                        }
-                    } else {
-                        s.append(getName()).append(" enters with ");
-                        s.append(Lang.nounWithNumeralExceptOne(p[2],
-                                CounterType.getType(p[1]).getName().toLowerCase() + " counter"));
-                        s.append(" on it.");
-                    }
-                    sbLong.append(s).append("\r\n");
-                } else if (keyword.startsWith("DeckLimit")) {
-                    final String[] k = keyword.split(":");
-                    sbLong.append(k[2]).append("\r\n");
-                } else if (keyword.startsWith("Enchant") && inst instanceof KeywordWithType kwt) {
-                    String desc = kwt.getTypeDescription();
-                    sbLong.append("Enchant ").append(desc).append("\r\n");
-                } else if (keyword.startsWith("Morph") || keyword.startsWith("Megamorph")
-                        || keyword.startsWith("Multikicker") || keyword.startsWith("Echo")
-                        || keyword.startsWith("Disguise") || keyword.startsWith("Reflect")
-                        || keyword.startsWith("Mayhem") || keyword.startsWith("Recover")
-                        || keyword.startsWith("Sneak") || keyword.startsWith("Squad")
-                        || keyword.startsWith("Emerge") || keyword.startsWith("More Than Meets the Eye")
-                        || keyword.startsWith("Level up") || keyword.startsWith("Plot")
-                        || keyword.startsWith("Impending") || keyword.equals("Suspend")) {
-                    sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
-                    sbLong.append("\r\n");
-                } else if (keyword.startsWith("Escape") || keyword.startsWith("Foretell:")
-                        || keyword.startsWith("Madness:") || keyword.startsWith("Reconfigure")
-                        || keyword.startsWith("Miracle") || keyword.startsWith("Offspring")) {
-                    String[] k = keyword.split(":");
-                    sbLong.append(k[0]);
-                    if (k.length > 1) {
-                        final Cost mCost;
-                        if ("ManaCost".equals(k[1])) {
-                            ManaCost cost;
-                            if (keyword.startsWith("Miracle") && k.length > 2) {
-                                // TODO better handle 2 hybrid, these should not be reduced?
-                                ManaCostBeingPaid mcbp = new ManaCostBeingPaid(getManaCost());
-                                mcbp.decreaseGenericMana(Integer.valueOf(k[2]));
-                                cost = mcbp.toManaCost();
-                            } else {
-                                cost = getManaCost();
-                            }
-                            mCost = new Cost(cost, true);
-                        } else {
-                            mCost = new Cost(k[1], true);
-                        }
-                        if (mCost.isOnlyManaCost()) {
-                            sbLong.append(" ");
-                        } else {
-                            sbLong.append("—");
-                        }
-                        if (keyword.startsWith("Reconfigure") && k.length > 2) {
-                            final String[] altCost = new Cost(k[2], true).toString().split(" ");
-                            sbLong.append("—").append(altCost[0]).append(" ").append(mCost.toString()).append(" or ").append(altCost[1]);
-                        } else {
-                            sbLong.append(mCost.toString());
-                            if (!mCost.isOnlyManaCost()) {
-                                sbLong.append(".");
-                            }
-                            if (k.length > 3) {
-                                sbLong.append(". ").append(k[3]);
-                            }
-                        }
-                        sbLong.append(" (").append(inst.getReminderText()).append(")");
-                        sbLong.append("\r\n");
-                    }
-                } else if (keyword.startsWith("Cumulative upkeep")) {
-                    sbLong.append("Cumulative upkeep ");
-                    final String[] upkeepCostParams = keyword.split(":");
-                    sbLong.append(upkeepCostParams.length > 2 ? "— " + upkeepCostParams[2] : ManaCostParser.parse(upkeepCostParams[1]));
-                    sbLong.append("\r\n");
-                } else if (keyword.startsWith("AlternateAdditionalCost")) {
-                    final String[] costs = keyword.split(":", 2)[1].split(":");
-                    sbLong.append("As an additional cost to cast this spell, ");
-                    for (int n = 0; n < costs.length; n++) {
-                        final Cost cost = new Cost(costs[n], false);
-                        if (cost.isOnlyManaCost()) {
-                            sbLong.append(" pay ");
-                        }
-                        sbLong.append(StringUtils.uncapitalize(cost.toSimpleString()));
-                        sbLong.append(n + 1 == costs.length ? ".\r\n\r\n" : n + 2 == costs.length && costs.length > 2
-                                ? ", or " : n + 2 == costs.length ? " or " : ", ");
-                    }
-                } else if (keyword.startsWith("Kicker")) {
-                    sbLong.append(kickerDesc(keyword, inst.getReminderText())).append("\r\n");
-                } else if (keyword.startsWith("Trample:")) {
-                    sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")").append("\r\n");
-                } else if (keyword.startsWith("Hexproof:")) {
-                    final String[] k = keyword.split(":");
-                    sbLong.append(inst.getTitle());
-                    // skip reminder text for more complicated Hexproofs
-                    if (k.length <= 2 || !k[2].contains(" and ") && !k[2].contains("each")) {
-                        sbLong.append(" (").append(inst.getReminderText()).append(")");
-                    }
-                    sbLong.append("\r\n");
-                } else if (keyword.startsWith("Protection:")) {
-                    final String[] k = keyword.split(":");
-                    if (k.length > 2) {
-                        sbLong.append("Protection from ").append(k[2]);
-                    } else {
-                        sbLong.append(inst.getTitle());
-                    }
-                    sbLong.append("\r\n");
-                } else if (inst.getKeyword().equals(Keyword.COMPANION)) {
-                    sbLong.append("Companion — ");
-                    sbLong.append(((Companion)inst).getDescription());
-                } else if (keyword.startsWith("MayFlash")) {
-                    // Pseudo keywords, only print Reminder
-                    sbLong.append(inst.getReminderText()).append("\r\n");
-                } else if (keyword.equals("Provoke") || keyword.equals("Ingest") || keyword.equals("Unleash")
-                        || keyword.equals("Living Weapon") || keyword.equals("Myriad") || keyword.equals("Exploit")
-                        || keyword.equals("Changeling") || keyword.equals("Delve") || keyword.equals("Decayed")
-                        || keyword.equals("Split second") || keyword.equals("Sunburst") || keyword.equals("Riot")
-                        || keyword.equals("Soulbond") || keyword.equals("Retrace")
-                        || keyword.equals("Double team") || keyword.equals("Living metal")
-                        || keyword.equals("Foretell") // for the ones without cost
-                        || keyword.equals("Ascend") || keyword.equals("Umbra armor")
-                        || keyword.equals("Battle cry") || keyword.equals("Devoid")
-                        || keyword.equals("Daybound") || keyword.equals("Nightbound")
-                        || keyword.equals("Increment")
-                        || keyword.equals("Choose a Background") || keyword.equals("Compleated")
-                        || keyword.equals("Space sculptor") || keyword.equals("Doctor's companion")
-                        || keyword.equals("Start your engines") || keyword.startsWith("Modular")
-                        || keyword.startsWith("Bloodthirst") || keyword.startsWith("Dredge")
-                        || keyword.startsWith("Fabricate") || keyword.startsWith("Soulshift") || keyword.startsWith("Bushido")
-                        || keyword.startsWith("Saddle") || keyword.startsWith("Tribute") || keyword.startsWith("Absorb")
-                        || keyword.startsWith("Graft") || keyword.startsWith("Fading") || keyword.startsWith("Vanishing:")
-                        || keyword.startsWith("Afterlife") || keyword.startsWith("Hideaway") || keyword.startsWith("Toxic")
-                        || keyword.startsWith("Afflict") || keyword.startsWith ("Poisonous") || keyword.startsWith("Rampage")
-                        || keyword.startsWith("Renown") || keyword.startsWith("Annihilator") || keyword.startsWith("Ripple")
-                        || keyword.startsWith("Ward")) {
-                    sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
-                } else if (keyword.startsWith("Partner with:")) {
-                    final String[] k = keyword.split(":");
-                    sbLong.append("Partner with ").append(k[1]).append(" (").append(inst.getReminderText()).append(")");
-                } else if (keyword.startsWith("Partner")) {
-                    sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
-                } else if (keyword.startsWith("Prototype")) {
-                    final String[] k = keyword.split(":");
-                    final Cost cost = new Cost(k[1], false);
-                    sbLong.append(k[0]).append(" ").append(cost.toSimpleString()).append(" ").append("[").append(k[2]);
-                    sbLong.append("/").append(k[3]).append("] ").append("(").append(inst.getReminderText()).append(")");
-                } else if (keyword.startsWith("Crew")) {
-                    final String[] k = keyword.split(":");
-                    sbLong.append("Crew ").append(k[1]);
-                    if (k.length > 2) {
-                        if (k[2].contains("ActivationLimit$ 1")) {
-                            sbLong.append(". Activate only once each turn.");
-                        }
-                    }
-                    sbLong.append(" (").append(inst.getReminderText()).append(")");
-                } else if (keyword.startsWith("Casualty")) {
-                    final String[] k = keyword.split(":");
-                    sbLong.append("Casualty ").append(k[1]);
-                    if (k.length >= 4) {
-                        sbLong.append(". ").append(k[3]);
-                    }
-                    sbLong.append(" (").append(inst.getReminderText()).append(")");
-                } else if (keyword.equals("Gift")) {
-                    sbLong.append(keyword);
-                    Trigger trig = inst.getTriggers().stream().findFirst().orElse(null);
-                    if (trig != null && trig.getCardState().getFirstSpellAbilityWithFallback().hasAdditionalAbility("GiftAbility")) {
-                        sbLong.append(" ").append(trig.getCardState().getFirstSpellAbilityWithFallback().getAdditionalAbility("GiftAbility").getParam("GiftDescription"));
-                    }
-                    sbLong.append("\r\n");
-                } else if (keyword.startsWith("Starting intensity")) {
-                    sbLong.append(TextUtil.fastReplace(keyword, ":", " "));
-                } else if (keyword.contains("Haunt")) {
-                    sb.append("\r\nHaunt (").append(inst.getReminderText()).append(")");
-                } else if (keyword.startsWith("Bands with other")) {
-                    final String[] k = keyword.split(":");
-                    String desc = k.length > 2 ? k[2] : CardType.getPluralType(k[1]);
-                    sbLong.append(k[0]).append(" ").append(desc).append(" (").append(inst.getReminderText()).append(")");
-                } else if (keyword.equals("Convoke") || keyword.equals("Dethrone") || keyword.equals("Fear")
+                if (appendKeywordDetails(keyword, inst, sb, sbLong)) {} else if (keyword.equals("Convoke") || keyword.equals("Dethrone") || keyword.equals("Fear")
                          || keyword.equals("Melee") || keyword.equals("Improvise") || keyword.equals("Shroud")
                          || keyword.equals("Banding") || keyword.equals("Intimidate") || keyword.equals("Evolve")
                          || keyword.equals("Exalted") || keyword.equals("Extort") || keyword.equals("Flanking")
@@ -2948,7 +2957,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         }
 
         // Give spellText line breaks for easier reading
-        sb.append(text.replaceAll("\\\\r\\\\n", "\r\n"));
+        sb.append(TextUtil.fastReplace(text, "\\r\\n", "\r\n"));
         sb.append(linebreak);
 
         // Triggered abilities
@@ -2963,7 +2972,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
                 }
                 String trigStr = trig.replaceAbilityText(trig.toString(), state);
                 if (disabled) sb.append(grayTag);
-                sb.append(trigStr.replaceAll("\\\\r\\\\n", "\r\n"));
+                sb.append(TextUtil.fastReplace(trigStr, "\\r\\n", "\r\n"));
                 if (disabled) sb.append(endTag);
                 sb.append(linebreak);
             }
@@ -3030,7 +3039,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
                 }
                 sbSA.append(namedFace.getName()).append("\r\n");
                 sbSA.append(namedFace.getType()).append("\r\n");
-                sbSA.append(namedFace.getOracleText().replaceAll("\\\\n", "\r\n"));
+                sbSA.append(TextUtil.fastReplace(namedFace.getOracleText(), "\\n", "\r\n"));
                 sbSA.append(linebreak);
                 sAbility = sbSA.toString();
             }
@@ -3142,8 +3151,8 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         }
 
         // Ensure no more escaped linebreak are present
-        desc = desc.replace("\\r", "\r")
-            .replace("\\n", "\n");
+        desc = TextUtil.fastReplace(desc, "\\r", "\r");
+        desc = TextUtil.fastReplace(desc, "\\n", "\n");
 
         return desc.trim();
     }
@@ -3152,7 +3161,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         final StringBuilder sb = new StringBuilder();
 
         // Give spellText line breaks for easier reading
-        String spellText = text.replaceAll("\\\\r\\\\n", "\r\n");
+        String spellText = TextUtil.fastReplace(text, "\\r\\n", "\r\n");
         sb.append(spellText);
 
         // NOTE:

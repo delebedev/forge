@@ -38,10 +38,17 @@ accessors to mutable `Card` references require migration.
 - `HumanCostDecision` collect-evidence selection — routes weighted mana-value choices through `PlayerController.chooseCardsForCollectEvidence()`
 
 ## Utilities
+- `FCollection.get` and `anyMatch` — scan the backing list without iterator or stream allocation
+- `SpellAbility.getRootAbility()` — reads each parent once, avoiding malformed loop output in the browser JIT
+- `Card.keywordsToText()` — splits keyword details into a helper to avoid local-variable collisions in the browser JIT
+- `CardStorageReader` — accepts a verified build-generated ZIP name index, with ordinary lazy scan fallback
+- Card text newline formatting — uses literal replacement without regex compilation
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
+- `FileSection.getInt()` — returns the configured default for absent optional values without exception-driven parsing
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
 
 ## Fixes
+- `CardDb.contains()` — resolves named cards through lazy loading so cold deck imports accept exact printings
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
 - `InvestigateEffect` — token-created events contain only tokens from the current player iteration
 - `MagicStack.peekAbility()` — returns no ability when the stack is empty
