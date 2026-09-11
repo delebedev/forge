@@ -40,6 +40,7 @@ accessors to mutable `Card` references require migration.
 ## Utilities
 - `FCollection.get` and `anyMatch` — scan the backing list without iterator or stream allocation
 - `SpellAbility.getRootAbility()` — reads each parent once, avoiding malformed loop output in the browser JIT
+- `Card.keywordsToText()` — splits keyword details into a helper to avoid local-variable collisions in the browser JIT
 - `CardStorageReader` — accepts a verified build-generated ZIP name index, with ordinary lazy scan fallback
 - Card text newline formatting — uses literal replacement without regex compilation
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
