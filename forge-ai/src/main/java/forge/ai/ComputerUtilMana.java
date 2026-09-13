@@ -1311,10 +1311,7 @@ public class ComputerUtilMana {
                 ma.setActivatingPlayer(p);
                 if (!checkPlayable || ma.canPlay()) {
                     int costsToActivate = ma.getPayCosts().getCostMana() != null ? ma.getPayCosts().getCostMana().convertAmount() : 0;
-                    int producedMana = ma.getParamOrDefault("Produced", "").split(" ").length;
-                    int producedAmount = AbilityUtils.calculateAmount(src, ma.getParamOrDefault("Amount", "1"), ma);
-
-                    int producedTotal = producedMana * producedAmount - costsToActivate;
+                    int producedTotal = getNetManaProduced(ma);
 
                     if (costsToActivate > 0) {
                         producedWithCost += producedTotal;
@@ -1675,10 +1672,11 @@ public class ComputerUtilMana {
     public static List<SpellAbility> getAIPlayableMana(Card c) {
         final List<SpellAbility> res = new ArrayList<>();
         for (final SpellAbility a : c.getManaAbilities()) {
-            // if a mana ability has a mana cost the AI will miscalculate
+            // A paid source is useful only when activating it increases available mana.
             // if there is a parent ability the AI can't use it
             final Cost cost = a.getPayCosts();
-            if (cost.hasManaCost() || (a.getApi() != ApiType.Mana && a.getApi() != ApiType.ManaReflected)) {
+            if ((cost.hasManaCost() && getNetManaProduced(a) <= 0)
+                    || (a.getApi() != ApiType.Mana && a.getApi() != ApiType.ManaReflected)) {
                 continue;
             }
 
@@ -1695,6 +1693,15 @@ public class ComputerUtilMana {
             }
         }
         return res;
+    }
+
+    private static int getNetManaProduced(final SpellAbility ability) {
+        final Cost cost = ability.getPayCosts();
+        final int activationMana = cost.getCostMana() == null ? 0 : cost.getCostMana().convertAmount();
+        final int producedColors = ability.getParamOrDefault("Produced", "").split(" ").length;
+        final int producedAmount = AbilityUtils.calculateAmount(
+                ability.getHostCard(), ability.getParamOrDefault("Amount", "1"), ability);
+        return producedColors * producedAmount - activationMana;
     }
 
     /**

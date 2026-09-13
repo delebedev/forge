@@ -1,6 +1,7 @@
 package forge.ai.controller;
 
 import forge.ai.AiCardMemory;
+import forge.ai.ComputerUtilMana;
 import forge.ai.AiController;
 import forge.ai.PlayerControllerAi;
 import forge.ai.simulation.SimulationTest;
@@ -85,5 +86,23 @@ public class ReserveManaSourcesTest extends SimulationTest {
 
         AssertJUnit.assertFalse("all four lands are spoken for by the first spell",
                 aiOf(game).reserveManaSourcesForNextSpell(second, first));
+    }
+
+    @Test
+    public void paysThroughNetPositiveManaFilter() {
+        Game game = gameWith(new String[] { "Mountain", "Mossfire Valley" });
+        SpellAbility sa = spellInHand(game, "Ruby Medallion");
+
+        AssertJUnit.assertTrue("one mana can activate a filter that produces two",
+                ComputerUtilMana.canPayManaCost(sa, game.getPlayers().get(1), 0, false));
+    }
+
+    @Test
+    public void netZeroManaFilterDoesNotIncreaseAvailableMana() {
+        Game game = gameWith(new String[] { "Plains", "Plains", "Plains", "Plains", "Golden Egg" });
+        SpellAbility sa = spellInHand(game, "Cavalier of Dawn");
+
+        AssertJUnit.assertFalse("a filter that spends and produces one mana cannot pay a fifth mana",
+                ComputerUtilMana.canPayManaCost(sa, game.getPlayers().get(1), 0, false));
     }
 }
