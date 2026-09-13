@@ -610,13 +610,6 @@ public class ComputerUtilMana {
         final ManaPool manapool = ai.getManaPool();
         boolean purePhyrexian = cost.containsOnlyPhyrexianMana();
         boolean hasConverge = sa.getHostCard().hasConverge();
-        ListMultimap<ManaCostShard, SpellAbility> sourcesForShards =
-                getSourcesForShards(cost, sa, ai, test, checkPlayable, hasConverge);
-        int floatingManaToReserve = sourcesForShards == null ? 0 : sourcesForShards.values().stream()
-                .map(SpellAbility::getPayCosts)
-                .filter(Cost::hasManaCost)
-                .mapToInt(sourceCost -> sourceCost.getCostMana().convertAmount())
-                .min().orElse(0);
 
         // Apply color/type conversion matrix if necessary (already done via autopay)
         if (ai.getControllingPlayer() == null) {
@@ -634,6 +627,14 @@ public class ComputerUtilMana {
             }
             StaticAbilityManaConvert.manaConvert(manapool, ai, sa.getHostCard(), effect && !sa.isCastFromPlayEffect() ? null : sa);
         }
+
+        ListMultimap<ManaCostShard, SpellAbility> sourcesForShards =
+                getSourcesForShards(cost, sa, ai, test, checkPlayable, hasConverge);
+        int floatingManaToReserve = sourcesForShards == null ? 0 : sourcesForShards.values().stream()
+                .map(SpellAbility::getPayCosts)
+                .filter(Cost::hasManaCost)
+                .mapToInt(sourceCost -> sourceCost.getCostMana().convertAmount())
+                .min().orElse(0);
 
         // not worth checking if it makes sense to not spend floating first
         final ManaCostBeingPaid poolOnlyCost = new ManaCostBeingPaid(cost);
