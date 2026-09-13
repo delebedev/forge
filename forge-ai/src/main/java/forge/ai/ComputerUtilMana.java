@@ -608,6 +608,8 @@ public class ComputerUtilMana {
         List<Mana> manaSpentToPay = test ? new ArrayList<>() : sa.getPayingMana();
         List<SpellAbility> paymentList = Lists.newArrayList();
         final ManaPool manapool = ai.getManaPool();
+        boolean purePhyrexian = cost.containsOnlyPhyrexianMana();
+        boolean hasConverge = sa.getHostCard().hasConverge();
 
         // Apply color/type conversion matrix if necessary (already done via autopay)
         if (ai.getControllingPlayer() == null) {
@@ -626,17 +628,28 @@ public class ComputerUtilMana {
             StaticAbilityManaConvert.manaConvert(manapool, ai, sa.getHostCard(), effect && !sa.isCastFromPlayEffect() ? null : sa);
         }
 
+        ListMultimap<ManaCostShard, SpellAbility> sourcesForShards =
+                getSourcesForShards(cost, sa, ai, test, checkPlayable, hasConverge);
+        int floatingManaToReserve = sourcesForShards == null ? 0 : sourcesForShards.values().stream()
+                .map(SpellAbility::getPayCosts)
+                .filter(Cost::hasManaCost)
+                .mapToInt(sourceCost -> sourceCost.getCostMana().convertAmount())
+                .min().orElse(0);
+
         // not worth checking if it makes sense to not spend floating first
-        if (manapool.payManaCostFromPool(cost, sa, test, manaSpentToPay)) {
+        final ManaCostBeingPaid poolOnlyCost = new ManaCostBeingPaid(cost);
+        final List<Mana> poolOnlyPayment = new ArrayList<>();
+        final boolean poolPaysAll = manapool.payManaCostFromPool(poolOnlyCost, sa, true, poolOnlyPayment);
+        if (!poolPaysAll) {
+            manapool.refundMana(poolOnlyPayment);
+        }
+        if (poolPaysAll && manapool.payManaCostFromPool(cost, sa, test, manaSpentToPay)) {
             CostPayment.handleOfferings(sa, test, cost.isPaid());
             // paid all from floating mana
             return paymentList;
         }
 
         int phyLifeToPay = 2;
-        boolean purePhyrexian = cost.containsOnlyPhyrexianMana();
-        boolean hasConverge = sa.getHostCard().hasConverge();
-        ListMultimap<ManaCostShard, SpellAbility> sourcesForShards = getSourcesForShards(cost, sa, ai, test, checkPlayable, hasConverge);
 
         int testEnergyPool = ai.getCounters(CounterEnumType.ENERGY);
         ManaCostShard toPay = null;
@@ -644,7 +657,7 @@ public class ComputerUtilMana {
 
         // Loop over mana needed
         while (!cost.isPaid()) {
-            while (!cost.isPaid() && !manapool.isEmpty()) {
+            while (!cost.isPaid() && manapool.totalMana() > floatingManaToReserve) {
                 boolean found = false;
                 for (byte color : ManaAtom.MANATYPES) {
                     if (manapool.tryPayCostWithColor(color, sa, cost, manaSpentToPay)) {
@@ -763,6 +776,7 @@ public class ComputerUtilMana {
 
                 String manaProduced = predictMana(saPayment, ai, toPay);
                 payMultipleMana(cost, manaProduced, ai);
+                floatingManaToReserve = 0;
 
                 // remove to prevent re-usage since resources don't get consumed
                 sourcesForShards.values().removeIf(CardTraitPredicates.isHostCard(saPayment.getHostCard()));
@@ -772,6 +786,7 @@ public class ComputerUtilMana {
                     saList.remove(saPayment);
                     continue;
                 }
+                floatingManaToReserve = 0;
 
                 ai.getGame().getStack().addAndUnfreeze(saPayment);
                 // subtract mana from mana pool
@@ -1296,9 +1311,13 @@ public class ComputerUtilMana {
         return getAvailableManaEstimate(p, true);
     }
     public static int getAvailableManaEstimate(final Player p, final boolean checkPlayable) {
+        return getAvailableManaEstimate(p, checkPlayable, null);
+    }
+    private static int getAvailableManaEstimate(final Player p, final boolean checkPlayable, final Card excluded) {
         int availableMana = 0;
 
-        final List<Card> srcs = CardLists.filter(p.getCardsIn(ZoneType.Battlefield), c -> !c.getManaAbilities().isEmpty());
+        final List<Card> srcs = CardLists.filter(p.getCardsIn(ZoneType.Battlefield),
+                c -> c != excluded && !c.getManaAbilities().isEmpty());
 
         int maxProduced = 0;
         int producedWithCost = 0;
@@ -1311,10 +1330,7 @@ public class ComputerUtilMana {
                 ma.setActivatingPlayer(p);
                 if (!checkPlayable || ma.canPlay()) {
                     int costsToActivate = ma.getPayCosts().getCostMana() != null ? ma.getPayCosts().getCostMana().convertAmount() : 0;
-                    int producedMana = ma.getParamOrDefault("Produced", "").split(" ").length;
-                    int producedAmount = AbilityUtils.calculateAmount(src, ma.getParamOrDefault("Amount", "1"), ma);
-
-                    int producedTotal = producedMana * producedAmount - costsToActivate;
+                    int producedTotal = getNetManaProduced(ma);
 
                     if (costsToActivate > 0) {
                         producedWithCost += producedTotal;
@@ -1675,10 +1691,11 @@ public class ComputerUtilMana {
     public static List<SpellAbility> getAIPlayableMana(Card c) {
         final List<SpellAbility> res = new ArrayList<>();
         for (final SpellAbility a : c.getManaAbilities()) {
-            // if a mana ability has a mana cost the AI will miscalculate
+            // A paid source is useful only when activating it increases available mana.
             // if there is a parent ability the AI can't use it
             final Cost cost = a.getPayCosts();
-            if (cost.hasManaCost() || (a.getApi() != ApiType.Mana && a.getApi() != ApiType.ManaReflected)) {
+            if ((cost.hasManaCost() && !canFundManaAbility(a))
+                    || (a.getApi() != ApiType.Mana && a.getApi() != ApiType.ManaReflected)) {
                 continue;
             }
 
@@ -1695,6 +1712,23 @@ public class ComputerUtilMana {
             }
         }
         return res;
+    }
+
+    private static boolean canFundManaAbility(final SpellAbility ability) {
+        final Cost cost = ability.getPayCosts();
+        final int activationMana = cost.getCostMana().convertAmount();
+        final Card source = ability.getHostCard();
+        return getNetManaProduced(ability) > 0
+                && getAvailableManaEstimate(source.getController(), true, source) >= activationMana;
+    }
+
+    private static int getNetManaProduced(final SpellAbility ability) {
+        final Cost cost = ability.getPayCosts();
+        final int activationMana = cost.getCostMana() == null ? 0 : cost.getCostMana().convertAmount();
+        final int producedColors = ability.getParamOrDefault("Produced", "").split(" ").length;
+        final int producedAmount = AbilityUtils.calculateAmount(
+                ability.getHostCard(), ability.getParamOrDefault("Amount", "1"), ability);
+        return producedColors * producedAmount - activationMana;
     }
 
     /**

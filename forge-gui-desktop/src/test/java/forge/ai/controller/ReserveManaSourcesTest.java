@@ -1,11 +1,14 @@
 package forge.ai.controller;
 
 import forge.ai.AiCardMemory;
+import forge.ai.ComputerUtilMana;
 import forge.ai.AiController;
 import forge.ai.PlayerControllerAi;
 import forge.ai.simulation.SimulationTest;
+import forge.card.mana.ManaAtom;
 import forge.game.Game;
 import forge.game.card.Card;
+import forge.game.mana.Mana;
 import forge.game.phase.PhaseType;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
@@ -85,5 +88,53 @@ public class ReserveManaSourcesTest extends SimulationTest {
 
         AssertJUnit.assertFalse("all four lands are spoken for by the first spell",
                 aiOf(game).reserveManaSourcesForNextSpell(second, first));
+    }
+
+    @Test
+    public void paysThroughNetPositiveManaFilter() {
+        Game game = gameWith(new String[] { "Mountain", "Mossfire Valley" });
+        SpellAbility sa = spellInHand(game, "Ruby Medallion");
+
+        AssertJUnit.assertTrue("one mana can activate a filter that produces two",
+                ComputerUtilMana.canPayManaCost(sa, game.getPlayers().get(1), 0, false));
+    }
+
+    @Test
+    public void netPositiveManaFilterNeedsSeedMana() {
+        Game game = gameWith(new String[] { "Mossfire Valley" });
+        SpellAbility sa = spellInHand(game, "Ruby Medallion");
+
+        AssertJUnit.assertFalse("a filter cannot pay its own activation cost",
+                ComputerUtilMana.canPayManaCost(sa, game.getPlayers().get(1), 0, false));
+    }
+
+    @Test
+    public void mutuallyDependentManaFiltersNeedSeedMana() {
+        Game game = gameWith(new String[] { "Mossfire Valley", "Mossfire Valley" });
+        SpellAbility sa = spellInHand(game, "Ruby Medallion");
+
+        AssertJUnit.assertFalse("two filters cannot fund either activation without seed mana",
+                ComputerUtilMana.canPayManaCost(sa, game.getPlayers().get(1), 0, false));
+    }
+
+    @Test
+    public void floatingManaCanSeedNetPositiveManaFilter() {
+        Game game = gameWith(new String[] { "Mossfire Valley" });
+        Player ai = game.getPlayers().get(1);
+        Card source = createCard("Mountain", ai);
+        ai.getManaPool().addMana(new Mana((byte) ManaAtom.RED, source, null, ai));
+        SpellAbility sa = spellInHand(game, "Ruby Medallion");
+
+        AssertJUnit.assertTrue("floating mana can pay the filter activation cost",
+                ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+    }
+
+    @Test
+    public void netZeroManaFilterDoesNotIncreaseAvailableMana() {
+        Game game = gameWith(new String[] { "Plains", "Plains", "Plains", "Plains", "Golden Egg" });
+        SpellAbility sa = spellInHand(game, "Cavalier of Dawn");
+
+        AssertJUnit.assertFalse("a filter that spends and produces one mana cannot pay a fifth mana",
+                ComputerUtilMana.canPayManaCost(sa, game.getPlayers().get(1), 0, false));
     }
 }
