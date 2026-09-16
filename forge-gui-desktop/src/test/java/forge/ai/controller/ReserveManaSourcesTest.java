@@ -100,6 +100,20 @@ public class ReserveManaSourcesTest extends SimulationTest {
     }
 
     @Test
+    public void executesChainedNetPositiveManaFilters() {
+        Game game = gameWith(new String[] { "Mountain", "Mossfire Valley", "Mossfire Valley" });
+        Player ai = game.getPlayers().get(1);
+        SpellAbility sa = spellInHand(game, "Luck Bobblehead");
+
+        AssertJUnit.assertTrue("the free source should fund both filters in executable order",
+                ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertTrue("every source in the chain should be consumed",
+                ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
+        AssertJUnit.assertTrue("the spell payment should leave no floating mana",
+                ai.getManaPool().isEmpty());
+    }
+
+    @Test
     public void netPositiveManaFilterNeedsSeedMana() {
         Game game = gameWith(new String[] { "Mossfire Valley" });
         SpellAbility sa = spellInHand(game, "Ruby Medallion");
@@ -115,6 +129,8 @@ public class ReserveManaSourcesTest extends SimulationTest {
 
         AssertJUnit.assertFalse("two filters cannot fund either activation without seed mana",
                 ComputerUtilMana.canPayManaCost(sa, game.getPlayers().get(1), 0, false));
+        AssertJUnit.assertTrue("an unavailable chain should not consume either filter",
+                game.getPlayers().get(1).getCardsIn(ZoneType.Battlefield).stream().noneMatch(Card::isTapped));
     }
 
     @Test
