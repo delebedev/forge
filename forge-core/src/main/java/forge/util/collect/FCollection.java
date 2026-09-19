@@ -620,13 +620,7 @@ public class FCollection<T> implements List<T>, /*Set<T>,*/ FCollectionView<T>, 
 
     @Override
     public boolean anyMatch(Predicate<? super T> test) {
-        Objects.requireNonNull(test);
-        for (int i = 0; i < list.size(); i++) {
-            if (test.test(list.get(i))) {
-                return true;
-            }
-        }
-        return false;
+        return list.stream().anyMatch(test);
     }
 
     @Override

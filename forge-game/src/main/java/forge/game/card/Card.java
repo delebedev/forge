@@ -70,6 +70,7 @@ import org.tinylog.Logger;
 
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static java.lang.Math.max;
@@ -179,6 +180,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
 
     private final Map<Long, Integer> canBlockAdditional = Maps.newTreeMap();
     private final Set<Long> canBlockAny = Sets.newHashSet();
+    private final Set<Long> lethalDamageByPower = Sets.newHashSet();
 
     // changes that say "replace each instance of one [color,type] by another - timestamp is the key of maps
     private final CardChangedWords changedTextColors = new CardChangedWords();
@@ -2636,7 +2638,185 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         for (KeywordInterface inst : keywords) {
             String keyword = inst.getOriginal();
             try {
-                if (appendKeywordDetails(keyword, inst, sb, sbLong)) {} else if (keyword.equals("Convoke") || keyword.equals("Dethrone") || keyword.equals("Fear")
+                if (keyword.startsWith("etbCounter")) {
+                    final String[] p = keyword.split(":");
+                    final StringBuilder s = new StringBuilder();
+                    if (p.length > 4) {
+                        if (!"no desc".equals(p[4])) {
+                            s.append(p[4]);
+                        }
+                    } else {
+                        s.append(getName()).append(" enters with ");
+                        s.append(Lang.nounWithNumeralExceptOne(p[2],
+                                CounterType.getType(p[1]).getName().toLowerCase() + " counter"));
+                        s.append(" on it.");
+                    }
+                    sbLong.append(s).append("\r\n");
+                } else if (keyword.startsWith("DeckLimit")) {
+                    final String[] k = keyword.split(":");
+                    sbLong.append(k[2]).append("\r\n");
+                } else if (keyword.startsWith("Enchant") && inst instanceof KeywordWithType kwt) {
+                    String desc = kwt.getTypeDescription();
+                    sbLong.append("Enchant ").append(desc).append("\r\n");
+                } else if (keyword.startsWith("Morph") || keyword.startsWith("Megamorph")
+                        || keyword.startsWith("Multikicker") || keyword.startsWith("Echo")
+                        || keyword.startsWith("Disguise") || keyword.startsWith("Reflect")
+                        || keyword.startsWith("Mayhem") || keyword.startsWith("Recover")
+                        || keyword.startsWith("Sneak") || keyword.startsWith("Squad")
+                        || keyword.startsWith("Emerge") || keyword.startsWith("More Than Meets the Eye")
+                        || keyword.startsWith("Level up") || keyword.startsWith("Plot")
+                        || keyword.startsWith("Impending") || keyword.equals("Suspend")) {
+                    sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
+                    sbLong.append("\r\n");
+                } else if (keyword.startsWith("Escape") || keyword.startsWith("Foretell:")
+                        || keyword.startsWith("Madness:") || keyword.startsWith("Reconfigure")
+                        || keyword.startsWith("Miracle") || keyword.startsWith("Offspring")) {
+                    String[] k = keyword.split(":");
+                    sbLong.append(k[0]);
+                    if (k.length > 1) {
+                        final Cost mCost;
+                        if ("ManaCost".equals(k[1])) {
+                            ManaCost cost;
+                            if (keyword.startsWith("Miracle") && k.length > 2) {
+                                // TODO better handle 2 hybrid, these should not be reduced?
+                                ManaCostBeingPaid mcbp = new ManaCostBeingPaid(getManaCost());
+                                mcbp.decreaseGenericMana(Integer.valueOf(k[2]));
+                                cost = mcbp.toManaCost();
+                            } else {
+                                cost = getManaCost();
+                            }
+                            mCost = new Cost(cost, true);
+                        } else {
+                            mCost = new Cost(k[1], true);
+                        }
+                        if (mCost.isOnlyManaCost()) {
+                            sbLong.append(" ");
+                        } else {
+                            sbLong.append("—");
+                        }
+                        if (keyword.startsWith("Reconfigure") && k.length > 2) {
+                            final String[] altCost = new Cost(k[2], true).toString().split(" ");
+                            sbLong.append("—").append(altCost[0]).append(" ").append(mCost.toString()).append(" or ").append(altCost[1]);
+                        } else {
+                            sbLong.append(mCost.toString());
+                            if (!mCost.isOnlyManaCost()) {
+                                sbLong.append(".");
+                            }
+                            if (k.length > 3) {
+                                sbLong.append(". ").append(k[3]);
+                            }
+                        }
+                        sbLong.append(" (").append(inst.getReminderText()).append(")");
+                        sbLong.append("\r\n");
+                    }
+                } else if (keyword.startsWith("Cumulative upkeep")) {
+                    sbLong.append("Cumulative upkeep ");
+                    final String[] upkeepCostParams = keyword.split(":");
+                    sbLong.append(upkeepCostParams.length > 2 ? "— " + upkeepCostParams[2] : ManaCostParser.parse(upkeepCostParams[1]));
+                    sbLong.append("\r\n");
+                } else if (keyword.startsWith("AlternateAdditionalCost")) {
+                    final String[] costs = keyword.split(":", 2)[1].split(":");
+                    sbLong.append("As an additional cost to cast this spell, ");
+                    for (int n = 0; n < costs.length; n++) {
+                        final Cost cost = new Cost(costs[n], false);
+                        if (cost.isOnlyManaCost()) {
+                            sbLong.append(" pay ");
+                        }
+                        sbLong.append(StringUtils.uncapitalize(cost.toSimpleString()));
+                        sbLong.append(n + 1 == costs.length ? ".\r\n\r\n" : n + 2 == costs.length && costs.length > 2
+                                ? ", or " : n + 2 == costs.length ? " or " : ", ");
+                    }
+                } else if (keyword.startsWith("Kicker")) {
+                    sbLong.append(kickerDesc(keyword, inst.getReminderText())).append("\r\n");
+                } else if (keyword.startsWith("Trample:")) {
+                    sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")").append("\r\n");
+                } else if (keyword.startsWith("Hexproof:")) {
+                    final String[] k = keyword.split(":");
+                    sbLong.append(inst.getTitle());
+                    // skip reminder text for more complicated Hexproofs
+                    if (k.length <= 2 || !k[2].contains(" and ") && !k[2].contains("each")) {
+                        sbLong.append(" (").append(inst.getReminderText()).append(")");
+                    }
+                    sbLong.append("\r\n");
+                } else if (keyword.startsWith("Protection:")) {
+                    final String[] k = keyword.split(":");
+                    if (k.length > 2) {
+                        sbLong.append("Protection from ").append(k[2]);
+                    } else {
+                        sbLong.append(inst.getTitle());
+                    }
+                    sbLong.append("\r\n");
+                } else if (inst.getKeyword().equals(Keyword.COMPANION)) {
+                    sbLong.append("Companion — ");
+                    sbLong.append(((Companion)inst).getDescription());
+                } else if (keyword.startsWith("MayFlash")) {
+                    // Pseudo keywords, only print Reminder
+                    sbLong.append(inst.getReminderText()).append("\r\n");
+                } else if (keyword.equals("Provoke") || keyword.equals("Ingest") || keyword.equals("Unleash")
+                        || keyword.equals("Living Weapon") || keyword.equals("Myriad") || keyword.equals("Exploit")
+                        || keyword.equals("Changeling") || keyword.equals("Delve") || keyword.equals("Decayed")
+                        || keyword.equals("Split second") || keyword.equals("Sunburst") || keyword.equals("Riot")
+                        || keyword.equals("Soulbond") || keyword.equals("Retrace")
+                        || keyword.equals("Double team") || keyword.equals("Living metal")
+                        || keyword.equals("Foretell") // for the ones without cost
+                        || keyword.equals("Ascend") || keyword.equals("Umbra armor")
+                        || keyword.equals("Battle cry") || keyword.equals("Devoid")
+                        || keyword.equals("Daybound") || keyword.equals("Nightbound")
+                        || keyword.equals("Increment")
+                        || keyword.equals("Choose a Background") || keyword.equals("Compleated")
+                        || keyword.equals("Space sculptor") || keyword.equals("Doctor's companion")
+                        || keyword.equals("Start your engines") || keyword.startsWith("Modular")
+                        || keyword.startsWith("Bloodthirst") || keyword.startsWith("Dredge")
+                        || keyword.startsWith("Fabricate") || keyword.startsWith("Soulshift") || keyword.startsWith("Bushido")
+                        || keyword.startsWith("Saddle") || keyword.startsWith("Tribute") || keyword.startsWith("Absorb")
+                        || keyword.startsWith("Graft") || keyword.startsWith("Fading") || keyword.startsWith("Vanishing:")
+                        || keyword.startsWith("Afterlife") || keyword.startsWith("Hideaway") || keyword.startsWith("Toxic")
+                        || keyword.startsWith("Afflict") || keyword.startsWith ("Poisonous") || keyword.startsWith("Rampage")
+                        || keyword.startsWith("Renown") || keyword.startsWith("Annihilator") || keyword.startsWith("Ripple")
+                        || keyword.startsWith("Ward")) {
+                    sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
+                } else if (keyword.startsWith("Partner with:")) {
+                    final String[] k = keyword.split(":");
+                    sbLong.append("Partner with ").append(k[1]).append(" (").append(inst.getReminderText()).append(")");
+                } else if (keyword.startsWith("Partner")) {
+                    sbLong.append(inst.getTitle()).append(" (").append(inst.getReminderText()).append(")");
+                } else if (keyword.startsWith("Prototype")) {
+                    final String[] k = keyword.split(":");
+                    final Cost cost = new Cost(k[1], false);
+                    sbLong.append(k[0]).append(" ").append(cost.toSimpleString()).append(" ").append("[").append(k[2]);
+                    sbLong.append("/").append(k[3]).append("] ").append("(").append(inst.getReminderText()).append(")");
+                } else if (keyword.startsWith("Crew")) {
+                    final String[] k = keyword.split(":");
+                    sbLong.append("Crew ").append(k[1]);
+                    if (k.length > 2) {
+                        if (k[2].contains("ActivationLimit$ 1")) {
+                            sbLong.append(". Activate only once each turn.");
+                        }
+                    }
+                    sbLong.append(" (").append(inst.getReminderText()).append(")");
+                } else if (keyword.startsWith("Casualty")) {
+                    final String[] k = keyword.split(":");
+                    sbLong.append("Casualty ").append(k[1]);
+                    if (k.length >= 4) {
+                        sbLong.append(". ").append(k[3]);
+                    }
+                    sbLong.append(" (").append(inst.getReminderText()).append(")");
+                } else if (keyword.equals("Gift")) {
+                    sbLong.append(keyword);
+                    Trigger trig = inst.getTriggers().stream().findFirst().orElse(null);
+                    if (trig != null && trig.getCardState().getFirstSpellAbilityWithFallback().hasAdditionalAbility("GiftAbility")) {
+                        sbLong.append(" ").append(trig.getCardState().getFirstSpellAbilityWithFallback().getAdditionalAbility("GiftAbility").getParam("GiftDescription"));
+                    }
+                    sbLong.append("\r\n");
+                } else if (keyword.startsWith("Starting intensity")) {
+                    sbLong.append(TextUtil.fastReplace(keyword, ":", " "));
+                } else if (keyword.contains("Haunt")) {
+                    sb.append("\r\nHaunt (").append(inst.getReminderText()).append(")");
+                } else if (keyword.startsWith("Bands with other")) {
+                    final String[] k = keyword.split(":");
+                    String desc = k.length > 2 ? k[2] : CardType.getPluralType(k[1]);
+                    sbLong.append(k[0]).append(" ").append(desc).append(" (").append(inst.getReminderText()).append(")");
+                } else if (keyword.equals("Convoke") || keyword.equals("Dethrone") || keyword.equals("Fear")
                          || keyword.equals("Melee") || keyword.equals("Improvise") || keyword.equals("Shroud")
                          || keyword.equals("Banding") || keyword.equals("Intimidate") || keyword.equals("Evolve")
                          || keyword.equals("Exalted") || keyword.equals("Extort") || keyword.equals("Flanking")
@@ -3008,24 +3188,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
 
             String sAbility = formatSpellAbility(sa);
 
-            // add Adventure to AbilityText
-            if (sa.isAdventure() && state.getStateName().equals(CardStateName.Original)) {
-                StringBuilder sbSA = new StringBuilder();
-                sbSA.append(Localizer.getInstance().getMessage("lblAdventure"));
-                sbSA.append(" — ").append(CardTranslation.getTranslatedName(getState(CardStateName.Secondary)));
-                sbSA.append(" ").append(sa.getPayCosts().toSimpleString());
-                sbSA.append(": ");
-                sbSA.append(sAbility);
-                sAbility = sbSA.toString();
-            } else if (sa.isOmen() && state.getStateName().equals(CardStateName.Original)) {
-                StringBuilder sbSA = new StringBuilder();
-                sbSA.append(Localizer.getInstance().getMessage("lblOmen"));
-                sbSA.append(" — ").append(CardTranslation.getTranslatedName(getState(CardStateName.Secondary)));
-                sbSA.append(" ").append(sa.getPayCosts().toSimpleString());
-                sbSA.append(": ");
-                sbSA.append(sAbility);
-                sAbility = sbSA.toString();
-            } else if (sa.isSpell() && sa.isBasicSpell()) {
+            if (sa.isSpell() && sa.isBasicSpell()) {
                 continue;
             } else if (sa.hasParam("DescriptionFromChosenName") && !getNamedCard().isEmpty()) {
                 String name = getNamedCard();
@@ -3447,16 +3610,13 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
             return false;
         }
         for (SpellAbility sa : getSpellAbilities()) {
-            // while Adventure and Omen are part of Secondary
-            if ((sa.isAdventure() || sa.isOmen()) && !getCurrentStateName().equals(sa.getCardStateName())) {
-                continue;
-            }
             if (sa.isLandAbility()) {
                 continue;
             }
-            if (!(sa instanceof SpellPermanent && sa.isBasicSpell())) {
-                return false;
+            if (sa.isBasicSpell() && sa.getPayCosts().isOnlyManaCost()) {
+                continue;
             }
+            return false;
         }
         return true;
     }
@@ -3464,11 +3624,6 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     public void updateSpellAbilities(List<SpellAbility> list, CardState state) {
         for (final ICardTraitChanges ck : getChangedCardTraitsList(state)) {
             ck.applySpellAbility(list);
-        }
-
-        if (!isInPlay() && hasState(CardStateName.Secondary) && state.getStateName() == CardStateName.Original) {
-            // Adventure and Omen may only be cast not from Battlefield
-            list.addAll(getState(CardStateName.Secondary).getSpellAbilities());
         }
 
         // keywords should already been cleanup by layers
@@ -3488,19 +3643,6 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         final FCollection<SpellAbility> res = new FCollection<>();
         for (final SpellAbility sa : currentState.getNonManaAbilities()) {
             if (sa.isSpell()) {
-                res.add(sa);
-            }
-        }
-        return res;
-    }
-
-    public final FCollectionView<SpellAbility> getBasicSpells() {
-        return getBasicSpells(currentState);
-    }
-    public final FCollectionView<SpellAbility> getBasicSpells(CardState state) {
-        final FCollection<SpellAbility> res = new FCollection<>();
-        for (final SpellAbility sa : state.getNonManaAbilities()) {
-            if (sa.isSpell() && sa.isBasicSpell()) {
                 res.add(sa);
             }
         }
@@ -5030,8 +5172,6 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
 
     public final void updateKeywords() {
         getCurrentState().getView().updateKeywords(this, getCurrentState());
-        // for Zilortha
-        getView().updateLethalDamage(this);
     }
 
     public final void addChangedCardKeywords(final List<String> keywords, final List<String> removeKeywords,
@@ -6021,7 +6161,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
 
     // this is the amount of damage a creature needs to receive before it dies
     public final int getLethal() {
-        if (hasKeyword("Lethal damage dealt to CARDNAME is determined by its power rather than its toughness.")) {
+        if (isLethalDamageByPower()) {
             return getNetPower();
         }
         return getNetToughness();
@@ -6890,7 +7030,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     }
 
     public final boolean canBeControlledBy(final Player newController) {
-        return newController.isInGame() && !(hasKeyword("Other players can't gain control of CARDNAME.") && !getController().equals(newController));
+        return newController.isInGame() && !(StaticAbilityCantGainControl.cantGainControl(this) && !getController().equals(newController));
     }
 
     @Override
@@ -7412,10 +7552,7 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     public List<SpellAbility> getAllPossibleAbilities(final Player player, final boolean removeUnplayable, final Multimap<SpellAbility, SpellAbility> unhiddenAltCost) {
         CardState oState = getOriginalState(CardStateName.Original);
         final List<SpellAbility> abilities = Lists.newArrayList();
-        for (SpellAbility sa : getSpellAbilities()) {
-            if (sa.isAdventure() && isOnAdventure()) {
-                continue; // skip since it's already on adventure
-            }
+        Consumer<SpellAbility> consumer = sa -> {
             abilities.add(sa);
             //add alternative costs as additional spell abilities
             List<SpellAbility> altCost = GameActionUtil.getAlternativeCosts(sa, player, false);
@@ -7423,6 +7560,12 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
             if (unhiddenAltCost != null) {
                 unhiddenAltCost.putAll(sa, altCost);
             }
+        };
+        for (SpellAbility sa : getSpellAbilities()) {
+            if (sa.isAdventure() && isOnAdventure()) {
+                continue; // skip since it's already on adventure
+            }
+            consumer.accept(sa);
         }
 
         if (isFaceDown() && isInZone(ZoneType.Exile)) {
@@ -7443,12 +7586,19 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
             for (SpellAbility sa : getState(CardStateName.Backside).getSpellAbilities()) {
                 // only add Spells there
                 if (sa.isSpell() || sa.isLandAbility()) {
-                    abilities.add(sa);
-                    List<SpellAbility> altCost = GameActionUtil.getAlternativeCosts(sa, player, false);
-                    abilities.addAll(altCost);
-                    if (unhiddenAltCost != null) {
-                        unhiddenAltCost.putAll(sa, altCost);
-                    }
+                    consumer.accept(sa);
+                }
+            }
+        }
+
+        if (!isInPlay() && hasState(CardStateName.Secondary) && getCurrentStateName() == CardStateName.Original) {
+            for (SpellAbility sa : getState(CardStateName.Secondary).getSpellAbilities()) {
+                if (sa.isAdventure() && isOnAdventure()) {
+                    continue; // skip since it's already on adventure
+                }
+                // only add Spells there
+                if (sa.isSpell() || sa.isLandAbility()) {
+                    consumer.accept(sa);
                 }
             }
         }
@@ -7926,6 +8076,20 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
     }
     public boolean canBlockAny() {
         return !canBlockAny.isEmpty();
+    }
+
+    public void addLethalDamageByPower(long timestamp) {
+        if (lethalDamageByPower.add(timestamp)) {
+            getView().updateLethalDamage(this);
+        }
+    }
+    public void removeLethalDamageByPower(long timestamp) {
+        if (lethalDamageByPower.remove(timestamp)) {
+            getView().updateLethalDamage(this);
+        }
+    }
+    public boolean isLethalDamageByPower() {
+        return !lethalDamageByPower.isEmpty();
     }
 
     public boolean removeChangedState() {

@@ -91,8 +91,78 @@ public enum CSubmenuOnlineLobby implements ICDoc, IMenuProvider {
             if (CHomeUI.SINGLETON_INSTANCE.getCurrentDocID() == EDocID.HOME_NETWORK) {
                 VSubmenuOnlineLobby.SINGLETON_INSTANCE.populate();
             }
-            showServerAddressesDialog();
         });
+
+        showServerAddressesDialog();
+    }
+
+    static void showServerAddressesDialog() {
+        if (FThreads.isGuiThread()) {
+            // Collecting the addresses queries the external IP over the network, so it can't run on the EDT.
+            FThreads.invokeInBackgroundThread(CSubmenuOnlineLobby::showServerAddressesDialog);
+            return;
+        }
+        final NetConnectUtil.ServerAddressList addresses = NetConnectUtil.collectHostedServerAddresses();
+        SwingUtilities.invokeLater(() -> showServerAddressesDialog(addresses));
+    }
+
+    private static void showServerAddressesDialog(final NetConnectUtil.ServerAddressList addresses) {
+        final Localizer localizer = Localizer.getInstance();
+
+        if (addresses.starIndex >= 0) {
+            copyToClipboard(addresses.urls.get(addresses.starIndex));
+        }
+
+        final JPanel panel = new JPanel(new MigLayout("insets 0, gap 4 6, wrap 3", "[pref]30[pref]30[pref]"));
+        panel.setOpaque(false);
+
+        panel.add(new FLabel.Builder()
+                .text(localizer.getMessage("lblChooseAddressToCopy"))
+                .fontSize(12).fontAlign(SwingConstants.LEFT).build(),
+                "span 3, growx, gapbottom 10");
+
+        panel.add(new FLabel.Builder().text(localizer.getMessage("lblInterface")).fontStyle(Font.BOLD).fontSize(12).fontAlign(SwingConstants.LEFT).build(), "growx");
+        panel.add(new FLabel.Builder().text(localizer.getMessage("lblAddress")).fontStyle(Font.BOLD).fontSize(12).fontAlign(SwingConstants.LEFT).build(), "growx");
+        panel.add(new FLabel.Builder().text("").build());
+
+        final FOptionPane[] holder = new FOptionPane[1];
+        for (int i = 0; i < addresses.urls.size(); i++) {
+            final String url = addresses.urls.get(i);
+            final String label = (i == addresses.starIndex) ? addresses.labels.get(i) + " \u2605" : addresses.labels.get(i);
+            panel.add(new FLabel.Builder().text(label).fontSize(12).fontAlign(SwingConstants.LEFT).build(), "growx");
+            panel.add(new FLabel.Builder().text(url).fontSize(12).fontAlign(SwingConstants.LEFT).build(), "growx");
+            final FButton btnCopy = new FButton(localizer.getMessage("lblCopy"));
+            btnCopy.setFont(FSkin.getFont(11));
+            btnCopy.addActionListener(e -> {
+                copyToClipboard(url);
+                NetConnectUtil.rememberCopiedServerUrl(url);
+                holder[0].setVisible(false);
+            });
+            panel.add(btnCopy, "w 70!, h 24!");
+        }
+
+        if (addresses.starIndex >= 0) {
+            panel.add(new FLabel.Builder()
+                    .text(localizer.getMessage("lblServerUrlCopiedToClipboard", addresses.urls.get(addresses.starIndex)))
+                    .fontSize(11).fontStyle(Font.ITALIC).fontAlign(SwingConstants.LEFT).build(),
+                    "span 3, growx, gaptop 10");
+        }
+
+        // Pass null as the prompt message so dialog width is driven by the panel's
+        // actual content width rather than the much-wider localised instruction line.
+        holder[0] = new FOptionPane(
+                null,
+                localizer.getMessage("lblServerURL"),
+                FOptionPane.INFORMATION_ICON,
+                panel,
+                ImmutableList.of(localizer.getMessage("lblOK")),
+                0);
+        holder[0].setVisible(true);
+        holder[0].dispose();
+    }
+
+    private static void copyToClipboard(final String text) {
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
     }
 
     static void showServerAddressesDialog() {

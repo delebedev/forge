@@ -34,6 +34,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -44,7 +45,6 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     public final static String FlagPrefix = "#";
     public static final String FlagSeparator = "\t";
     public static final Comparator<CardRules> CARD_RULES_NAME_COMPARATOR = Comparator.comparing(CardRules::getPreInitName, String.CASE_INSENSITIVE_ORDER);
-    public static boolean quietInit = false;
 
     // need this to obtain cardReference by name+set+artindex
     // Lazy card loading appends to these maps mid-game, serialized by StaticData's load
@@ -103,6 +103,8 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
 
     // Placeholder to setup default art Preference - to be moved from Static Data!
     private CardArtPreference defaultCardArtPreference;
+    private BiPredicate<String, String> preferredLanguageAvailability;
+    private boolean initialized;
 
     public static class CardRequest {
         public String cardName;
@@ -600,6 +602,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
 
         addUnassignedCardPrints(enableUnknownCards, upcomingSet);
 
+        initialized = true;
         reIndex();
     }
 
@@ -617,7 +620,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     }
 
     private void addUnassignedCardPrints(boolean enableUnknownCards, CardEdition upcomingSet) {
-        if (upcomingSet != null && !quietInit) {
+        if (upcomingSet != null) {
             System.err.println("Upcoming set " + upcomingSet + " dated in the future. All `upcoming` cards will be added to this set with unknown rarity.");
         }
 
@@ -689,9 +692,21 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     private PaperCard getBestUniquePrint(final Collection<PaperCard> cards) {
         return cards.stream()
                 .filter(pc -> !pc.getRarity().equals(CardRarity.Special))
-                .min(Comparator.comparing((PaperCard pc) -> editions.get(pc.getEdition()), defaultCardArtPreference)
+                .min(Comparator.comparing((PaperCard pc) -> isPreferredLanguagePrint(pc) ? 0 : 1)
+                        .thenComparing((PaperCard pc) -> editions.get(pc.getEdition()), defaultCardArtPreference)
                         .thenComparing(PaperCard::getCollectorNumber))
                 .orElseGet(() -> cards.iterator().next());
+    }
+
+    private boolean isPreferredLanguagePrint(PaperCard pc) {
+        if (preferredLanguageAvailability == null) {
+            return false;
+        }
+        CardEdition edition = editions.get(pc.getEdition());
+        if (edition == null) {
+            return false;
+        }
+        return preferredLanguageAvailability.test(edition.getScryfallCode(), pc.getCollectorNumber());
     }
 
     public boolean setPreferredArt(String cardName, String setCode, int artIndex) {
@@ -716,6 +731,13 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
             this.defaultCardArtPreference = latestArt ? CardArtPreference.LATEST_ART_CORE_EXPANSIONS_REPRINT_ONLY : CardArtPreference.ORIGINAL_ART_CORE_EXPANSIONS_REPRINT_ONLY;
         } else {
             this.defaultCardArtPreference = latestArt ? CardArtPreference.LATEST_ART_ALL_EDITIONS : CardArtPreference.ORIGINAL_ART_ALL_EDITIONS;
+        }
+    }
+
+    public void setPreferredLanguageAvailability(BiPredicate<String, String> availability) {
+        this.preferredLanguageAvailability = availability;
+        if (initialized) {
+            reIndex();
         }
     }
 

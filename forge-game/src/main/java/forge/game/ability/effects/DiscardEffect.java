@@ -261,9 +261,7 @@ public class DiscardEffect extends SpellAbilityEffect {
                 // Reveal/Look modes disclose dPHand to the chooser; non-valid revealed cards should remain visible during the choice.
                 final boolean revealed = mode.startsWith("Reveal") || mode.startsWith("Look");
                 final CardCollectionView visibleToChooser = revealed ? dPHand : validCards;
-                toBeDiscarded = max == 0 && !revealed
-                        ? CardCollection.EMPTY
-                        : chooser.getController().chooseCardsToDiscardFrom(p, sa, validCards, min, max, visibleToChooser);
+                toBeDiscarded = max == 0 ? CardCollection.EMPTY : chooser.getController().chooseCardsToDiscardFrom(p, sa, validCards, min, max, visibleToChooser);
 
                 if (toBeDiscarded.isEmpty()) {
                     continue;
@@ -284,6 +282,10 @@ public class DiscardEffect extends SpellAbilityEffect {
 
         Map<AbilityKey, Object> params = AbilityKey.newMap();
         CardZoneTable table = AbilityKey.addCardZoneTableParams(params, sa);
+
+        if (mode.equals("Random")) {
+            params.put(AbilityKey.Random, true);
+        }
 
         // extra check for Circling Vultures
         discard(sa, !(sa instanceof AbilityStatic), discardedMap, params);

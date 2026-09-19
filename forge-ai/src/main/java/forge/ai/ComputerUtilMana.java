@@ -785,7 +785,7 @@ public class ComputerUtilMana {
                 ai.getGame().getStack().addAndUnfreeze(saPayment);
                 floatingManaToReserve = minimumActivationMana(sourcesForShards);
                 // subtract mana from mana pool
-                payManaFromAbility(manapool, sa, cost, saPayment, floatingManaToReserve);
+                manapool.payManaFromAbility(sa, cost, saPayment);
 
                 if (hasConverge) {
                     // hack to prevent converge re-using sources
@@ -831,43 +831,6 @@ public class ComputerUtilMana {
         }
 
         return paymentList;
-    }
-
-    private static int minimumActivationMana(final Multimap<ManaCostShard, SpellAbility> sources) {
-        if (sources == null) {
-            return 0;
-        }
-        return sources.values().stream()
-                .mapToInt(ComputerUtilMana::getActivationManaCost)
-                .filter(amount -> amount > 0)
-                .min().orElse(0);
-    }
-
-    private static int getActivationManaCost(final SpellAbility ability) {
-        final Cost cost = ability.getPayCosts();
-        return cost.hasManaCost() ? cost.getCostMana().convertAmount() : 0;
-    }
-
-    private static void payManaFromAbility(final ManaPool manaPool, final SpellAbility paidFor,
-            final ManaCostBeingPaid cost, final SpellAbility payment, final int manaToReserve) {
-        boolean spent = false;
-        for (AbilityManaPart manaPart : payment.getAllManaParts()) {
-            for (Mana mana : manaPart.getLastManaProduced()) {
-                if (manaPool.totalMana() <= manaToReserve) {
-                    break;
-                }
-                if (!paidFor.allowsPayingWithShard(manaPart.getSourceCard(), mana.getColor())) {
-                    continue;
-                }
-                if (manaPool.tryPayCostWithMana(paidFor, cost, mana, false)) {
-                    paidFor.getPayingMana().add(mana);
-                    spent = true;
-                }
-            }
-        }
-        if (spent) {
-            paidFor.getPayingManaAbilities().add(payment);
-        }
     }
 
     private static void resetPayment(List<SpellAbility> payments) {

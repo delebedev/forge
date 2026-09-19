@@ -59,7 +59,6 @@ public class BoosterDraft implements IBoosterDraft {
     int podSize;
     private final List<LimitedPlayer> players = new ArrayList<>();
     private LimitedPlayer localPlayer;
-    private final DraftPickStrategy draftPickStrategy;
     private boolean readyForComputerPick = false;
 
     private IDraftLog draftLog = null;

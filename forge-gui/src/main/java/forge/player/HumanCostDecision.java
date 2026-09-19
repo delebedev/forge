@@ -17,6 +17,7 @@ import forge.game.spellability.SpellAbility;
 import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.zone.ZoneType;
 import forge.gamemodes.match.input.InputSelectManyBase;
+import forge.gui.util.SGuiChoose;
 import forge.util.*;
 import forge.util.collect.FCollectionView;
 
@@ -307,13 +308,16 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         }
 
         if (nTypes > -1) {
-            final CardCollectionView selected = controller.chooseCardsForExileCost(list, ability, cost,
-                    1, list.size(), "Types", nTypes, false, true,
-                    cost.getAmount().equals("X") ?
-                        Localizer.getInstance().getMessage("lblSelectAnyNumToExile") :
-                        Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(nTypes)));
-            if (selected == null || selected.isEmpty() || !isLegalCardSelection(list, selected)) {
-                return null;
+            final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, 1, list.size(), list, 
+                ability, "Types", nTypes);
+            inp.setMessage(cost.getAmount().equals("X") ?
+                Localizer.getInstance().getMessage("lblSelectAnyNumToExile") :
+                Localizer.getInstance().getMessage("lblSelectToExile", Lang.getNumeral(nTypes)));
+            inp.setCancelAllowed(true);
+            inp.showAndWait();
+            if (inp.hasCancelled() ||
+                !Expressions.compare(AbilityUtils.countCardTypesFromList(inp.getSelected(), false), "GE", nTypes)) {
+                    return null;
             }
             if (!Expressions.compare(AbilityUtils.countCardTypesFromList(selected, false), "GE", nTypes)) {
                 return null;
@@ -477,11 +481,29 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return null;
         }
 
-        final CardCollectionView chosen = controller.chooseCardsForExileCost(typeList, ability, cost,
-                mandatory ? nNeeded : 0, nNeeded, null, null, true, !mandatory,
-                cost.toString(nNeeded) + " (must share a card type)");
-        if (chosen == null || chosen.size() < nNeeded || !isLegalCardSelection(typeList, chosen)
-                || !allShareCardType(chosen)) {
+        final InputSelectCardsFromList inp = new InputSelectCardsFromList(controller, mandatory ? nNeeded : 0, nNeeded, typeList, ability) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean onCardSelected(final Card c, final List<Card> otherCardsToSelect, final ITriggerEvent triggerEvent) {
+                final Card firstSelected = Iterables.getFirst(this.selected, null);
+                if (firstSelected != null && !firstSelected.sharesCardTypeWith(c)) {
+                    return false;
+                }
+                return super.onCardSelected(c, otherCardsToSelect, triggerEvent);
+            }
+        };
+
+        inp.setMessage(cost.toString(nNeeded) + " (must share a card type)");
+        inp.setCancelAllowed(!mandatory);
+        inp.showAndWait();
+
+        if (inp.hasCancelled()) {
+            return null;
+        }
+
+        final CardCollection chosen = new CardCollection(inp.getSelected());
+        if (chosen.size() < nNeeded) {
             return null;
         }
 
@@ -833,6 +855,15 @@ public class HumanCostDecision extends CostDecisionMakerBase {
         final CardCollectionView selected = chooseCardsForCostExact(typeList, cost, 1, !mandatory,
                 Localizer.getInstance().getMessage("lblPutNTypeCounterOnTarget", c, cost.getCounter().getName(), cost.getDescriptiveType()));
         return selected == null ? null : PaymentDecision.card(selected);
+    }
+
+    @Override
+    public PaymentDecision visit(CostPutCounterYou cost) {
+        int c = cost.getAbilityAmount(ability);
+        if (!confirmAction(cost, Localizer.getInstance().getMessage("lblPutNTypeCounterOnTarget", c, cost.getCounter().getName(), controller.getPlayer().toString()))) {
+            return null;
+        }
+        return PaymentDecision.number(c);
     }
 
     @Override
@@ -1422,32 +1453,5 @@ public class HumanCostDecision extends CostDecisionMakerBase {
             return controller.getGui().confirm(cardView, message.replaceAll("\n", " "));
         }
         return controller.confirmPayment(costPart, message, ability);
-    }
-
-    private CardCollectionView chooseCardsForCostExact(final CardCollectionView options, final CostPart cost,
-            final int amount, final boolean optional, final String prompt) {
-        final CardCollectionView selected = controller.chooseCardsForCost(options, ability, cost, amount, optional, prompt);
-        return !isLegalCardSelection(options, selected, amount) ? null : selected;
-    }
-
-    private boolean isLegalCardSelection(final CardCollectionView options, final CardCollectionView selected) {
-        if (selected == null) { return false; }
-        final Set<Card> distinct = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (final Card card : selected) {
-            boolean found = false;
-            for (final Card option : options) {
-                if (option == card) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found || !distinct.add(card)) { return false; }
-        }
-        return true;
-    }
-
-    private boolean isLegalCardSelection(final CardCollectionView options, final CardCollectionView selected,
-            final int amount) {
-        return selected != null && selected.size() == amount && isLegalCardSelection(options, selected);
     }
 }
