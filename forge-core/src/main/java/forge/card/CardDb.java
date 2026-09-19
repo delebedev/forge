@@ -45,6 +45,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     public final static String FlagPrefix = "#";
     public static final String FlagSeparator = "\t";
     public static final Comparator<CardRules> CARD_RULES_NAME_COMPARATOR = Comparator.comparing(CardRules::getPreInitName, String.CASE_INSENSITIVE_ORDER);
+    public static boolean quietInit = false;
 
     // need this to obtain cardReference by name+set+artindex
     // Lazy card loading appends to these maps mid-game, serialized by StaticData's load
@@ -620,7 +621,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     }
 
     private void addUnassignedCardPrints(boolean enableUnknownCards, CardEdition upcomingSet) {
-        if (upcomingSet != null) {
+        if (upcomingSet != null && !quietInit) {
             System.err.println("Upcoming set " + upcomingSet + " dated in the future. All `upcoming` cards will be added to this set with unknown rarity.");
         }
 

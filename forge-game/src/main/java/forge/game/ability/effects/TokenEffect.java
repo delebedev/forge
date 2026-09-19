@@ -127,6 +127,9 @@ public class TokenEffect extends TokenEffectBase {
             return;
         }
 
+        // Shared zone tables accumulate across resolutions; report only tokens from this resolve.
+        final int tokensBefore = triggerList.getCreatedTokens().size();
+
         makeTokenTable(getDefinedPlayersOrTargeted(sa, "TokenOwner"), sa.getParam("TokenScript").split(","),
                 amount, false, triggerList, combatChanged, sa);
 

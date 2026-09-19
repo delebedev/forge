@@ -63,12 +63,6 @@ public class ShopScene extends ForgeScene {
         return super.leave();
     }
 
-    @Override
-    public boolean leave() {
-        Adventure.getInstance().renderTransitionScreen = true;
-        return super.leave();
-    }
-
     private void processAutoSell() {
         if (FModel.getPreferences().getPrefBoolean(ForgePreferences.FPref.PROMPT_FOR_AUTOSELL)) {
             int profit = 0;

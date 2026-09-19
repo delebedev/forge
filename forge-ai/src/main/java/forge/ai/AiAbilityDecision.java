@@ -9,10 +9,6 @@ import forge.game.spellability.SpellAbility;
 public record AiAbilityDecision(int rating, AiPlayDecision decision) {
     private static int MIN_RATING = 30;
 
-    public AiAbilityDecision(int rating, AiPlayDecision decision) {
-        this(rating, decision, null);
-    }
-
     public boolean willingToPlay() {
         return willingToPlay(null);
     }

@@ -15,6 +15,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public abstract class ImageFetcher {
@@ -22,6 +23,7 @@ public abstract class ImageFetcher {
     // https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
     private static final HashMap<String, String> langCodeMap = new HashMap<>();
     protected static final boolean disableHostedDownload = true;
+    protected static volatile Date scryfallCooldownTime = null;
     private static final HashSet<String> fetching = new HashSet<>();
 
     /** Minimum gap between Scryfall requests, matching what GuiDownloadService already keeps. */
