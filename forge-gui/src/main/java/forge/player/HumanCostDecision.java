@@ -1431,7 +1431,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
     }
 
     private boolean isLegalCardSelection(final CardCollectionView options, final CardCollectionView selected) {
-        if (selected == null) { return false; }
+        if (selected == null) {
+            return false;
+        }
         final Set<Card> distinct = Collections.newSetFromMap(new IdentityHashMap<>());
         for (final Card card : selected) {
             boolean found = false;
@@ -1441,7 +1443,9 @@ public class HumanCostDecision extends CostDecisionMakerBase {
                     break;
                 }
             }
-            if (!found || !distinct.add(card)) { return false; }
+            if (!found || !distinct.add(card)) {
+                return false;
+            }
         }
         return true;
     }

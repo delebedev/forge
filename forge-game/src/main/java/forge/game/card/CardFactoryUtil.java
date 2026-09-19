@@ -650,30 +650,6 @@ public class CardFactoryUtil {
 
                 inst.addTrigger(trigger);
             }
-        } else if (keyword.equals("Storied")) {
-            // Storied trigger only for Permanent, as with Ascend
-            if (card.isPermanent()) {
-                final String trig = "Mode$ Always | TriggerZones$ Battlefield"
-                        + " | Secondary$ True | Static$ True | EnduringStory$ False"
-                        + " | IsPresent$ Permanent.YouCtrl+Historic | PresentCompare$ GE3"
-                        + " | TriggerDescription$ Storied (" + inst.getReminderText() + ")";
-
-                final Trigger trigger = TriggerHandler.parseTrigger(trig, card, intrinsic);
-                final SpellAbility gainStory = new AbilityStatic(card, Cost.Zero, null) {
-                    @Override
-                    public void resolve() {
-                        final Player p = getActivatingPlayer();
-                        if (p != null && p.isInGame()) {
-                            p.setEnduringStory(true, getOriginalHost().getSetCode());
-                        }
-                    }
-                };
-                // as AbilityFactory would have done, so getOriginalHost resolves on a copied trait
-                gainStory.setCardState(card.getCurrentState());
-                trigger.setOverridingAbility(gainStory);
-
-                inst.addTrigger(trigger);
-            }
         } else if (keyword.startsWith("Backup")) {
             final String[] k = keyword.split(":");
             String magnitude = k[1];
@@ -1473,8 +1449,7 @@ public class CardFactoryUtil {
         } else if (keyword.startsWith("Miracle")) {
             final String[] k = keyword.split(":");
             final String manacost = k[1];
-            final String abStrReveal = "DB$ Reveal | Defined$ You | RevealDefined$ Self"
-                    + " | MiracleCost$ " + manacost;
+            final String abStrReveal = "DB$ Reveal | Defined$ You | RevealDefined$ Self";
             String abStrPlay = "DB$ Play | Defined$ Self | Optional$ True | PlayCost$ " + manacost;
             if (k.length > 2) {
                 abStrPlay += " | PlayReduceCost$ " + k[2];
@@ -3814,7 +3789,7 @@ public class CardFactoryUtil {
 
             inst.addStaticAbility(st);
         } else if (keyword.equals("Changeling")) {
-            String effect = "Mode$ Continuous | EffectZone$ All | Affected$ Card.Self" +
+            String effect = "Mode$ Continuous | EffectZone$ All" +
                     " | CharacteristicDefining$ True | AddAllCreatureTypes$ True | Secondary$ True" +
                     " | Description$ Changeling (" + inst.getReminderText() + ")";
             inst.addStaticAbility(StaticAbility.create(effect, state.getCard(), state, intrinsic));
@@ -3900,7 +3875,7 @@ public class CardFactoryUtil {
             String effect = "Mode$ CantAttack | ValidCard$ Card.Self | Secondary$ True";
             inst.addStaticAbility(StaticAbility.create(effect, state.getCard(), state, intrinsic));
         } else if (keyword.equals("Devoid")) {
-            String effect = "Mode$ Continuous | EffectZone$ All | Affected$ Card.Self" +
+            String effect = "Mode$ Continuous | EffectZone$ All" +
                     " | CharacteristicDefining$ True | SetColor$ Colorless | Secondary$ True" +
                     " | Description$ Devoid (" + inst.getReminderText() + ")";
             inst.addStaticAbility(StaticAbility.create(effect, state.getCard(), state, intrinsic));
@@ -3919,7 +3894,7 @@ public class CardFactoryUtil {
 
             String effect = "Mode$ RaiseCost | ValidCard$ Card.Self | Type$ Spell | Secondary$ True"
                     + " | Amount$ Escalate | Cost$ "+ manacost +" | EffectZone$ All"
-                    + " | Description$ " + sb.toString() + " (" + inst.getReminderText() + ")";
+                    + " | Description$ " + sb + " (" + inst.getReminderText() + ")";
             inst.addStaticAbility(StaticAbility.create(effect, state.getCard(), state, intrinsic));
         } else if (keyword.equals("Enlist")) {
             String effect = "Mode$ OptionalAttackCost | ValidCard$ Card.Self | Cost$ Enlist<1/CARDNAME/creature> | Secondary$ True" +
