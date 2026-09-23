@@ -48,6 +48,7 @@ accessors to mutable `Card` references require migration.
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
 
 ## Fixes
+- `Lost Jitte` — models its temporary unblockable mode as a `CantBlockBy` effect
 - `ComputerUtilMana` — executes net-positive paid mana sources in funded chains while excluding net-zero filters from available casting mana
 - `CardDb.contains()` — resolves named cards through lazy loading so cold deck imports accept exact printings
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
