@@ -1156,7 +1156,11 @@ public class Player extends GameEntity implements Comparable<Player> {
             if (gameStarted && !canDraw()) {
                 return drawn;
             }
-            drawn.addAll(doDraw(toReveal, cause, params, zone));
+            CardCollectionView cards = doDraw(toReveal, cause, params, zone);
+            if (cards == null) {
+                break;
+            }
+            drawn.addAll(cards);
         }
 
         // reveal multiple drawn cards when playing with the top of the library revealed
@@ -1169,10 +1173,11 @@ public class Player extends GameEntity implements Comparable<Player> {
     }
 
     /**
-     * @return a CardCollectionView of cards actually drawn
+     * @return a CardCollectionView of cards actually drawn, or null if the library is empty and no
+     *         replacement effect applies, since every further draw of the same batch would do the same
      */
     private CardCollectionView doDraw(Map<Player, CardCollection> revealed, SpellAbility sa, Map<AbilityKey, Object> params, PlayerZone hand) {
-        final CardCollection drawn = new CardCollection();
+        CardCollection drawn = new CardCollection();
         final PlayerZone library = getZone(ZoneType.Library);
 
         SpellAbility cause = sa;
@@ -1181,7 +1186,6 @@ public class Player extends GameEntity implements Comparable<Player> {
         }
 
         final boolean gameStarted = game.getAge().ordinal() > GameStage.Mulligan.ordinal();
-
         if (gameStarted) {
             Map<AbilityKey, Object> repParams = AbilityKey.mapFromAffected(this);
             repParams.put(AbilityKey.Cause, cause);
@@ -1192,11 +1196,13 @@ public class Player extends GameEntity implements Comparable<Player> {
             if (game.getReplacementHandler().run(ReplacementType.Draw, repParams) != ReplacementResult.NotReplaced) {
                 return drawn;
             }
+            if (library.isEmpty() && game.getReplacementHandler().getReplacementList(ReplacementType.Draw, repParams, null).isEmpty()) {
+                drawn = null;
+            }
         }
 
         if (!library.isEmpty()) {
             Card c;
-
             if (hasKeyword("You draw cards from the bottom of your library instead of the top of your library.")) {
                 c = library.get(library.size() - 1);
             } else {
