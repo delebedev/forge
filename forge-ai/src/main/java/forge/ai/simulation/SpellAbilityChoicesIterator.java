@@ -7,8 +7,6 @@ import forge.game.card.Card;
 import forge.game.card.CardCollection;
 import forge.game.spellability.AbilitySub;
 import forge.game.spellability.SpellAbility;
-import org.apache.commons.math3.util.CombinatoricsUtils;
-
 import java.util.*;
 
 public class SpellAbilityChoicesIterator {
@@ -59,7 +57,7 @@ public class SpellAbilityChoicesIterator {
             if (modesMap.isEmpty()) {
                 return null;
             } else if (!allowRepeat) {
-                modeIterator = CombinatoricsUtils.combinationsIterator(modesMap.size(), num);
+                modeIterator = combinationsIterator(modesMap.size(), num);
             } else {
                 // Note: When allowRepeat is true, it does result in many possibilities being tried.
                 // We should ideally prune some of those at a higher level.
@@ -85,6 +83,47 @@ public class SpellAbilityChoicesIterator {
             advancedToNextMode = false;
         }
         return result;
+    }
+
+    static Iterator<int[]> combinationsIterator(int n, int k) {
+        if (n < 0 || k < 0 || k > n) {
+            throw new IllegalArgumentException("Require 0 <= k <= n");
+        }
+        return new Iterator<>() {
+            private int[] next = initial();
+
+            private int[] initial() {
+                int[] result = new int[k];
+                for (int i = 0; i < k; i++) {
+                    result[i] = i;
+                }
+                return result;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return next != null;
+            }
+
+            @Override
+            public int[] next() {
+                if (next == null) {
+                    throw new NoSuchElementException();
+                }
+                int[] result = next.clone();
+                for (int i = 0; i < k; i++) {
+                    if (next[i] + 1 < (i + 1 < k ? next[i + 1] : n)) {
+                        next[i]++;
+                        for (int j = 0; j < i; j++) {
+                            next[j] = j;
+                        }
+                        return result;
+                    }
+                }
+                next = null;
+                return result;
+            }
+        };
     }
 
     private int[] remapModes(int[] modes) {

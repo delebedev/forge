@@ -46,6 +46,7 @@ accessors to mutable `Card` references require migration.
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
 - `FileSection.getInt()` — returns the configured default for absent optional values without exception-driven parsing
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
+- `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries
 
 ## Fixes
 - `ComputerUtilMana` — executes net-positive paid mana sources in funded chains while excluding net-zero filters from available casting mana
