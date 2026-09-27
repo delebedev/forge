@@ -1689,12 +1689,16 @@ public class AiController {
             if (e instanceof TimeoutException) {
                 // log where the eval thread currently is - each timeout doubles as a
                 // profiler sample for diagnosing remaining AI slowdowns from user logs
-                StringBuilder sb = new StringBuilder("AI eval thread at timeout:");
-                StackTraceElement[] evalStack = t.getStackTrace();
-                for (int i = 0; i < Math.min(30, evalStack.length); i++) {
-                    sb.append("\n\tat ").append(evalStack[i]);
+                try {
+                    StringBuilder sb = new StringBuilder("AI eval thread at timeout:");
+                    StackTraceElement[] evalStack = t.getStackTrace();
+                    for (int i = 0; i < Math.min(30, evalStack.length); i++) {
+                        sb.append("\n\tat ").append(evalStack[i]);
+                    }
+                    System.out.println(sb);
+                } catch (RuntimeException ex) {
+                    System.out.println("AI eval thread stack unavailable: " + ex);
                 }
-                System.out.println(sb);
             }
             // ask the eval thread to exit at the next SpellAbility check first: a brutal
             // Thread.stop() mid-evaluation can leave partially mutated shared state behind

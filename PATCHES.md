@@ -49,6 +49,7 @@ accessors to mutable `Card` references require migration.
 - `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries
 
 ## Fixes
+- `AiController` — keeps diagnostic stack-sampling failures inside AI timeout recovery
 - `ComputerUtilMana` — executes net-positive paid mana sources in funded chains while excluding net-zero filters from available casting mana
 - `CardDb.contains()` — resolves named cards through lazy loading so cold deck imports accept exact printings
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
