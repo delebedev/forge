@@ -1159,6 +1159,15 @@ public class GameState {
     }
 
     private void applyCountersToGameEntity(GameEntity entity, String counterString) {
+        if (entity instanceof Player) {
+            final Multiset<CounterType> counters = HashMultiset.create();
+            for (final String counterPair : counterString.split(",")) {
+                final String[] pair = counterPair.split("=", 2);
+                counters.add(CounterType.getType(pair[0]), Integer.parseInt(pair[1]));
+            }
+            entity.setCounters(counters);
+            return;
+        }
         entity.setCounters(HashMultiset.create());
         String[] allCounterStrings = counterString.split(",");
         for (final String counterPair : allCounterStrings) {

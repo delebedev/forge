@@ -3,6 +3,7 @@
 Changes on top of upstream Card-Forge/forge. Update this file when adding or removing patches.
 
 ## Event enrichments
+- `Player` bulk counter replacement and clearing emit typed `GameEventPlayerCounters` totals for every changed counter type
 - `GameEventCardChangeZone` — enriched with immutable source, exact/root/stack ability, API, and cost-payment context
 - `GameEventCardTapped` — enriched with the source ability that caused the tap
 - `GameEventCardSurveiled` — new, carries cause card for per-card surveil tracking
@@ -49,6 +50,7 @@ accessors to mutable `Card` references require migration.
 - `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries
 
 ## Fixes
+- `GameAction` — dispatches replacements for cards found searching a library even when the destination is that same library, preserving ordinary reorder suppression
 - `AiController` — keeps diagnostic stack-sampling failures inside AI timeout recovery
 - `ComputerUtilMana` — uses actual paid activation mana costs and prefers reusable source modes without sacrificing required-color preference
 - `CardDb.contains()` — resolves named cards through lazy loading so cold deck imports accept exact printings

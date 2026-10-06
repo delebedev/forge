@@ -306,7 +306,8 @@ public class GameAction {
             table = new GameEntityCounterTable();
         }
 
-        if (!suppress) {
+        if (!suppress || (zoneFrom.is(ZoneType.Library) && params != null
+                && Boolean.TRUE.equals(params.get(AbilityKey.FoundSearchingLibrary)))) {
             // Temporary disable commander replacement effect
             // 903.9a
             if (fromBattlefield && !toBattlefield && c.isCommander() && c.hasMergedCard()) {
