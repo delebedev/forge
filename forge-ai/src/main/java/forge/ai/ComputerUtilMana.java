@@ -216,6 +216,11 @@ public class ComputerUtilMana {
                     return 1;
                 }
 
+                boolean reusable1 = hasReusableManaActivation(ability1);
+                boolean reusable2 = hasReusableManaActivation(ability2);
+                if (reusable1 != reusable2) {
+                    return reusable1 ? -1 : 1;
+                }
                 return ability1.compareTo(ability2);
             });
 
@@ -843,9 +848,14 @@ public class ComputerUtilMana {
                 .min().orElse(0);
     }
 
+    private static boolean hasReusableManaActivation(final SpellAbility ability) {
+        final Cost cost = ability.getPayCosts();
+        return cost.isReusuableResource() && cost.isUndoable() && ability.getSubAbility() == null;
+    }
+
     private static int getActivationManaCost(final SpellAbility ability) {
         final Cost cost = ability.getPayCosts();
-        return cost.hasManaCost() ? cost.getCostMana().convertAmount() : 0;
+        return cost.hasManaCost() ? cost.getCostMana().getMana().getCMC() : 0;
     }
 
     private static void payManaFromAbility(final ManaPool manaPool, final SpellAbility paidFor,
@@ -1362,7 +1372,7 @@ public class ComputerUtilMana {
             for (SpellAbility ma : src.getManaAbilities()) {
                 ma.setActivatingPlayer(p);
                 if (!checkPlayable || ma.canPlay()) {
-                    int costsToActivate = ma.getPayCosts().getCostMana() != null ? ma.getPayCosts().getCostMana().convertAmount() : 0;
+                    int costsToActivate = getActivationManaCost(ma);
                     int producedTotal = getNetManaProduced(ma);
 
                     if (costsToActivate > 0) {
@@ -1748,16 +1758,14 @@ public class ComputerUtilMana {
     }
 
     private static boolean canFundManaAbility(final SpellAbility ability) {
-        final Cost cost = ability.getPayCosts();
-        final int activationMana = cost.getCostMana().convertAmount();
+        final int activationMana = getActivationManaCost(ability);
         final Card source = ability.getHostCard();
         return getNetManaProduced(ability) > 0
                 && getAvailableManaEstimate(source.getController(), true, source) >= activationMana;
     }
 
     private static int getNetManaProduced(final SpellAbility ability) {
-        final Cost cost = ability.getPayCosts();
-        final int activationMana = cost.getCostMana() == null ? 0 : cost.getCostMana().convertAmount();
+        final int activationMana = getActivationManaCost(ability);
         final int producedColors = ability.getParamOrDefault("Produced", "").split(" ").length;
         final int producedAmount = AbilityUtils.calculateAmount(
                 ability.getHostCard(), ability.getParamOrDefault("Amount", "1"), ability);
