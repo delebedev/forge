@@ -17,7 +17,18 @@ public record GameEventZoneChangeCause(
         int rootAbilityId,
         ApiType api,
         boolean costPayment,
-        int stackAbilityId) implements Serializable {
+        int stackAbilityId,
+        boolean imprint) implements Serializable {
+
+    public GameEventZoneChangeCause(
+            int sourceCardId,
+            int abilityId,
+            int rootAbilityId,
+            ApiType api,
+            boolean costPayment,
+            int stackAbilityId) {
+        this(sourceCardId, abilityId, rootAbilityId, api, costPayment, stackAbilityId, false);
+    }
 
     public GameEventZoneChangeCause(
             int sourceCardId,
@@ -69,6 +80,7 @@ public record GameEventZoneChangeCause(
                 root == null ? effective.getId() : root.getId(),
                 effective.getApi(),
                 payment != null,
-                stackAbilityId);
+                stackAbilityId,
+                payment == null && effective.getApi() == ApiType.ChangeZone && effective.hasParam("Imprint"));
     }
 }

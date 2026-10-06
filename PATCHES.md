@@ -3,7 +3,7 @@
 Changes on top of upstream Card-Forge/forge. Update this file when adding or removing patches.
 
 ## Event enrichments
-- `GameEventCardChangeZone` — enriched with immutable source, exact/root/stack ability, API, and cost-payment context
+- `GameEventCardChangeZone` — enriched with immutable source, exact/root/stack ability, API, cost-payment context, and Imprint operation flag
 - `GameEventCardTapped` — enriched with the source ability that caused the tap
 - `GameEventCardSurveiled` — new, carries cause card for per-card surveil tracking
 - `GameEventTokenCreated` — enriched with `List<Card>` token refs
