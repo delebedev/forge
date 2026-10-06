@@ -221,12 +221,6 @@ public class ComputerUtilMana {
                 if (reusable1 != reusable2) {
                     return reusable1 ? -1 : 1;
                 }
-                if (reusable1) {
-                    int netManaOrder = Integer.compare(getNetManaProduced(ability2), getNetManaProduced(ability1));
-                    if (netManaOrder != 0) {
-                        return netManaOrder;
-                    }
-                }
                 return ability1.compareTo(ability2);
             });
 

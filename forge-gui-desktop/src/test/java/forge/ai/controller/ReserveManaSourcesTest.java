@@ -160,6 +160,10 @@ public class ReserveManaSourcesTest extends SimulationTest {
         Player ai = game.getPlayers().get(1);
         SpellAbility sa = spellInHand(game, "Phyrexian Arena");
 
+        AssertJUnit.assertTrue("the three-source payment is available to the cast decision",
+                ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+        AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().noneMatch(Card::isTapped));
         AssertJUnit.assertTrue("two Swamps and the free colorless ability pay one generic and two black",
                 ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
         AssertJUnit.assertTrue("the payment consumes the three lands",
@@ -168,27 +172,63 @@ public class ReserveManaSourcesTest extends SimulationTest {
     }
 
     @Test
-    public void paysAfterEstimatingNetPositiveStronghold() {
+    public void strongholdCannotPayEightWithFiveSwamps() {
         Game game = gameWith(new String[] { "Swamp", "Swamp", "Swamp", "Swamp", "Swamp", "Cabal Stronghold" });
         Player ai = game.getPlayers().get(1);
-        SpellAbility sa = spellInHand(game, "Rune-Scarred Demon");
+        SpellAbility sa = spellInHand(game, "Sundering Titan");
 
-        final int manaBefore = ai.getManaPool().totalMana();
-        final long untappedBefore = ai.getCardsIn(ZoneType.Battlefield).stream().filter(card -> !card.isTapped()).count();
-        AssertJUnit.assertTrue("the funded chain is available to the AI cast decision",
-                ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
-        AssertJUnit.assertEquals("estimating preserves floating mana", manaBefore, ai.getManaPool().totalMana());
-        AssertJUnit.assertEquals("estimating preserves untapped sources", untappedBefore,
-                ai.getCardsIn(ZoneType.Battlefield).stream().filter(card -> !card.isTapped()).count());
-        AssertJUnit.assertTrue("five Swamps fund a three-mana activation that makes five black",
-                ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
-        AssertJUnit.assertTrue("the seven-mana payment consumes all six lands",
-                ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
-        AssertJUnit.assertTrue("the payment leaves no floating mana", ai.getManaPool().isEmpty());
+        AssertJUnit.assertFalse(ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+        AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().noneMatch(Card::isTapped));
+    }
+
+    private void addFloatingMana(Player ai, int amount) {
+        Card source = createCard("Mountain", ai);
+        for (int i = 0; i < amount; i++) {
+            ai.getManaPool().addMana(new Mana((byte) ManaAtom.RED, source, null, ai));
+        }
     }
 
     @Test
-    public void paysSmallCostWithNetPositiveStrongholdAvailable() {
+    public void cubeCannotPaySevenFromSixFloatingMana() {
+        Game game = gameWith(new String[] { "Doubling Cube" });
+        Player ai = game.getPlayers().get(1);
+        addFloatingMana(ai, 6);
+        SpellAbility sa = spellInHand(game, "Platinum Angel");
+
+        AssertJUnit.assertFalse(ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+        AssertJUnit.assertEquals(6, ai.getManaPool().totalMana());
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().noneMatch(Card::isTapped));
+        AssertJUnit.assertFalse(ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertEquals(6, ai.getManaPool().totalMana());
+    }
+
+    @Test
+    public void cataractsConvertsFiveMountainsForFiveColors() {
+        Game game = gameWith(new String[] { "Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Cascading Cataracts" });
+        Player ai = game.getPlayers().get(1);
+        SpellAbility sa = spellInHand(game, "Niv-Mizzet Reborn");
+
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
+    }
+
+    @Test
+    public void cataractsUsesFreeModeForSixGenericMana() {
+        Game game = gameWith(new String[] { "Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Cascading Cataracts" });
+        Player ai = game.getPlayers().get(1);
+        SpellAbility sa = spellInHand(game, "Wurmcoil Engine");
+
+        AssertJUnit.assertTrue(ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().noneMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
+    }
+
+    @Test
+    public void paysSmallCostWithPaidStrongholdAvailable() {
         Game game = gameWith(new String[] { "Swamp", "Swamp", "Swamp", "Swamp", "Swamp", "Cabal Stronghold" });
         Player ai = game.getPlayers().get(1);
         SpellAbility sa = spellInHand(game, "Ruby Medallion");
