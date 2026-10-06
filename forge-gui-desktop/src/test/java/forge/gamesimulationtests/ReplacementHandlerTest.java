@@ -3,6 +3,7 @@ package forge.gamesimulationtests;
 import com.google.common.collect.Lists;
 import forge.ai.simulation.SimulationTest;
 import forge.game.Game;
+import forge.game.ability.AbilityKey;
 import forge.game.card.Card;
 import forge.game.card.CardTraitChanges;
 import forge.game.card.perpetual.PerpetualAbilities;
@@ -12,6 +13,7 @@ import forge.game.replacement.ReplacementEffect;
 import forge.game.replacement.ReplacementHandler;
 import forge.game.zone.ZoneType;
 import org.testng.annotations.Test;
+import java.util.Map;
 
 import static org.testng.Assert.*;
 
@@ -19,6 +21,38 @@ import static org.testng.Assert.*;
  * Tests for ReplacementHandler, particularly around perpetual replacement effects.
  */
 public class ReplacementHandlerTest extends SimulationTest {
+
+    @Test
+    public void foundSearchCardCanBeReplacedWithinTheSameLibrary() {
+        Game game = initAndCreateGame();
+        Player owner = game.getPlayers().get(0);
+        Card card = createCard("Runeclaw Bear", owner);
+        owner.getZone(ZoneType.Library).add(card);
+        card.setSVar("SearchExile", "DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile");
+        card.addReplacementEffect(ReplacementHandler.parseReplacement(
+                "Event$ Moved | ActiveZones$ Library | ValidCard$ Card.Self | FoundSearchingLibrary$ True | Origin$ Library | ReplaceWith$ SearchExile",
+                card, true));
+
+        game.getAction().moveToLibrary(card, 0, null, Map.of(AbilityKey.FoundSearchingLibrary, true));
+
+        assertEquals(owner.getCardsIn(ZoneType.Exile).size(), 1);
+        assertEquals(owner.getCardsIn(ZoneType.Exile).getFirst().getName(), "Runeclaw Bear");
+    }
+
+    @Test
+    public void ordinaryLibraryReorderDoesNotDispatchMoveReplacements() {
+        Game game = initAndCreateGame();
+        Player owner = game.getPlayers().get(0);
+        Card card = createCard("Runeclaw Bear", owner);
+        owner.getZone(ZoneType.Library).add(card);
+        card.setSVar("MoveExile", "DB$ ChangeZone | Defined$ ReplacedCard | Origin$ All | Destination$ Exile");
+        card.addReplacementEffect(ReplacementHandler.parseReplacement(
+                "Event$ Moved | ActiveZones$ Library | ValidCard$ Card.Self | Origin$ Library | ReplaceWith$ MoveExile", card, true));
+
+        game.getAction().moveToLibrary(card, 0, null);
+
+        assertTrue(card.isInZone(ZoneType.Library));
+    }
 
     /**
      * Tests that a card with a perpetual "enters tapped" replacement effect
