@@ -916,9 +916,10 @@ public class Player extends GameEntity implements Comparable<Player> {
 
     public final void clearCounters() {
         if (counters.isEmpty()) { return; }
+        final Multiset<CounterType> previous = HashMultiset.create(counters);
         counters.clear();
         view.updateCounters(this);
-        getGame().fireEvent(new GameEventPlayerCounters(this, null, 0, 0));
+        fireCounterChanges(previous);
     }
 
     public void setCounters(final CounterType counterType, final Integer num, Player source, boolean fireEvents) {
@@ -941,15 +942,32 @@ public class Player extends GameEntity implements Comparable<Player> {
 
     @Override
     public void setCounters(Multiset<CounterType> allCounters) {
+        final Multiset<CounterType> previous = HashMultiset.create(counters);
         counters = allCounters;
         view.updateCounters(this);
-        getGame().fireEvent(new GameEventPlayerCounters(this, null, 0, 0));
+        fireCounterChanges(previous);
 
         // create Radiation Effect for GameState
         if (counters.count(CounterEnumType.RAD) > 0) {
             this.createRadiationEffect(null);
         } else {
             this.removeRadiationEffect();
+        }
+    }
+
+    private void fireCounterChanges(final Multiset<CounterType> previous) {
+        final Set<CounterType> types = new HashSet<>(previous.elementSet());
+        types.addAll(counters.elementSet());
+        boolean changed = false;
+        for (final CounterType type : types) {
+            final int oldCount = previous.count(type);
+            final int newCount = counters.count(type);
+            if (oldCount == newCount) { continue; }
+            getGame().fireEvent(new GameEventPlayerCounters(this, type, oldCount, newCount));
+            changed = true;
+        }
+        if (!changed) {
+            getGame().fireEvent(new GameEventPlayerCounters(this, null, 0, 0));
         }
     }
 

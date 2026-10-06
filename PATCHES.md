@@ -3,6 +3,7 @@
 Changes on top of upstream Card-Forge/forge. Update this file when adding or removing patches.
 
 ## Event enrichments
+- `Player` bulk counter replacement and clearing emit typed `GameEventPlayerCounters` totals for every changed counter type
 - `GameEventCardChangeZone` — enriched with immutable source, exact/root/stack ability, API, and cost-payment context
 - `GameEventCardTapped` — enriched with the source ability that caused the tap
 - `GameEventCardSurveiled` — new, carries cause card for per-card surveil tracking
