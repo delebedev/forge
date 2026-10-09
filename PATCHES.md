@@ -50,6 +50,7 @@ accessors to mutable `Card` references require migration.
 - `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries
 
 ## Fixes
+- `GameRules` / `MulliganService` — allow a game host to grant a first free mulligan alongside multiplayer and Brawl defaults
 - `LondonMulligan.keep()` — defers bottom-card selection until the kept hand, preserving full-size redraw decisions and the controller's final-hand-size calculation
 - `GameAction` — dispatches replacements for cards found searching a library even when the destination is that same library, preserving ordinary reorder suppression
 - `AiController` — keeps diagnostic stack-sampling failures inside AI timeout recovery
