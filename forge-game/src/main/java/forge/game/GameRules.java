@@ -16,6 +16,7 @@ public class GameRules {
     private boolean AISideboardingEnabled = false;
     private boolean sideboardForAI = false;
     private boolean allowCheatShuffle = false;
+    private boolean freeFirstMulligan = false;
     private final Set<GameType> appliedVariants = EnumSet.noneOf(GameType.class);
     private int simTimeout = 120;
 
@@ -119,6 +120,15 @@ public class GameRules {
 
     public boolean hasAppliedVariant(final GameType variant) {
         return appliedVariants.contains(variant);
+    }
+
+    public boolean hasFreeFirstMulligan(final int playerCount) {
+        return playerCount > 2 || hasAppliedVariant(GameType.Brawl) || freeFirstMulligan;
+    }
+
+    /** Host policy for formats that grant a free redraw beyond the multiplayer and Brawl defaults. */
+    public void setFreeFirstMulligan(final boolean free) {
+        freeFirstMulligan = free;
     }
 
     public boolean hasCommander() {
