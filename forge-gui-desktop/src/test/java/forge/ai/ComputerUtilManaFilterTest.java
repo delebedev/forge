@@ -1,7 +1,9 @@
 package forge.ai;
 
+import forge.card.mana.ManaAtom;
 import forge.game.Game;
 import forge.game.card.Card;
+import forge.game.mana.Mana;
 import forge.game.mana.ManaCostBeingPaid;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
@@ -21,6 +23,36 @@ public class ComputerUtilManaFilterTest extends AITest {
         AssertJUnit.assertTrue(ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
         ManaCostBeingPaid cost = new ManaCostBeingPaid(sa.getPayCosts().getTotalMana());
         return ComputerUtilMana.payManaCost(cost, sa, ai, false) && cost.isPaid();
+    }
+
+    @Test
+    public void filterCannotReserveTheOnlyManaOfAnUnproducedColor() {
+        Game game = initAndCreateGame();
+        Player ai = game.getPlayers().get(1);
+
+        addCard("Caves of Koilos", ai);
+        addCard("Underground River", ai);
+        addCard("Sunken Ruins", ai);
+        addCard("Swamp", ai);
+        Card ox = addCardToZone("Pillarfield Ox", ai, ZoneType.Hand);
+
+        AssertJUnit.assertTrue(payForReal(ox, ai));
+    }
+
+    @Test
+    public void floatingRequiredColorIsNotReservedForAnUnrelatedFilter() {
+        Game game = initAndCreateGame();
+        Player ai = game.getPlayers().get(1);
+
+        Card caves = addCard("Caves of Koilos", ai);
+        caves.setTapped(true);
+        ai.getManaPool().addMana(new Mana((byte) ManaAtom.WHITE, caves, null, ai));
+        addCard("Underground River", ai);
+        addCard("Sunken Ruins", ai);
+        addCard("Swamp", ai);
+        Card ox = addCardToZone("Pillarfield Ox", ai, ZoneType.Hand);
+
+        AssertJUnit.assertTrue(payForReal(ox, ai));
     }
 
     @Test

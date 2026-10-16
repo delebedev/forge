@@ -680,9 +680,23 @@ public class ComputerUtilMana {
 
         // Loop over mana needed
         while (!cost.isPaid()) {
-            while (!cost.isPaid() && manapool.totalMana() > floatingManaToReserve) {
+            while (!cost.isPaid() && manapool.totalMana() > 0) {
                 // would we ever not want to use pool mana?
                 boolean found = false;
+                if (manapool.totalMana() <= floatingManaToReserve) {
+                    for (Mana mana : manapool) {
+                        if (canSpendReservedMana(manapool, sa, cost, sourcesForShards, mana)
+                                && manapool.tryPayCostWithMana(sa, cost, mana, false)) {
+                            manaSpentToPay.add(mana);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        break;
+                    }
+                    continue;
+                }
                 for (byte color : ManaAtom.MANATYPES) {
                     if (manapool.tryPayCostWithColor(color, sa, cost, manaSpentToPay)) {
                         found = true;
@@ -831,7 +845,7 @@ public class ComputerUtilMana {
                 ai.getGame().getStack().addAndUnfreeze(saPayment);
                 floatingManaToReserve = minimumActivationMana(sourcesForShards);
                 // subtract mana from mana pool
-                payManaFromAbility(manapool, sa, cost, saPayment, floatingManaToReserve);
+                payManaFromAbility(manapool, sa, cost, saPayment, floatingManaToReserve, sourcesForShards);
 
                 if (hasConverge) {
                     // hack to prevent converge re-using sources
@@ -900,12 +914,14 @@ public class ComputerUtilMana {
     }
 
     private static void payManaFromAbility(final ManaPool manaPool, final SpellAbility paidFor,
-            final ManaCostBeingPaid cost, final SpellAbility payment, final int manaToReserve) {
+            final ManaCostBeingPaid cost, final SpellAbility payment, final int manaToReserve,
+            final Multimap<ManaCostShard, SpellAbility> sourcesForShards) {
         boolean spent = false;
         for (AbilityManaPart manaPart : payment.getAllManaParts()) {
             for (Mana mana : manaPart.getLastManaProduced()) {
-                if (manaPool.totalMana() <= manaToReserve) {
-                    break;
+                if (manaPool.totalMana() <= manaToReserve
+                        && !canSpendReservedMana(manaPool, paidFor, cost, sourcesForShards, mana)) {
+                    continue;
                 }
                 if (!paidFor.allowsPayingWithShard(manaPart.getSourceCard(), mana.getColor())) {
                     continue;
@@ -919,6 +935,26 @@ public class ComputerUtilMana {
         if (spent) {
             paidFor.getPayingManaAbilities().add(payment);
         }
+    }
+
+    private static boolean canSpendReservedMana(final ManaPool manaPool, final SpellAbility paidFor,
+            final ManaCostBeingPaid cost, final Multimap<ManaCostShard, SpellAbility> sources,
+            final Mana mana) {
+        if (!mana.meetsManaRestrictions(paidFor)
+                || !paidFor.allowsPayingWithShard(mana.getSourceCard(), mana.getColor())
+                || !cost.isNeeded(mana, manaPool)) {
+            return false;
+        }
+        final ManaCostBeingPaid afterPayment = new ManaCostBeingPaid(cost);
+        afterPayment.payMana(mana, manaPool);
+        for (ManaCostShard shard : cost.getDistinctShards()) {
+            // Startup mana must not strand a required color that the paid filters cannot supply.
+            if (!shard.isGeneric() && afterPayment.getUnpaidShards(shard) < cost.getUnpaidShards(shard)
+                    && (sources == null || sources.get(shard).stream().noneMatch(s -> getActivationManaCost(s) > 0))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // a source adding several mana that is needed either way goes first, so nothing else is tapped beside it for no reason
