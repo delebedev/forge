@@ -7,6 +7,7 @@ import forge.ai.AIOption;
 import forge.ai.AvailableActions;
 import forge.game.GameState;
 import forge.ai.PlayerControllerAi;
+import forge.game.undo.UndoManager;
 import forge.gamemodes.net.ProtocolGuiGame;
 import forge.card.*;
 import forge.card.mana.ManaCost;
@@ -88,6 +89,7 @@ import forge.model.FModel;
 import forge.trackable.TrackableCollection;
 import forge.util.*;
 import forge.util.collect.FCollection;
+import forge.trackable.TrackableObject;
 import forge.util.collect.FCollectionView;
 
 import io.sentry.Sentry;
@@ -939,6 +941,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     }
 
     protected void reveal(final CardCollectionView cards, final ZoneType zone, final PlayerView owner, String message, boolean addSuffix) {
+        getGame().getUndoManager().barrier("Information revealed");
         yieldController.maybeInterruptOnReveal();
         if (StringUtils.isBlank(message)) {
             message = localizer.getMessage("lblLookCardInPlayerZone", "{player's}", zone.getTranslatedName().toLowerCase());
@@ -998,6 +1001,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public ImmutablePair<CardCollection, CardCollection> arrangeForScry(final CardCollection topN) {
+        getGame().getUndoManager().barrier("Scry");
         final ImmutablePair<CardCollection, CardCollection> remembered = macros().consumeRememberedScry(topN);
         if (remembered != null) {
             return remembered;
@@ -1047,6 +1051,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public ImmutablePair<CardCollection, CardCollection> arrangeForSurveil(final CardCollection topN) {
+        getGame().getUndoManager().barrier("Surveil");
         CardCollection toGrave = null;
         CardCollection toTop = null;
 
@@ -1695,8 +1700,6 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public List<SpellAbility> chooseSpellAbilityToPlay() {
-        netLog.trace("ENTRY for player {}, phase={}, isGameOver={}",
-                player.getName(), getGame().getPhaseHandler().getPhase(), getGame().isGameOver());
         final MagicStack stack = getGame().getStack();
 
         // Skip when already yielding — yield proceeds regardless of available-actions.
@@ -1753,20 +1756,41 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 }
             }
             getGui().awaitNextInput();
-            netLog.trace("Returning null (mayAutoPass) for player {}", player.getName());
             return null;
         }
-
-        netLog.trace("Creating InputPassPriority for player {}", player.getName());
+        final UndoManager undo = getGame().getUndoManager();
+        undo.setMode(undoModeFromPrefs());      // the host's setting decides, for every player in the game
+        if (!isMacroActive()) {
+            if (UndoManager.OWN_TURN_ONLY && getGame().getPhaseHandler().getPlayerTurn() != player) {
+                undo.barrier("Opponent's turn");
+            } else {
+                undo.checkpoint(getGame(), player);      // must come BEFORE the prompt is built
+            }
+        }
         final InputPassPriority defaultInput = new InputPassPriority(this);
         defaultInput.showAndWait();
         netLog.trace("InputPassPriority returned for player {}, chosenSa={}", player.getName(), defaultInput.getChosenSa());
+        if (undo.consumeRequest()) {            // restore on the GAME thread, not the EDT
+            undo.undo(getGame());
+            return Collections.emptyList();     // mainLoopStep just prompts again
+        }
         return defaultInput.getChosenSa();
     }
 
     @Override
     public boolean playChosenSpellAbility(final SpellAbility chosenSa) {
-        return PlaySpellAbility.playSpellAbility(this, player, chosenSa);
+        // what targeting marks as chosen stays marked until the cost is paid or the cast is cancelled
+        keepTargetsMarked = true;
+        try {
+            return PlaySpellAbility.playSpellAbility(this, player, chosenSa);
+        } finally {
+            keepTargetsMarked = false;
+            // Copies: the GUI applies the change later, and this list is reused.
+            if (!keptMarks.isEmpty()) {
+                getGui().setHighlighted(new ArrayList<>(keptMarks), false);
+            }
+            keptMarks.clear();
+        }
     }
 
     @Override
@@ -1919,6 +1943,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public void notifyOfValue(final SpellAbility sa, final GameObject realtedTarget, final String value) {
+        getGame().getUndoManager().barrier("Information revealed");
         yieldController.maybeInterruptOnReveal();
         final String message = MessageUtil.formatNotificationMessage(sa, player, realtedTarget, value);
         if (sa != null && sa.isManaAbility()) {
@@ -2115,17 +2140,22 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     @Override
     public boolean confirmPayment(final CostPart costPart, final String question, SpellAbility sa) {
         if (getGui().isLibgdxPort()) {
-            CardView cardView;
+            CardView cardView = sa.getCardView();
             try {
-                cardView = CardView.getCardForUi(ImageUtil.getPaperCardFromImageKey(sa.getView().getHostCard().getCurrentState().getTrackableImageKey()));
+                //for cards like Sword-Point Diplomacy and others that uses imprinted as container for their ability
+                if (cardView != null && cardView.getImprintedCards().size() == 1)
+                    cardView = CardView.getCardForUi(ImageUtil.getPaperCardFromImageKey(cardView.getImprintedCards().get(0).getCurrentState().getTrackableImageKey()));
+                else if (sa.getTargets() != null && sa.getTargets().isTargetingAnyCard() && sa.getTargets().size() == 1)
+                    cardView = CardView.get(sa.getTargetCard());
+                else if (cardView.getZone() == null || cardView.getZone().isHidden()) {
+                    if (!cardView.hasAlternateState()) //don't override if it has alternatestate since it maybe showing alternate view
+                        cardView = CardView.getCardForUi(ImageUtil.getPaperCardFromImageKey(cardView.getCurrentState().getTrackableImageKey()));
+                }
             } catch (Exception e) {
-                SpellAbilityView spellAbilityView = sa.getView();
-                if (spellAbilityView != null) //updated view
-                    cardView = spellAbilityView.getHostCard();
-                else //fallback
-                    cardView = sa.getCardView();
+                //prevent NPE when overriding the cardView, the getPaperCardFromImageKey can return null making the GUI freeze, reset the view if error happens
+                cardView = sa.getCardView();
             }
-            return this.getGui().confirm(cardView, question.replaceAll("\n", " "));
+            return getGui().confirm(cardView, question.replaceAll("\n", " "));
         }
         final boolean result = InputConfirm.confirm(this, sa, question);
         if (result) {
@@ -2459,6 +2489,28 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     @Override
     public boolean chooseTargetsFor(final SpellAbility currentAbility) {
+        final boolean result = chooseTargetsForStep(currentAbility);
+        // what was chosen stays marked while later targeting steps follow, and goes away after the last one or a failure;
+        // for a spell being cast it stays up through paying the cost instead (see playChosenSpellAbility)
+        if (result && keepTargetsMarked) {
+            if (!TargetingProgress.hasLaterTargetingStep(currentAbility)) {
+                keptMarks.addAll(TargetingProgress.chosenTargets(currentAbility));
+            }
+        } else if (!result || !TargetingProgress.hasLaterTargetingStep(currentAbility)) {
+            TargetingProgress.clearChosen(getGui(), currentAbility);
+        }
+        return result;
+    }
+
+    /** True while a spell is being cast: what targeting marks as chosen then stays marked until its cost is paid. */
+    private boolean keepTargetsMarked;
+    private final List<TrackableObject> keptMarks = new ArrayList<>();
+
+    public boolean isKeepingTargetsMarked() {
+        return keepTargetsMarked;
+    }
+
+    private boolean chooseTargetsForStep(final SpellAbility currentAbility) {
         final TargetSelection select = new TargetSelection(this, currentAbility);
         boolean canFilterMustTarget = true;
 
@@ -2806,12 +2858,16 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         AchievementCollection.updateAll(this);
     }
 
+    private static UndoManager.Mode undoModeFromPrefs() {
+        final String v = FModel.getPreferences().getPref(FPref.UI_UNDO_MODE);
+        if (ForgeConstants.UNDO_MODE_OFF.equals(v)) { return UndoManager.Mode.OFF; }
+        if (ForgeConstants.UNDO_MODE_SINGLE.equals(v)) { return UndoManager.Mode.SINGLE_STEP; }
+        return UndoManager.Mode.FREE;
+    }
+
     public boolean canUndoLastAction() {
-        if (!getGame().stack.canUndo(player)) {
-            return false;
-        }
-        final Player priorityPlayer = getGame().getPhaseHandler().getPriorityPlayer();
-        return priorityPlayer != null && priorityPlayer == player;
+        if (getGame().getPhaseHandler().getPriorityPlayer() != player) return false;
+        return getGame().getUndoManager().canUndo(player) && inputQueue.getInput() instanceof InputPassPriority;
     }
 
     @Override
@@ -2819,26 +2875,13 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         tryUndoLastAction();
     }
 
+    /** Asks the game thread to rewind to the previous priority prompt; the actual restore happens in chooseSpellAbilityToPlay. */
     public boolean tryUndoLastAction() {
-        if (!canUndoLastAction()) {
-            return false;
-        }
-
-        if (getGame().getStack().undo()) {
-            final Input currentInput = inputQueue.getInput();
-            if (currentInput instanceof InputPassPriority) {
-                // ensure prompt updated if needed
-                currentInput.showMessageInitial();
-            }
-            if (getGui().isNetGame()) {
-                // Flush events to remote clients — the undo modifies game state
-                // (untaps lands, etc.) after the prompt is shown, and without this
-                // the updated state sits in the forwarder buffer until the next action.
-                inputQueue.updateObservers();
-            }
-            return true;
-        }
-        return false;
+        if (!canUndoLastAction()) return false;
+        if (!(inputQueue.getInput() instanceof InputPassPriority inp)) return false;
+        getGame().getUndoManager().requestUndo();
+        inp.restartPrompt();
+        return true;
     }
 
     @Override
@@ -2885,6 +2928,21 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     }
 
     @Override
+    public void selectStackItem(final StackItemView item) {
+        if (item == null || !(inputProxy.getInput() instanceof InputSelectStackItems)) {
+            return;
+        }
+        // a stack entry was picked while stack targets are chosen; it is identified by its stack instance, and the
+        // input takes it as that instance's ability
+        for (final SpellAbilityStackInstance si : getGame().getStack()) {
+            if (si.getId() == item.getId()) {
+                inputProxy.selectAbility(si.getSpellAbility());
+                return;
+            }
+        }
+    }
+
+    @Override
     public void selectAbility(final SpellAbilityView sa) {
         if (spellViewCache == null || spellViewCache.isEmpty()) {
             return;
@@ -2905,6 +2963,13 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     @Override
     public boolean canPlayUnlimitedLands() {
         return canPlayUnlimitedLands;
+    }
+
+    /** Sends a change made outside the game's loop, such as an undo or a cheat, which would otherwise wait in the forwarder's buffer for the next action. */
+    private void sendToRemoteClients() {
+        if (getGui().isNetGame()) {
+            inputQueue.updateObservers();
+        }
     }
 
     private IDevModeCheats cheats;
@@ -2959,6 +3024,13 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         private DevModeCheats() {
         }
 
+        private void invokeThenSend(final Runnable change) {
+            getGame().getAction().invoke(() -> {
+                change.run();
+                sendToRemoteClients();
+            });
+        }
+
         /*
          * (non-Javadoc)
          *
@@ -3001,18 +3073,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             final Map<String, String> produced = Maps.newHashMap();
             produced.put("Produced", "W W W W W W W U U U U U U U B B B B B B B G G G G G G G R R R R R R R 7");
             final AbilityManaPart abMana = new AbilityManaPart(dummy, produced);
-            getGame().getAction().invoke(() -> abMana.produceMana(null));
-        }
-
-        @Override
-        public void rollbackPhase() {
-            final Player pPriority = getGame().getPhaseHandler().getPriorityPlayer();
-            if (pPriority == null) {
-                getGui().message(localizer.getMessage("lblNoPlayerPriorityGameStateCannotBeSetup"));
-                return;
-            }
-            if (getGui().getGamestate() != null)
-                getGui().getGamestate().applyToGame(getGame());
+            invokeThenSend(() -> abMana.produceMana(null));
         }
 
         private GameState createGameStateObject() {
@@ -3109,7 +3170,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 return;
             }
 
-            getGame().getAction().invoke(() -> getGame().getAction().moveToHand(card, null));
+            invokeThenSend(() -> getGame().getAction().moveToHand(card, null));
         }
 
         /*
@@ -3161,6 +3222,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             } else {
                 card.addCounterInternal(counter, count, card.getController(), false, null, null);
             }
+            sendToRemoteClients();
         }
 
         /*
@@ -3170,7 +3232,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
          */
         @Override
         public void tapPermanents() {
-            getGame().getAction().invoke(() -> {
+            invokeThenSend(() -> {
                 final CardCollectionView untapped = CardLists.filter(getGame().getCardsIn(ZoneType.Battlefield),
                         CardPredicates.UNTAPPED);
                 final InputSelectCardsFromList inp = new InputSelectCardsFromList(PlayerControllerHuman.this, 0,
@@ -3199,7 +3261,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
          */
         @Override
         public void untapPermanents() {
-            getGame().getAction().invoke(() -> {
+            invokeThenSend(() -> {
                 final CardCollectionView tapped = CardLists.filter(getGame().getCardsIn(ZoneType.Battlefield),
                         CardPredicates.TAPPED);
                 final InputSelectCardsFromList inp = new InputSelectCardsFromList(PlayerControllerHuman.this, 0,
@@ -3244,6 +3306,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             }
 
             player.setLife(life, null);
+            sendToRemoteClients();
         }
 
         /*
@@ -3349,7 +3412,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             final int qty = q != null ? q : 1;
             final PaperToken paperToken = tokenDb.getToken(scriptNames.get(chosen));
 
-            getGame().getAction().invoke(() -> {
+            invokeThenSend(() -> {
                 boolean summoningSickness = true;
                 for (int i = 0; i < qty; i++) {
                     final Card token = CardFactory.getCard(paperToken, p, getGame());
@@ -3468,7 +3531,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 return;
             }
 
-            getGame().getAction().invoke(() -> {
+            invokeThenSend(() -> {
                 boolean askPrompts = !repeatLast;
                 for (int q = 0; q < quantity; q++) {
                     PaperCard c = carddb.getUniqueByName(f.displayName());
@@ -3594,6 +3657,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                     getGame().getGameLog().add(GameLogEntryType.INFORMATION, "DISCARD CHEAT ERROR");
                 }
             }
+            sendToRemoteClients();
         }
 
         /*
@@ -3633,6 +3697,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                     getGame().getGameLog().add(GameLogEntryType.INFORMATION, "EXILE FROM PLAY CHEAT ERROR");
                 }
             }
+            sendToRemoteClients();
         }
 
         /*
@@ -3672,6 +3737,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 sb.append(p).append(" removes ").append(c).append(" from game due to Dev Cheats.");
                 getGame().getGameLog().add(GameLogEntryType.ZONE_CHANGE, sb.toString());
             }
+            sendToRemoteClients();
         }
 
         /*
@@ -3696,7 +3762,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
             System.out.println("Rigging planar dice roll: " + res.toString());
 
-            getGame().getAction().invoke(() -> PlanarDice.roll(player, res));
+            invokeThenSend(() -> PlanarDice.roll(player, res));
         }
 
         /*
@@ -3726,7 +3792,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             }
             final Card forgeCard = Card.fromPaperCard(c, p);
 
-            getGame().getAction().invoke(() -> {
+            invokeThenSend(() -> {
                 getGame().getAction().changeZone(null, p.getZone(ZoneType.PlanarDeck), forgeCard, 0, null);
                 PlanarDice.roll(p, PlanarDice.Planeswalk);
             });
@@ -3945,6 +4011,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
 
     public void autoPassUntilEndOfTurn() {
         yieldController.setAutoPassUntilEndOfTurn(true);
+        if (isRemoteClient()) getGui().applyYieldUpdate(new YieldUpdate.SetAutoPassUntilEndOfTurn(getLocalPlayerView(), true));
         getGui().updateAutoPassPrompt();
     }
 
