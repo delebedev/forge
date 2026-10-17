@@ -14,6 +14,9 @@ import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.game.zone.ZoneType;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
@@ -250,4 +253,97 @@ public class ReserveManaSourcesTest extends SimulationTest {
                 .anyMatch(card -> card.getName().equals("Grizzly Bears")));
         AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
     }
+    @Test
+    public void paysAfterEstimatingNetPositiveStronghold() {
+        Game game = gameWith(new String[] { "Swamp", "Swamp", "Swamp", "Swamp", "Swamp", "Cabal Stronghold" });
+        Player ai = game.getPlayers().get(1);
+        SpellAbility sa = spellInHand(game, "Rune-Scarred Demon");
+
+        final int manaBefore = ai.getManaPool().totalMana();
+        final long untappedBefore = ai.getCardsIn(ZoneType.Battlefield).stream().filter(card -> !card.isTapped()).count();
+        final boolean canPay = ComputerUtilMana.canPayManaCost(sa, ai, 0, false);
+        AssertJUnit.assertEquals("estimating preserves floating mana", manaBefore, ai.getManaPool().totalMana());
+        AssertJUnit.assertEquals("estimating preserves untapped sources", untappedBefore,
+                ai.getCardsIn(ZoneType.Battlefield).stream().filter(card -> !card.isTapped()).count());
+        AssertJUnit.assertTrue("five Swamps fund a three-mana activation that makes five black",
+                ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertTrue("the seven-mana payment consumes all six lands",
+                ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
+        AssertJUnit.assertTrue("the payment leaves no floating mana", ai.getManaPool().isEmpty());
+        AssertJUnit.assertTrue("the funded chain is available to the AI cast decision", canPay);
+    }
+
+    @Test
+    public void cubePaysEightFromSevenFloatingMana() {
+        Game game = gameWith(new String[] { "Doubling Cube" });
+        Player ai = game.getPlayers().get(1);
+        addFloatingMana(ai, 7);
+        SpellAbility sa = spellInHand(game, "Sundering Titan");
+
+        AssertJUnit.assertTrue(ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+        AssertJUnit.assertEquals(7, ai.getManaPool().totalMana());
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().noneMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
+    }
+
+    @Test
+    public void cubeExecutionPaysEightFromSevenFloatingMana() {
+        Game game = gameWith(new String[] { "Doubling Cube" });
+        Player ai = game.getPlayers().get(1);
+        addFloatingMana(ai, 7);
+        SpellAbility sa = spellInHand(game, "Sundering Titan");
+
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
+    }
+
+    @Test
+    public void cubePredictionRestoresEveryFloatingManaObject() {
+        Game game = gameWith(new String[] { "Doubling Cube" });
+        Player ai = game.getPlayers().get(1);
+        addFloatingMana(ai, 4);
+        Card island = createCard("Island", ai);
+        for (int i = 0; i < 3; i++) {
+            ai.getManaPool().addMana(new Mana((byte) ManaAtom.BLUE, island, null, ai));
+        }
+        final List<Mana> original = new ArrayList<>();
+        ai.getManaPool().forEach(original::add);
+        SpellAbility sa = spellInHand(game, "Sundering Titan");
+
+        AssertJUnit.assertTrue(ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+        final List<Mana> restored = new ArrayList<>();
+        ai.getManaPool().forEach(restored::add);
+        AssertJUnit.assertEquals(original.size(), restored.size());
+        for (Mana mana : original) {
+            AssertJUnit.assertTrue(restored.stream().anyMatch(value -> value == mana));
+        }
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().noneMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
+    }
+
+    @Test
+    public void cubeCannotUseRestrictedCreatureManaForActivation() {
+        Game game = gameWith(new String[] { "Doubling Cube", "Ancient Ziggurat" });
+        Player ai = game.getPlayers().get(1);
+        Card ziggurat = ai.getCardsIn(ZoneType.Battlefield).stream()
+                .filter(card -> card.getName().equals("Ancient Ziggurat")).findFirst().orElseThrow();
+        ziggurat.setTapped(true);
+        for (int i = 0; i < 7; i++) {
+            ai.getManaPool().addMana(new Mana((byte) ManaAtom.RED, ziggurat,
+                    ziggurat.getManaAbilities().get(0).getManaPart(), ai));
+        }
+        SpellAbility sa = spellInHand(game, "Sundering Titan");
+
+        AssertJUnit.assertFalse(ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+        AssertJUnit.assertEquals(7, ai.getManaPool().totalMana());
+        AssertJUnit.assertEquals(1, ai.getCardsIn(ZoneType.Battlefield).stream().filter(Card::isTapped).count());
+        AssertJUnit.assertFalse(ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertEquals(7, ai.getManaPool().totalMana());
+        AssertJUnit.assertEquals(1, ai.getCardsIn(ZoneType.Battlefield).stream().filter(Card::isTapped).count());
+    }
+
 }
