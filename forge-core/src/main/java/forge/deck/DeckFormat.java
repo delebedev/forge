@@ -467,6 +467,10 @@ public enum DeckFormat {
                 wildColors += pc.getRules().getAddsWildCardColor() ? 1 : 0;
             }
 
+            if (commanders.size() == 1 && commanders.get(0).getRules().canBeBackground()) {
+                return "has a Background without a commander with Choose a Background";
+            }
+
             // Special check for Partner
             if (commanders.size() == 2) {
                 PaperCard a = commanders.get(0);

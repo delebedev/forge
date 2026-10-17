@@ -133,6 +133,23 @@ public class CommanderOptionsTest extends AITest {
     }
 
     @Test
+    public void backgroundRequiresAChooseBackgroundCommander() {
+        final Deck deck = new Deck("Background commander");
+        deck.getMain().add(card("Forest"), 99);
+        deck.getOrCreate(DeckSection.Commander).add(card("Raised by Giants"));
+        assertEquals(DeckFormat.Commander.getCommanderConformanceProblem(deck),
+                "has a Background without a commander with Choose a Background");
+
+        deck.getOrCreate(DeckSection.Commander).add(card("Wilson, Refined Grizzly"));
+        deck.getMain().remove(card("Forest"), 1);
+        assertNull(DeckFormat.Commander.getCommanderConformanceProblem(deck));
+
+        deck.getOrCreate(DeckSection.Commander).remove(card("Raised by Giants"));
+        deck.getMain().add(card("Forest"));
+        assertNull(DeckFormat.Commander.getCommanderConformanceProblem(deck));
+    }
+
+    @Test
     public void commanderConformanceReportsOffColorCards() {
         final Deck deck = CommanderOptions.withCommanders(abzanDeck(),
                 Collections.singletonList(card("Azusa, Lost but Seeking")));
