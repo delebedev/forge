@@ -56,6 +56,7 @@ accessors to mutable `Card` references require migration.
 - `GameAction` — dispatches replacements for cards found searching a library even when the destination is that same library, preserving ordinary reorder suppression
 - `AiController` — keeps diagnostic stack-sampling failures inside AI timeout recovery
 - `ComputerUtilMana` — uses actual paid activation mana costs, reserves filter startup mana without stranding colors those filters cannot produce, and prefers reusable source modes without sacrificing required-color preference
+- `ComputerUtilMana` — predicts pool-doubling output after reserving activation funding, preserves floating mana for the multiplier, and restores original pool objects after affordability checks
 - `CardDb.contains()` — resolves named cards through lazy loading so cold deck imports accept exact printings
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
 - `InvestigateEffect` — token-created events contain only tokens from the current player iteration

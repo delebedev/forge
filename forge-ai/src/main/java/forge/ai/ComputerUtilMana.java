@@ -20,6 +20,7 @@ import forge.game.GameActionUtil;
 import forge.game.ability.AbilityKey;
 import forge.game.ability.AbilityUtils;
 import forge.game.ability.ApiType;
+import forge.game.ability.effects.ManaEffect;
 import forge.game.card.*;
 import forge.game.combat.Combat;
 import forge.game.combat.CombatUtil;
@@ -505,6 +506,10 @@ public class ComputerUtilMana {
     }
 
     private static String predictManaReplacement(SpellAbility saPayment, Player ai, ManaCostShard toPay) {
+        if (isPoolDependentManaAbility(saPayment)) {
+            saPayment = saPayment.copy(ai);
+            ManaEffect.handleSpecialMana(ai, saPayment.getManaPart(), saPayment, true);
+        }
         Card hostCard = saPayment.getHostCard();
         Game game = hostCard.getGame();
         String manaProduced = toPay.isSnow() && hostCard.isSnow() ? "S" : GameActionUtil.generatedTotalMana(saPayment);
@@ -657,7 +662,7 @@ public class ComputerUtilMana {
 
         Multimap<ManaCostShard, SpellAbility> sourcesForShards =
                 getSourcesForShards(cost, sa, ai, test, checkPlayable, hasConverge);
-        int floatingManaToReserve = minimumActivationMana(sourcesForShards);
+        int floatingManaToReserve = minimumActivationMana(sourcesForShards, manapool);
 
         // not worth checking if it makes sense to not spend floating first
         final ManaCostBeingPaid poolOnlyCost = new ManaCostBeingPaid(cost);
@@ -812,6 +817,14 @@ public class ComputerUtilMana {
                 }
             }
 
+            if (test && isPoolDependentManaAbility(saPayment)) {
+                final List<Mana> funding = reservePoolActivationMana(saPayment, manapool);
+                if (funding == null) {
+                    saExcludeList.add(saPayment);
+                    continue;
+                }
+                manaSpentToPay.addAll(funding);
+            }
             paymentList.add(saPayment);
             if (saPayment.getPayCosts().hasTapCost()) {
                 AiCardMemory.rememberCard(ai, saPayment.getHostCard(), MemorySet.PAYS_TAP_COST);
@@ -830,12 +843,14 @@ public class ComputerUtilMana {
 
                 String manaProduced = predictMana(saPayment, ai, toPay);
                 payMultipleMana(cost, manaProduced, ai);
-                // the mana to activate the ability has to come from the remaining sources
-                cost.increaseGenericMana(manaCostToActivate);
+                // Pool-dependent output was predicted only after its activation funding was removed.
+                if (!isPoolDependentManaAbility(saPayment)) {
+                    cost.increaseGenericMana(manaCostToActivate);
+                }
 
                 // remove to prevent re-usage since resources don't get consumed
                 sourcesForShards.values().removeIf(CardTraitPredicates.isHostCard(saPayment.getHostCard()));
-                floatingManaToReserve = minimumActivationMana(sourcesForShards);
+                floatingManaToReserve = minimumActivationMana(sourcesForShards, manapool);
             } else {
                 final CostPayment pay = new CostPayment(saPayment.getPayCosts(), saPayment);
                 if (!pay.payComputerCosts(new AiCostDecision(ai, saPayment, effect, true))) {
@@ -843,7 +858,7 @@ public class ComputerUtilMana {
                     continue;
                 }
                 ai.getGame().getStack().addAndUnfreeze(saPayment);
-                floatingManaToReserve = minimumActivationMana(sourcesForShards);
+                floatingManaToReserve = minimumActivationMana(sourcesForShards, manapool);
                 // subtract mana from mana pool
                 payManaFromAbility(manapool, sa, cost, saPayment, floatingManaToReserve, sourcesForShards);
 
@@ -855,7 +870,7 @@ public class ComputerUtilMana {
                     sourcesForShards.values().removeIf(s -> s == saPayment ||
                             (s.getHostCard().equals(saPayment.getHostCard()) && !s.canPlay()));
                 }
-                floatingManaToReserve = minimumActivationMana(sourcesForShards);
+                floatingManaToReserve = minimumActivationMana(sourcesForShards, manapool);
             }
         }
 
@@ -893,9 +908,12 @@ public class ComputerUtilMana {
         return paymentList;
     }
 
-    private static int minimumActivationMana(final Multimap<ManaCostShard, SpellAbility> sources) {
+    private static int minimumActivationMana(final Multimap<ManaCostShard, SpellAbility> sources, final ManaPool pool) {
         if (sources == null) {
             return 0;
+        }
+        if (sources.values().stream().anyMatch(ComputerUtilMana::isPoolDependentManaAbility)) {
+            return pool.totalMana();
         }
         return sources.values().stream()
                 .mapToInt(ComputerUtilMana::getActivationManaCost)
@@ -1978,10 +1996,61 @@ public class ComputerUtilMana {
 
     private static int getNetManaProduced(final SpellAbility ability) {
         final int activationMana = getActivationManaCost(ability);
+        if (isPoolDependentManaAbility(ability)) {
+            final Player player = ability.getHostCard().getController();
+            final SpellAbility prediction = ability.copy(player);
+            final ManaPool pool = player.getManaPool();
+            final List<Mana> funding = reservePoolActivationMana(prediction, pool);
+            if (funding == null) {
+                return -activationMana;
+            }
+            try {
+                ManaEffect.handleSpecialMana(player, prediction.getManaPart(), prediction, true);
+                return new ManaCost(GameActionUtil.generatedTotalMana(prediction)).getCMC() - activationMana;
+            } finally {
+                funding.forEach(pool::addManaNoEvent);
+            }
+        }
         final int producedColors = ability.getParamOrDefault("Produced", "").split(" ").length;
         final int producedAmount = AbilityUtils.calculateAmount(
                 ability.getHostCard(), ability.getParamOrDefault("Amount", "1"), ability);
         return producedColors * producedAmount - activationMana;
+    }
+
+    private static boolean isPoolDependentManaAbility(final SpellAbility ability) {
+        return ability.getManaPart() != null
+                && ability.getManaPart().getOrigProduced().startsWith("Special DoubleManaInPool");
+    }
+
+    // Keep startup mana out of a pool-dependent prediction without emitting temporary pool events.
+    private static List<Mana> reservePoolActivationMana(final SpellAbility ability, final ManaPool pool) {
+        final ManaCostBeingPaid activation = new ManaCostBeingPaid(ability.getPayCosts().getTotalMana());
+        final List<Mana> funding = new ArrayList<>();
+        final List<ManaCostShard> shards = activation.getUnpaidShards();
+        Collections.sort(shards);
+        boolean funded = false;
+        try {
+            for (final ManaCostShard shard : shards) {
+                final Mana selected = Lists.newArrayList(pool).stream()
+                        .filter(mana -> mana.meetsManaRestrictions(ability)
+                                && ability.allowsPayingWithShard(mana.getSourceCard(), mana.getColor())
+                                && pool.canPayForShardWithColor(shard, mana.getColor())
+                                && activation.isNeeded(mana, pool))
+                        .findFirst().orElse(null);
+                if (selected == null) {
+                    return null;
+                }
+                pool.removeManaNoEvent(selected);
+                funding.add(selected);
+                activation.payMana(selected, pool);
+            }
+            funded = activation.isPaid();
+            return funded ? funding : null;
+        } finally {
+            if (!funded) {
+                funding.forEach(pool::addManaNoEvent);
+            }
+        }
     }
 
     /**
