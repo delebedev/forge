@@ -444,7 +444,7 @@ public class PlaySpellAbility {
 
         String cardDesc = cpl.getDescriptiveType().equalsIgnoreCase("Card") ? "" : cpl.getDescriptiveType();
         CardCollectionView chosen = controller.chooseCardsForCost(list, sourceAbility, cpl, amount, true, Localizer.getInstance().getMessage("lblSelectNSpecifyTypeCardsToAction", cardDesc, actionName));
-        if(chosen == null)
+        if (chosen == null || chosen.size() < amount)
             return false;
 
         cpl.payAsDecided(p, PaymentDecision.card(chosen), sourceAbility, effect);

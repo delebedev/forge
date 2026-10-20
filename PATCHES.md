@@ -50,6 +50,7 @@ accessors to mutable `Card` references require migration.
 - `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries
 
 ## Fixes
+- `PlaySpellAbility` — declined or incomplete card selections leave resolution costs unpaid
 - `Agonizing Remorse` — accepts any graveyard card while restricting hand choices to nonlands
 - `DeckFormat` — rejects a lone Background commander while preserving legal Choose a Background pairs
 - `GameRules` / `MulliganService` — allow a game host to grant a first free mulligan alongside multiplayer and Brawl defaults
