@@ -167,7 +167,7 @@ public class TargetSelection {
                 }
             }
         }
-        if (!zones.contains(ZoneType.Stack)) {
+        if (!zones.contains(ZoneType.Stack) || controller.getGui().canPickStackTargets()) {
             TargetSelectionResult result = controller.selectTargetsInteractively(
                     validTargets, ability, mandatory, numTargets, divisionValues, filter, mustTargetFiltered);
             choiceResult = result.isChosen();
