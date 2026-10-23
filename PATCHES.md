@@ -51,7 +51,6 @@ accessors to mutable `Card` references require migration.
 
 ## Fixes
 - `PlaySpellAbility` — declined or incomplete card selections leave resolution costs unpaid
-- `Agonizing Remorse` — accepts any graveyard card while restricting hand choices to nonlands
 - `DeckFormat` — rejects a lone Background commander while preserving legal Choose a Background pairs
 - `GameRules` / `MulliganService` — allow a game host to grant a first free mulligan alongside multiplayer and Brawl defaults
 - `LondonMulligan.keep()` — defers bottom-card selection until the kept hand, preserving full-size redraw decisions and the controller's final-hand-size calculation
