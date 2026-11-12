@@ -806,7 +806,8 @@ public class ComputerUtilMana {
                 continue;
             }
 
-            if (test && !reserveManaSacrifices(saPayment, ai, reservedSacrifices, effect)) {
+            final CardCollection sacrifices = test ? planManaSacrifices(saPayment, ai, reservedSacrifices, effect) : null;
+            if (test && sacrifices == null) {
                 saExcludeList.add(saPayment);
                 continue;
             }
@@ -830,6 +831,9 @@ public class ComputerUtilMana {
                     continue;
                 }
                 manaSpentToPay.addAll(funding);
+            }
+            if (test) {
+                reservedSacrifices.addAll(sacrifices);
             }
             paymentList.add(saPayment);
             if (saPayment.getPayCosts().hasTapCost()) {
@@ -946,8 +950,8 @@ public class ComputerUtilMana {
                 !ability.isPwAbility() && !ability.isBoast() && !ability.isExhaust() && !ability.isPowerUp();
     }
 
-    /** Reserve distinct permanents without paying costs or changing the live battlefield. */
-    private static boolean reserveManaSacrifices(final SpellAbility ability, final Player player,
+    /** Plan distinct sacrifices without paying costs or changing the live battlefield. */
+    private static CardCollection planManaSacrifices(final SpellAbility ability, final Player player,
             final CardCollection reserved, final boolean effect) {
         final CardCollection selected = new CardCollection();
         for (final CostPart part : ability.getPayCosts().getCostParts()) {
@@ -972,12 +976,11 @@ public class ComputerUtilMana {
             }
             final int amount = sacrifice.getAbilityAmount(ability);
             if (choices.size() < amount) {
-                return false;
+                return null;
             }
             selected.addAll(choices.subList(0, amount));
         }
-        reserved.addAll(selected);
-        return true;
+        return selected;
     }
 
     private static int getActivationManaCost(final SpellAbility ability) {
