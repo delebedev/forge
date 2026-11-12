@@ -176,11 +176,13 @@ public class ComputerUtilMana {
 
         // Filter abilities need another source to pay for them, so they're the worse pick
         // while ordinary sources can cover the cost on their own. Once they can't, the filters have to be
-        // activated first, while there are still sources left to pay for them. A filter land's own colorless
-        // mana doesn't count, since tapping the land for it uses up the filter.
+        // activated first, while there are still sources left to pay for them. Each card contributes only
+        // its best free mode for the requested shards, not modes useful only for funding a filter.
+        final List<ManaCostShard> requiredShards = Lists.newArrayList(cost.getDistinctShards());
         final int freeMana = orderedCards.stream().map(ComputerUtilMana::getAIPlayableMana)
-                .filter(abilities -> abilities.stream().noneMatch(m -> getManaToActivate(m) > 0))
-                .mapToInt(abilities -> abilities.stream().mapToInt(m -> m.amountOfManaGenerated(true)).max().orElse(0)).sum();
+                .mapToInt(abilities -> abilities.stream().filter(m -> getManaToActivate(m) == 0
+                                && requiredShards.stream().anyMatch(shard -> sourcesForShards.get(shard).contains(m)))
+                        .mapToInt(m -> m.amountOfManaGenerated(true)).max().orElse(0)).sum();
         final boolean filtersFirst = freeMana < cost.getConvertedManaCost();
 
         for (final ManaCostShard shard : sourcesForShards.keySet()) {
@@ -2222,12 +2224,11 @@ public class ComputerUtilMana {
     public static List<SpellAbility> getAIPlayableMana(Card c) {
         final List<SpellAbility> res = new ArrayList<>();
         for (final SpellAbility a : c.getManaAbilities()) {
-            // A paid source is useful only when activating it increases available mana.
             // if there is a parent ability the AI can't use it
             if (a.getApi() != ApiType.Mana && a.getApi() != ApiType.ManaReflected) {
                 continue;
             }
-            // a mana ability that itself costs mana is only usable if it's a simple net-positive
+            // Paid sources must increase available mana or support an executable color conversion.
             final Cost cost = a.getPayCosts();
             if (cost.hasManaCost() && !canFundManaAbility(a) && !isFilterManaAbility(a)) {
                 continue;
@@ -2341,7 +2342,7 @@ public class ComputerUtilMana {
     }
 
     /**
-     * A "filter" mana ability is a plain "{cost}, {T}: Add ..." that produces more mana than it costs,
+     * A "filter" mana ability is a plain "{cost}, {T}: Add ..." that produces at least as much mana as it costs,
      * such as the Signets and the Odyssey and Shadowmoor filter lands. Those are the only mana abilities
      * with a mana cost that the AI knows how to pay for.
      */
@@ -2360,12 +2361,12 @@ public class ComputerUtilMana {
             }
         }
         final AbilityManaPart mp = ma.getManaPart();
-        if (mp == null || mp.isAnyMana() || mp.isSpecialMana() || mp.getOrigProduced().contains("Chosen")) {
+        if (mp == null || (mp.isAnyMana() && !mp.isComboMana()) || mp.isSpecialMana() || mp.getOrigProduced().contains("Chosen")) {
             return false;
         }
         final int amount = AbilityUtils.calculateAmount(ma.getHostCard(), ma.getParamOrDefault("Amount", "1"), ma);
         final int produced = mp.isComboMana() ? amount : mp.getOrigProduced().split(" ").length * amount;
-        return produced > manaCost.getCMC();
+        return produced >= manaCost.getCMC();
     }
 
     /**
