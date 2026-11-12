@@ -416,8 +416,6 @@ public abstract class InputPayMana extends InputSyncronizedBase {
         if (activateDelayedCard()) {
             return;
         }
-        // Drop just-tapped sources from the highlight set.
-        getController().pushActionableCards(true);
         if (supportAutoPay()) {
             ensureAutoPayManaSources();
             if (autoPayManaSources != null) { //enabled Auto button if mana cost can be paid
