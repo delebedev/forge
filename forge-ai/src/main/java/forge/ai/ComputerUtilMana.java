@@ -832,10 +832,13 @@ public class ComputerUtilMana {
 
             final int manaCostToActivate = getManaToActivate(saPayment);
             if (manaCostToActivate > 0) {
-                if (test && !paymentList.isEmpty() && getManaToActivate(paymentList.get(paymentList.size() - 1)) > 0) {
-                    // chaining filters risks misplay
-                    saExcludeList.add(saPayment);
-                    continue;
+                if (test && !paymentList.isEmpty()) {
+                    final SpellAbility previous = paymentList.get(paymentList.size() - 1);
+                    // Simple filters have an executable funding path; other paid chains remain unsupported.
+                    if (getManaToActivate(previous) > 0 && !(isFilterManaAbility(previous) && isFilterManaAbility(saPayment))) {
+                        saExcludeList.add(saPayment);
+                        continue;
+                    }
                 }
                 // A Signet-like source is about to be activated: float the mana for its own cost first,
                 // from a source the remaining cost can spare, so that its cost payment doesn't grab a
