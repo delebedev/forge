@@ -12,6 +12,10 @@ public record GameEventCardTapped(CardView card, boolean tapped, SpellAbilityVie
         this(CardView.get(card), tapped, null, false, 0);
     }
 
+    public GameEventCardTapped(CardView card, boolean tapped) {
+        this(card, tapped, null, false, 0);
+    }
+
     public GameEventCardTapped(Card card, boolean tapped, SpellAbility cause) {
         this(CardView.get(card), tapped, SpellAbilityView.get(cause),
                 cause != null && cause.getRootAbility().isSpell(),
