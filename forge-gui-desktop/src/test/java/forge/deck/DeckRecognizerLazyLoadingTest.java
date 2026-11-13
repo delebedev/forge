@@ -14,6 +14,7 @@ import java.util.Collections;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 
 public class DeckRecognizerLazyLoadingTest {
     @Test
@@ -21,12 +22,13 @@ public class DeckRecognizerLazyLoadingTest {
         ImageKeys.initializeDirs("", Collections.emptyMap(), "", "", "", "", "", "", "");
         Path resources = Path.of("../forge-gui/res").toAbsolutePath().normalize();
         CardStorageReader reader = new CardStorageReader(resources.resolve("cardsfolder").toString(), null, true);
+        CardStorageReader tokenReader = new CardStorageReader(resources.resolve("tokenscripts").toString(), null, false);
         Path customEditions = Files.createTempDirectory("forge-empty-editions");
         StaticData data;
         try {
-            data = new StaticData(reader, null, resources.resolve("editions").toString(),
-                    customEditions.toString(), resources.resolve("blockdata").toString(),
-                    "Latest Art All Editions", true, false);
+            data = new StaticData(reader, tokenReader, null, null, resources.resolve("editions").toString(),
+                    customEditions.toString(), resources.resolve("blockdata").toString(), "",
+                    "Latest Art All Editions", true, false, false, false);
         } finally {
             Files.delete(customEditions);
         }
@@ -40,5 +42,6 @@ public class DeckRecognizerLazyLoadingTest {
         assertEquals(token.getCard().getName(), "Hearthborn Battler");
         assertEquals(token.getCard().getEdition(), "BLB");
         assertEquals(token.getCard().getCollectorNumber(), "139");
+        assertNotNull(StaticData.instance().getAllTokens().getToken("w_1_1_warrior", "ZZQ"));
     }
 }
