@@ -1206,6 +1206,11 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 }
             }
             tempShowCards(valid);
+            if (max == 0) {
+                // nothing may be discarded, so the reveal is the whole interaction
+                endTempShowCards();
+                return CardCollection.EMPTY;
+            }
             if (selectFromDisplay) {
                 final InputSelectCardsFromList inp = new InputSelectCardsFromList(this, min, max, valid, sa);
                 inp.setMessage(String.format(localizer.getMessage("lblChooseMinCardToDiscard"), optional ? max : min));
@@ -1223,6 +1228,9 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             return choices;
         }
 
+        if (max == 0) {
+            return CardCollection.EMPTY;
+        }
         final InputSelectCardsFromList inp = new InputSelectCardsFromList(this, min, max, valid, sa);
         inp.setMessage(sa.hasParam("AnyNumber") ? localizer.getMessage("lblDiscardUpToNCards") : localizer.getMessage("lblDiscardNCards"));
         inp.showAndWait();
@@ -2766,7 +2774,25 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     @Override
     public CardCollectionView chooseCardsForTapCost(CardCollectionView optionList, SpellAbility sa,
             CostTapType cost, int min, int max, Integer totalPowerNeeded, String prompt) {
-        InputSelectCardsFromList inp = new InputSelectCardsFromList(this, min, max, optionList, sa);
+        final Integer requiredPower = totalPowerNeeded;
+        InputSelectCardsFromList inp = new InputSelectCardsFromList(this, min, max, optionList, sa) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean hasEnoughTargets() {
+                if (!super.hasEnoughTargets()) {
+                    return false;
+                }
+                if (requiredPower == null) {
+                    return true;
+                }
+                int power = 0;
+                for (final Card c : this.selected) {
+                    power += c.getNetPower();
+                }
+                return power >= requiredPower;
+            }
+        };
         inp.setMessage(prompt);
         inp.setCancelAllowed(true);
         inp.showAndWait();

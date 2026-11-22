@@ -20,12 +20,22 @@ import static org.testng.Assert.assertNotNull;
 public class DeckRecognizerLazyLoadingTest {
     @Test
     public void importsExactPrintingBeforeCardIsLoaded() throws IOException {
+        final Path resources = Path.of("../forge-gui/res").toAbsolutePath().normalize();
         // StaticData reads token scripts through the localizer while it is constructed
         Localizer.getInstance().initialize(
                 "en-US",
                 Path.of("..", "forge-gui", "res", "languages").toAbsolutePath().toString());
-        ImageKeys.initializeDirs("", Collections.emptyMap(), "", "", "", "", "", "", "");
-        Path resources = Path.of("../forge-gui/res").toAbsolutePath().normalize();
+        // the card and token directories stay distinct so no later lookup takes the token fallback
+        ImageKeys.initializeDirs(
+                resources.resolve("cardsfolder").toString(),
+                Collections.emptyMap(),
+                resources.resolve("tokenscripts").toString(),
+                "",
+                "",
+                "",
+                "",
+                "",
+                "");
         CardStorageReader reader = new CardStorageReader(resources.resolve("cardsfolder").toString(), null, true);
         CardStorageReader tokenReader = new CardStorageReader(resources.resolve("tokenscripts").toString(), null, false);
         Path customEditions = Files.createTempDirectory("forge-empty-editions");
