@@ -1208,6 +1208,9 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             tempShowCards(valid);
             if (max == 0) {
                 // nothing may be discarded, so the reveal is the whole interaction
+                if (delayedReveal != null && selectFromDisplay) {
+                    reveal(delayedReveal);
+                }
                 endTempShowCards();
                 return CardCollection.EMPTY;
             }
@@ -2786,11 +2789,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
                 if (requiredPower == null) {
                     return true;
                 }
-                int power = 0;
-                for (final Card c : this.selected) {
-                    power += c.getNetPower();
-                }
-                return power >= requiredPower;
+                return CardLists.getTotalPower(this.selected, sa) >= requiredPower;
             }
         };
         inp.setMessage(prompt);

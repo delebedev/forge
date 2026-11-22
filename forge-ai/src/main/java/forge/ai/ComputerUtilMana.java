@@ -1125,7 +1125,7 @@ public class ComputerUtilMana {
     private static void payManaFromAbility(final ManaPool manaPool, final SpellAbility paidFor,
             final ManaCostBeingPaid cost, final SpellAbility payment, final int manaToReserve,
             final Multimap<ManaCostShard, SpellAbility> sourcesForShards) {
-        boolean spent = false;
+        boolean used = false;
         for (AbilityManaPart manaPart : payment.getAllManaParts()) {
             for (Mana mana : manaPart.getLastManaProduced()) {
                 if (manaPool.totalMana() <= manaToReserve
@@ -1135,13 +1135,14 @@ public class ComputerUtilMana {
                 if (!paidFor.allowsPayingWithShard(manaPart.getSourceCard(), mana.getColor())) {
                     continue;
                 }
+                // the pool loop may spend this mana later, so the ability still pays for the cost
+                used = true;
                 if (manaPool.tryPayCostWithMana(paidFor, cost, mana, false)) {
                     paidFor.getPayingMana().add(mana);
-                    spent = true;
                 }
             }
         }
-        if (spent) {
+        if (used) {
             paidFor.getPayingManaAbilities().add(payment);
         }
     }
