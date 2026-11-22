@@ -796,6 +796,7 @@ public class ComputerUtilMana {
         int testEnergyPool = ai.getCounters(CounterEnumType.ENERGY);
         int testLifeSpent = 0;
         ManaCostShard toPay = null;
+        String lastProducedMana = "";
         List<SpellAbility> saExcludeList = new ArrayList<>();
         // the lands that cost life to tap (Manabarbs and its kin): none in nearly every game
         final List<TapDamageSource> painSources = ai.canLoseLife() && !ai.cantLoseForZeroOrLessLife()
@@ -939,8 +940,10 @@ public class ComputerUtilMana {
             if (manaCostToActivate > 0) {
                 if (test && !paymentList.isEmpty()) {
                     final SpellAbility previous = paymentList.get(paymentList.size() - 1);
-                    // A chain of net-positive filters funds itself; a color fixer already changes what the chain produces
-                    if (getManaToActivate(previous) > 0 && !(isNetPositiveFilter(previous) && isNetPositiveFilter(saPayment))) {
+                    // A chain of filters is only executable when the earlier one paid for the next
+                    if (getManaToActivate(previous) > 0
+                            && !(isNetPositiveFilter(previous) && isNetPositiveFilter(saPayment)
+                                    && producedCoversActivation(lastProducedMana, getManaCostToActivate(saPayment)))) {
                         saExcludeList.add(saPayment);
                         continue;
                     }
@@ -985,6 +988,9 @@ public class ComputerUtilMana {
                 }
 
                 String manaProduced = predictMana(saPayment, ai, toPay, triggeredShard);
+                if (manaCostToActivate > 0) {
+                    lastProducedMana = manaProduced;
+                }
                 payMultipleMana(cost, manaProduced, ai);
                 testLifeSpent += getLifeCost(saPayment);
                 // Pool-dependent output was predicted only after its activation funding was removed.
@@ -2871,6 +2877,33 @@ public class ComputerUtilMana {
             return false;
         }
         return mostManaGenerated(ma) >= manaCost.getCMC();
+    }
+
+    /** Whether the mana one filter produced can pay another filter's activation cost. */
+    private static boolean producedCoversActivation(final String produced, final ManaCost activation) {
+        if (activation == null || activation.getCMC() <= 0) {
+            return true;
+        }
+        final List<String> pool = new ArrayList<>();
+        if (!produced.isEmpty()) {
+            pool.addAll(Arrays.asList(produced.split(" ")));
+        }
+        for (final ManaCostShard shard : activation) {
+            if (shard.isGeneric() || shard == ManaCostShard.COLORLESS || shard == ManaCostShard.X) {
+                continue;
+            }
+            boolean paid = false;
+            for (final String option : shard.toShortString().split("/")) {
+                if (pool.remove(option)) {
+                    paid = true;
+                    break;
+                }
+            }
+            if (!paid) {
+                return false;
+            }
+        }
+        return pool.size() >= activation.getGenericCost();
     }
 
     /** A filter that produces more mana than it costs, so activating it adds mana to the payment. */

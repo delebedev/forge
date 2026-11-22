@@ -14,9 +14,10 @@ Changes on top of upstream Card-Forge/forge. Update this file when adding or rem
 - `GameEventSpellAbilityCast` — enriched with mana payment source, color, producing ability definition, and stable source ability context
 - `GameEventSpellResolved` — enriched with stable source ability context
 
-Legacy constructors remain for enriched event records. `GameEventCardDestroyed.card()` and
-`.activator()` now return immutable `CardView` values instead of `Card`; callers assigning those
-accessors to mutable `Card` references require migration.
+`GameEventCardDestroyed.card()` and `.activator()` now return immutable `CardView` values instead
+of `Card`; callers assigning those accessors to mutable `Card` references require migration. The
+upstream `GameEventCardDestroyed()` and four-argument `GameEventSpellAbilityCast` constructors are
+replaced by the enriched overloads, so callers of those two forms must migrate as well.
 - `GameEventManaAbilityActivated` — new, fired on mana ability resolution
 - `GameEventSpellMovedToStack` — new, fired on stack entry
 - `GameEventControllerChanged` — new, fired on controller change
@@ -56,7 +57,7 @@ accessors to mutable `Card` references require migration.
 - `LondonMulligan.keep()` — defers bottom-card selection until the kept hand, preserving full-size redraw decisions and the controller's final-hand-size calculation
 - `GameAction` — dispatches replacements for cards found searching a library even when the destination is that same library, preserving ordinary reorder suppression
 - `AiController` — keeps diagnostic stack-sampling failures inside AI timeout recovery
-- `ComputerUtilMana` — uses actual paid activation mana costs, reserves filter startup mana without stranding colors those filters cannot produce, recognizes executable net-positive filter chains during affordability checks, reserves activation mana only for those chains, and prefers reusable source modes without sacrificing required-color preference
+- `ComputerUtilMana` — uses actual paid activation mana costs, reserves filter startup mana without stranding colors those filters cannot produce, recognizes net-positive filter chains during affordability checks, admitting a chain only when the earlier filter's production can pay the next activation, reserves activation mana only for those chains, and prefers reusable source modes without sacrificing required-color preference. Affordability still explores its own shard order, so a chain whose real payment order would strand a color can be reported affordable
 - `ComputerUtilMana` — predicts pool-doubling output after reserving activation funding, preserves floating mana for the multiplier, and restores original pool objects after affordability checks
 - `CardDb.contains()` — resolves named cards through lazy loading so cold deck imports accept exact printings
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
