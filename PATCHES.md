@@ -31,6 +31,7 @@ accessors to mutable `Card` references require migration.
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
 - `TargetSelection` — routes single-candidate triggered targets through the controller callback
 - `DiscardEffect` — routes revealed empty valid-card choices through the controller callback while the default human controller auto-resolves zero-card selections
+- `TriggerHandler.getDelayedTriggersSnapshot()` — read-only delayed trigger inspection
 - `TargetSelectionResult` — result type for the seam
 - `Game.unsubscribeFromEvents()` — removes a subscriber from the game event bus so hosts can detach listeners from a running game
 - `AITimeoutTracker` — labels each AI session with its decision (attack, block, spell), logs one `AI_TIMEOUT decision=… elapsed_ms=… timeout_ms=… game=… player=…` line when a session ends past its deadline, and notifies an optional expiry listener
