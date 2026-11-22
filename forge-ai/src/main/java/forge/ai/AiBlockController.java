@@ -678,7 +678,6 @@ public class AiBlockController {
             return;
         }
 
-        boolean blocked = false;
         List<Card> chumpBlockers = getPossibleBlockers(combat, attacker, blockersLeft, true);
         if (attacker.hasKeyword(Keyword.TRAMPLE)) {
             // a blocker that dies before combat damage soaks up none of it, so a trampling
@@ -711,7 +710,6 @@ public class AiBlockController {
             combat.addBlocker(attacker, blocker);
             attackersLeft.remove(attacker);
             blockedButUnkilled.add(attacker);
-            blocked = true;
         }
         attackers.remove(attacker);
         makeChumpBlocks(combat, attackers, !chumpBlockers.isEmpty());
