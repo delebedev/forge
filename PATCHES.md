@@ -58,6 +58,7 @@ The `HumanCostDecision` entries already use upstream's `chooseCardsForCost()` wh
 - `GameRules` / `MulliganService` — allow a game host to grant a first free mulligan alongside multiplayer and Brawl defaults
 - `LondonMulligan.keep()` — defers bottom-card selection until the kept hand, preserving full-size redraw decisions and the controller's final-hand-size calculation
 - `GameAction` — dispatches replacements for cards found searching a library even when the destination is that same library, preserving ordinary reorder suppression
+- `AiAttackController.declareAttackers` — applies the parallel forced-attack checks in attacker order after the pool returns, so forced attackers and their `Combat` order do not depend on thread scheduling
 - `AiController` — keeps diagnostic stack-sampling failures inside AI timeout recovery
 - `ComputerUtilMana` — uses actual paid activation mana costs, reserves filter startup mana without stranding colors those filters cannot produce, and prefers reusable source modes without sacrificing required-color preference
 - `ComputerUtilMana` — predicts pool-doubling output after reserving activation funding, preserves floating mana for the multiplier, and restores original pool objects after affordability checks
