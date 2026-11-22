@@ -47,7 +47,7 @@ accessors to mutable `Card` references require migration.
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
 - `FileSection.getInt()` — returns the configured default for absent optional values without exception-driven parsing
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
-- `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries
+- `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries; `forge-ai` and `forge-game` drop commons-math3 and jgrapht, and `forge-lda`, which still uses commons-math3, declares it directly
 
 ## Fixes
 - `PlaySpellAbility` — declined or incomplete card selections leave resolution costs unpaid
@@ -69,4 +69,5 @@ accessors to mutable `Card` references require migration.
 - `viconia_nightsingers_disciple.txt` — combines duplicate `AddKeyword$` parameters into one `Haste & Prismatic` grant so the card keeps both keywords
 
 ## Build
+- `CLAUDE.md` and `.claude/rules/` — fork contributor and agent instructions
 - Root `pom.xml` `versionCode` — held at the version downstream builds consume; upstream version bumps are adopted deliberately
