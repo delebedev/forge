@@ -3,6 +3,7 @@ package forge.deck;
 import forge.CardStorageReader;
 import forge.ImageKeys;
 import forge.StaticData;
+import forge.util.Localizer;
 import forge.deck.DeckRecognizer.Token;
 import forge.deck.DeckRecognizer.TokenType;
 import org.testng.annotations.Test;
@@ -19,6 +20,10 @@ import static org.testng.Assert.assertNotNull;
 public class DeckRecognizerLazyLoadingTest {
     @Test
     public void importsExactPrintingBeforeCardIsLoaded() throws IOException {
+        // StaticData reads token scripts through the localizer while it is constructed
+        Localizer.getInstance().initialize(
+                "en-US",
+                Path.of("..", "forge-gui", "res", "languages").toAbsolutePath().toString());
         ImageKeys.initializeDirs("", Collections.emptyMap(), "", "", "", "", "", "", "");
         Path resources = Path.of("../forge-gui/res").toAbsolutePath().normalize();
         CardStorageReader reader = new CardStorageReader(resources.resolve("cardsfolder").toString(), null, true);
