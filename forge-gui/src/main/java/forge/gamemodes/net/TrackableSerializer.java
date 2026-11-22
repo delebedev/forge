@@ -2,6 +2,10 @@ package forge.gamemodes.net;
 
 import forge.game.card.CardView;
 import forge.game.event.GameEvent;
+import forge.game.event.GameEventTokenCreated;
+import forge.game.event.GameEventExtrinsicKeywordAdded;
+import forge.game.event.GameEventControllerChanged;
+import forge.game.event.GameEventCardSurveiled;
 import forge.game.player.PlayerView;
 import forge.trackable.TrackableObject;
 import forge.trackable.TrackableProperty;
@@ -18,6 +22,7 @@ import net.jpountz.lz4.LZ4BlockOutputStream;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Handles serialization of {@link TrackableObject} references across the network.
@@ -173,12 +178,25 @@ public final class TrackableSerializer implements IHasForgeLog {
     }
 
     /**
+     * Events that carry engine objects rather than their immutable views stay on the hosting side.
+     * Remote clients learn the same results from the delta state that follows the event batch.
+     */
+    private static final Set<Class<?>> LOCAL_ONLY_EVENTS = Set.of(
+            GameEventCardSurveiled.class,
+            GameEventControllerChanged.class,
+            GameEventExtrinsicKeywordAdded.class,
+            GameEventTokenCreated.class);
+
+    /**
      * Wraps GameEvents by serializing each with IdRef replacement.
-     * Events that fail to serialize are dropped (logged).
+     * Local-only events are skipped; events that fail to serialize are dropped (logged).
      */
     public static List<Object> wrapEvents(List<GameEvent> events, Tracker tracker) {
         List<Object> wrapped = new ArrayList<>(events.size());
         for (GameEvent event : events) {
+            if (LOCAL_ONLY_EVENTS.contains(event.getClass())) {
+                continue;
+            }
             try {
                 ByteArrayOutputStream baos = new ByteArrayOutputStream(256);
                 try (CObjectOutputStream out = new CObjectOutputStream(baos, true, tracker, -1, true)) {
@@ -213,6 +231,41 @@ public final class TrackableSerializer implements IHasForgeLog {
             }
         }
         return events;
+    }
+
+    /**
+     * Encodes args for the client to resolve when it handles the message, after the deltas sent before it are applied.
+     * Returns null when the args hold no card id.
+     */
+    static byte[] encodeArgs(Object[] args, Tracker tracker, int consumerId) throws IOException {
+        if (!mayHoldCardRef(args)) {
+            return null;
+        }
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(256);
+        try (CObjectOutputStream out = new CObjectOutputStream(baos, true, tracker, consumerId, false)) {
+            out.writeObject(args);
+            if (!out.wroteCardRef()) {
+                return null;
+            }
+        }
+        return baos.toByteArray();
+    }
+
+    private static boolean mayHoldCardRef(Object[] args) {
+        for (Object arg : args) {
+            // A PlayerView is always sent as an id, and an enum by name only
+            if (!(arg == null || arg instanceof String || arg instanceof Number || arg instanceof Boolean
+                    || arg instanceof Enum || arg instanceof PlayerView)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static Object[] decodeArgs(byte[] data, Tracker tracker) throws IOException, ClassNotFoundException {
+        try (CObjectInputStream in = new CObjectInputStream(new ByteArrayInputStream(data), INNER_CLASS_RESOLVER, tracker)) {
+            return (Object[]) in.readObject();
+        }
     }
 
     private TrackableSerializer() {}

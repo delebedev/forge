@@ -490,13 +490,14 @@ public class HumanCostDecision extends CostDecisionMakerBase {
     }
 
     private static boolean allShareCardType(final CardCollectionView chosen) {
-        final Card first = chosen.getFirst();
-        for (final Card c : chosen) {
-            if (c != first && !first.sharesCardTypeWith(c)) {
-                return false;
-            }
+        if (chosen.isEmpty()) {
+            return true;
         }
-        return true;
+        final java.util.Set<CardType.CoreType> common = new java.util.HashSet<>(chosen.getFirst().getType().getCoreTypes());
+        for (final Card c : chosen) {
+            common.retainAll(c.getType().getCoreTypes());
+        }
+        return !common.isEmpty();
     }
 
     private PaymentDecision exileFromTopGraveType(final int nNeeded, final CardCollection typeList) {

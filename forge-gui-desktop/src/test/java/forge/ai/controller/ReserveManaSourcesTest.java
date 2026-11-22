@@ -108,12 +108,28 @@ public class ReserveManaSourcesTest extends SimulationTest {
         Player ai = game.getPlayers().get(1);
         SpellAbility sa = spellInHand(game, "Luck Bobblehead");
 
+        AssertJUnit.assertTrue("the affordable chain must be available before payment",
+                ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
         AssertJUnit.assertTrue("the free source should fund both filters in executable order",
                 ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
         AssertJUnit.assertTrue("every source in the chain should be consumed",
                 ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
         AssertJUnit.assertTrue("the spell payment should leave no floating mana",
                 ai.getManaPool().isEmpty());
+    }
+
+    @Test
+    public void offersAndPaysChainedSignets() {
+        Game game = gameWith(new String[] { "Mountain", "Rakdos Signet", "Gruul Signet" });
+        Player ai = game.getPlayers().get(1);
+        SpellAbility sa = spellInHand(game, "Manalith");
+
+        AssertJUnit.assertTrue(ComputerUtilMana.canPayManaCost(sa, ai, 0, false));
+        AssertJUnit.assertTrue("affordability checking must not tap sources",
+                ai.getCardsIn(ZoneType.Battlefield).stream().noneMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), ai, sa, false));
+        AssertJUnit.assertTrue(ai.getCardsIn(ZoneType.Battlefield).stream().allMatch(Card::isTapped));
+        AssertJUnit.assertTrue(ai.getManaPool().isEmpty());
     }
 
     @Test

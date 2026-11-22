@@ -3,6 +3,7 @@ package forge.deck;
 import forge.CardStorageReader;
 import forge.ImageKeys;
 import forge.StaticData;
+import forge.util.Localizer;
 import forge.deck.DeckRecognizer.Token;
 import forge.deck.DeckRecognizer.TokenType;
 import org.testng.annotations.Test;
@@ -14,19 +15,35 @@ import java.util.Collections;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 
 public class DeckRecognizerLazyLoadingTest {
     @Test
     public void importsExactPrintingBeforeCardIsLoaded() throws IOException {
-        ImageKeys.initializeDirs("", Collections.emptyMap(), "", "", "", "", "", "", "");
-        Path resources = Path.of("../forge-gui/res").toAbsolutePath().normalize();
+        final Path resources = Path.of("../forge-gui/res").toAbsolutePath().normalize();
+        // StaticData reads token scripts through the localizer while it is constructed
+        Localizer.getInstance().initialize(
+                "en-US",
+                Path.of("..", "forge-gui", "res", "languages").toAbsolutePath().toString());
+        // the card and token directories stay distinct so no later lookup takes the token fallback
+        ImageKeys.initializeDirs(
+                resources.resolve("cardsfolder").toString(),
+                Collections.emptyMap(),
+                resources.resolve("tokenscripts").toString(),
+                "",
+                "",
+                "",
+                "",
+                "",
+                "");
         CardStorageReader reader = new CardStorageReader(resources.resolve("cardsfolder").toString(), null, true);
+        CardStorageReader tokenReader = new CardStorageReader(resources.resolve("tokenscripts").toString(), null, false);
         Path customEditions = Files.createTempDirectory("forge-empty-editions");
         StaticData data;
         try {
-            data = new StaticData(reader, null, resources.resolve("editions").toString(),
-                    customEditions.toString(), resources.resolve("blockdata").toString(),
-                    "Latest Art All Editions", true, false);
+            data = new StaticData(reader, tokenReader, null, null, resources.resolve("editions").toString(),
+                    customEditions.toString(), resources.resolve("blockdata").toString(), "",
+                    "Latest Art All Editions", true, false, false, false);
         } finally {
             Files.delete(customEditions);
         }
@@ -40,5 +57,6 @@ public class DeckRecognizerLazyLoadingTest {
         assertEquals(token.getCard().getName(), "Hearthborn Battler");
         assertEquals(token.getCard().getEdition(), "BLB");
         assertEquals(token.getCard().getCollectorNumber(), "139");
+        assertNotNull(StaticData.instance().getAllTokens().getToken("w_1_1_warrior", "ZZQ"));
     }
 }
