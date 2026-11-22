@@ -12,20 +12,27 @@ import forge.util.IterableUtil;
 import forge.util.StreamUtil;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static forge.gamemodes.limited.CardRanker.getOrderedRawScores;
-import static forge.gamemodes.limited.CardRanker.rankCardsInPack;
 
 public class LimitedPlayerAI extends LimitedPlayer {
     protected DeckColors deckCols;
+    private final DraftPickStrategy draftPickStrategy;
+    private final DraftPickStrategy defaultDraftPickStrategy = new DefaultDraftPickStrategy();
 
     public LimitedPlayerAI(int seatingOrder, BoosterDraft draft) {
+        this(seatingOrder, draft, new DefaultDraftPickStrategy());
+    }
+
+    public LimitedPlayerAI(int seatingOrder, BoosterDraft draft, DraftPickStrategy draftPickStrategy) {
         super(seatingOrder, draft);
         deckCols = new DeckColors();
+        this.draftPickStrategy = draftPickStrategy;
     }
 
     @Override
@@ -51,8 +58,19 @@ public class LimitedPlayerAI extends LimitedPlayer {
             final ColorSet chosenColors = deckCols.getChosenColors();
             final boolean canAddMoreColors = deckCols.canChoseMoreColors();
 
-            List<PaperCard> rankedCards = rankCardsInPack(chooseFrom, pool.toFlatList(), chosenColors, canAddMoreColors);
-            bestPick = rankedCards.get(0);
+            final DraftPickContext context = new DraftPickContext(
+                    order,
+                    draftedThisRound,
+                    new ArrayList<>(chooseFrom),
+                    pool.toFlatList(),
+                    chosenColors,
+                    canAddMoreColors
+            );
+            bestPick = draftPickStrategy.choose(context);
+            if (bestPick == null || !chooseFrom.contains(bestPick)) {
+                debugPrint("Draft pick strategy returned an invalid pick; using default draft picker.");
+                bestPick = defaultDraftPickStrategy.choose(context);
+            }
 
             if (canAddMoreColors) {
                 deckCols.addColorsOf(bestPick);

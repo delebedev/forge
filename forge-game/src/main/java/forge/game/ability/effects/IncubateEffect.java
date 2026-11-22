@@ -5,6 +5,8 @@ import forge.game.ability.AbilityUtils;
 import forge.game.card.*;
 import forge.game.event.GameEventCombatChanged;
 import forge.game.event.GameEventTokenCreated;
+
+import java.util.List;
 import forge.game.player.Player;
 import forge.game.spellability.SpellAbility;
 import forge.util.Lang;
@@ -57,7 +59,7 @@ public class IncubateEffect extends TokenEffectBase {
 
                 triggerList.triggerChangesZoneAll(game, sa);
 
-                game.fireEvent(new GameEventTokenCreated());
+                game.fireEvent(new GameEventTokenCreated(List.copyOf(triggerList.getCreatedTokens())));
 
                 if (combatChanged.isTrue()) {
                     game.updateCombatForView();

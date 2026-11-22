@@ -2750,7 +2750,7 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
     }
 
     @Override
-    public CardCollectionView chooseCardsForCost(CardCollectionView optionList, SpellAbility sa, CostPartWithList cpl, int amount, boolean isOptional, String prompt) {
+    public CardCollectionView chooseCardsForCost(CardCollectionView optionList, SpellAbility sa, CostPart cpl, int amount, boolean isOptional, String prompt) {
         InputSelectCardsFromList inp = new InputSelectCardsFromList(this, amount, amount, optionList, sa);
         inp.setMessage(prompt);
         inp.setCancelAllowed(isOptional);
@@ -2761,6 +2761,74 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             return null;
 
         return new CardCollection(inp.getSelected());
+    }
+
+    @Override
+    public CardCollectionView chooseCardsForTapCost(CardCollectionView optionList, SpellAbility sa,
+            CostTapType cost, int min, int max, Integer totalPowerNeeded, String prompt) {
+        InputSelectCardsFromList inp = new InputSelectCardsFromList(this, min, max, optionList, sa);
+        inp.setMessage(prompt);
+        inp.setCancelAllowed(true);
+        inp.showAndWait();
+        return inp.hasCancelled() ? null : new CardCollection(inp.getSelected());
+    }
+
+    @Override
+    public CardCollectionView chooseCardsForExileCost(CardCollectionView optionList, SpellAbility sa,
+            CostExile cost, int min, int max, String aggregateHint, Integer aggregateGoal,
+            boolean sharedCardType, boolean cancelAllowed, String prompt) {
+        final InputSelectCardsFromList inp;
+        if (sharedCardType) {
+            inp = new InputSelectCardsFromList(this, min, max, optionList, sa) {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                protected boolean onCardSelected(final Card c, final List<Card> otherCardsToSelect, final ITriggerEvent triggerEvent) {
+                    final Card firstSelected = Iterables.getFirst(this.selected, null);
+                    if (firstSelected != null && !firstSelected.sharesCardTypeWith(c)) {
+                        return false;
+                    }
+                    return super.onCardSelected(c, otherCardsToSelect, triggerEvent);
+                }
+            };
+        } else if (aggregateHint != null && aggregateGoal != null) {
+            inp = new InputSelectCardsFromList(this, min, max, optionList, sa, aggregateHint, aggregateGoal);
+        } else {
+            inp = new InputSelectCardsFromList(this, min, max, optionList, sa);
+        }
+        inp.setMessage(prompt);
+        inp.setCancelAllowed(cancelAllowed);
+        inp.showAndWait();
+        return inp.hasCancelled() ? null : new CardCollection(inp.getSelected());
+    }
+
+    @Override
+    public CardCollectionView chooseCardsForCollectEvidence(CardCollectionView optionList, SpellAbility sa,
+            int total, String prompt) {
+        InputSelectCardsFromList inp = new InputSelectCardsFromList(this, 0, optionList.size(), optionList, sa, "CMC", total);
+        inp.setMessage(prompt);
+        inp.setCancelAllowed(true);
+        inp.showAndWait();
+        return inp.hasCancelled() ? null : new CardCollection(inp.getSelected());
+    }
+
+    @Override
+    public CardCollectionView chooseCardsForRevealCost(CardCollectionView optionList, SpellAbility sa,
+            CostPartWithList cost, int amount, boolean optional, boolean sameColor, String prompt) {
+        InputSelectCardsFromList inp = sameColor ? new InputSelectCardsFromList(this, amount, optionList, sa) {
+            private static final long serialVersionUID = 8338626212893374798L;
+
+            @Override
+            protected boolean onCardSelected(final Card card, final List<Card> otherCardsToSelect, final ITriggerEvent event) {
+                final Card first = Iterables.getFirst(this.selected, null);
+                return (first == null || CardPredicates.sharesColorWith(first).test(card))
+                        && super.onCardSelected(card, otherCardsToSelect, event);
+            }
+        } : new InputSelectCardsFromList(this, amount, amount, optionList, sa);
+        inp.setMessage(prompt);
+        inp.setCancelAllowed(optional);
+        inp.showAndWait();
+        return inp.hasCancelled() ? null : new CardCollection(inp.getSelected());
     }
 
     @Override
@@ -3901,6 +3969,21 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             result.addAll(chooseCardsForEffect(e.getValue(), sa, title + " (" + e.getKey() + ")", 0, 1, isOptional, null));
         }
         return result;
+    }
+
+    /**
+     * Seam: Interactive target selection for spells/abilities.
+     * Desktop default uses {@link forge.gamemodes.match.input.InputSelectTargets}.
+     * Downstream consumers can override for non-interactive target resolution.
+     */
+    protected TargetSelectionResult selectTargetsInteractively(
+            List<Card> validTargets, SpellAbility sa, boolean mandatory,
+            Integer numTargets, Collection<Integer> divisionValues,
+            Predicate<GameObject> filter, boolean mustTargetFiltered) {
+        InputSelectTargets inp = new InputSelectTargets(this, validTargets, sa, mandatory,
+                numTargets, divisionValues, filter, mustTargetFiltered);
+        inp.showAndWait();
+        return new TargetSelectionResult(!inp.hasCancelled(), inp.hasPressedOk());
     }
 
     public Card getCard(final CardView cardView) {

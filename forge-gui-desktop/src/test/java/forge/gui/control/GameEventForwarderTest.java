@@ -244,6 +244,14 @@ public class GameEventForwarderTest extends AITest {
         }
         game.getAction().checkStateEffects(true);
         final Sent sent = new Sent(game);
+        // The batching workload needs a spell cast regardless of the AI's turn policy.
+        final Player caster = game.getPhaseHandler().getPlayerTurn();
+        final Card goblin = caster.getCardsIn(ZoneType.Hand).stream()
+                .filter(card -> "Raging Goblin".equals(card.getName())).findFirst().orElseThrow();
+        final SpellAbility cast = goblin.getSpellAbilities().get(0);
+        cast.setActivatingPlayer(caster);
+        AssertJUnit.assertTrue("the workload casts a spell", ComputerUtil.playStack(cast, caster, game));
+        playUntilStackClear(game);
         playUntilNextTurn(game);
         playUntilNextTurn(game);
         sent.forwarder.flush();

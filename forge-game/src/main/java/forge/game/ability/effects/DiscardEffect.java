@@ -263,7 +263,9 @@ public class DiscardEffect extends SpellAbilityEffect {
                 // Reveal/Look modes disclose dPHand to the chooser; non-valid revealed cards should remain visible during the choice.
                 final boolean revealed = mode.startsWith("Reveal") || mode.startsWith("Look");
                 final DelayedReveal delayedReveal = revealed ? new DelayedReveal(dPHand, ZoneType.Hand, PlayerView.get(p)) : null;
-                toBeDiscarded = max == 0 ? CardCollection.EMPTY : chooser.getController().chooseCardsToDiscardFrom(p, sa, validCards, min, max, delayedReveal);
+                toBeDiscarded = max == 0 && !revealed
+                        ? CardCollection.EMPTY
+                        : chooser.getController().chooseCardsToDiscardFrom(p, sa, validCards, min, max, delayedReveal);
 
                 if (toBeDiscarded.isEmpty()) {
                     continue;

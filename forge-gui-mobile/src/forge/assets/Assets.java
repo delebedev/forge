@@ -378,6 +378,7 @@ public class Assets implements Disposable {
         return textureParameter;
     }
 
+
     public Texture getTexture(FileHandle file) {
         return getTexture(file, true);
     }

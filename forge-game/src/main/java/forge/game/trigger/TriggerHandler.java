@@ -59,6 +59,12 @@ public class TriggerHandler {
         delayedTriggers.add(trig);
     }
 
+    public final List<Trigger> getDelayedTriggersSnapshot() {
+        synchronized (delayedTriggers) {
+            return List.copyOf(delayedTriggers);
+        }
+    }
+
     public final void clearDelayedTrigger() {
         delayedTriggers.clear();
     }

@@ -1762,7 +1762,7 @@
       "equipmentSlot": "Boots",
       "iconName": "Dune-BroodAnklet",
       "effect": {
-        "lifeModifier": -8,
+        "lifeModifier": -4,
         "startBattleWithCard": [
           "Dune-Brood Nephilim|GPT"
         ]

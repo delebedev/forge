@@ -1,0 +1,66 @@
+# Fork-Local Patches
+
+Changes on top of upstream Card-Forge/forge. Update this file when adding or removing patches.
+
+## Event enrichments
+- `Player` bulk counter replacement and clearing emit typed `GameEventPlayerCounters` totals for every changed counter type
+- `GameEventCardChangeZone` — enriched with immutable source, exact/root/stack ability, API, and cost-payment context
+- `GameEventCardTapped` — enriched with the source ability that caused the tap
+- `GameEventCardSurveiled` — new, carries cause card for per-card surveil tracking
+- `GameEventTokenCreated` — enriched with `List<Card>` token refs
+- `GameEventCardDestroyed` — immutable affected/source views plus stable source ability context
+- `GameEventCardDamaged` and `GameEventPlayerDamaged` — enriched with structural damage source kind (combat, spell/ability, or fight)
+- `GameEventCardSacrificed` — enriched with stable source ability and cost-payment context
+- `GameEventSpellAbilityCast` — enriched with mana payment source, color, producing ability definition, and stable source ability context
+- `GameEventSpellResolved` — enriched with stable source ability context
+
+Legacy constructors remain for enriched event records. `GameEventCardDestroyed.card()` and
+`.activator()` now return immutable `CardView` values instead of `Card`; callers assigning those
+accessors to mutable `Card` references require migration.
+- `GameEventManaAbilityActivated` — new, fired on mana ability resolution
+- `GameEventSpellMovedToStack` — new, fired on stack entry
+- `GameEventControllerChanged` — new, fired on controller change
+- `GameEventExtrinsicKeywordAdded` — new, fired on keyword grants
+- `GameEventFlipCoin` — enriched with flipper, source ability, and result
+- `GameEventShuffle` — enriched with the resolving source ability
+
+## Seams
+- `GameState.beforeStateEffects()` — lets specialized imports finish state restoration before the single settling state check
+- `PhaseHandler` main-loop and combat-mutation completion hooks — transient UI-neutral lifecycle callbacks
+- `SpellAbility`, `Trigger`, and `StaticAbility` definition IDs — stable identity retained across runtime copy chains; spell and source-trigger identity exposed through `SpellAbilityView`
+- `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
+- `TargetSelection` — routes single-candidate triggered targets through the controller callback
+- `DiscardEffect` — routes revealed empty valid-card choices through the controller callback while the default human controller auto-resolves zero-card selections
+- `TriggerHandler.getDelayedTriggersSnapshot()` — read-only delayed trigger inspection
+- `TargetSelectionResult` — result type for the seam
+- `DraftPickStrategy` — injectable booster-draft bot pick strategy
+- `HumanCostDecision` sacrifice, discard, return, unattach, ordinary tap, untap, ordinary exile, enlist, forage, exert, gain-control, and hand-to-library selection — routes exact-count choices through `PlayerController.chooseCardsForCost()`
+- `HumanCostDecision` reveal and behold selection — routes constrained reveal choices through `PlayerController.chooseCardsForRevealCost()`
+- `HumanCostDecision` collect-evidence selection — routes weighted mana-value choices through `PlayerController.chooseCardsForCollectEvidence()`
+
+## Utilities
+- `FCollection.get` and `anyMatch` — scan the backing list without iterator or stream allocation
+- `SpellAbility.getRootAbility()` — reads each parent once, avoiding malformed loop output in the browser JIT
+- `Card.keywordsToText()` — splits keyword details into a helper to avoid local-variable collisions in the browser JIT
+- `CardStorageReader` — accepts a verified build-generated ZIP name index, with ordinary lazy scan fallback
+- Card text newline formatting — uses literal replacement without regex compilation
+- `CardDb.quietInit` — suppress card-init warnings in test harnesses
+- `FileSection.getInt()` — returns the configured default for absent optional values without exception-driven parsing
+- `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
+- `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries
+
+## Fixes
+- `PlaySpellAbility` — declined or incomplete card selections leave resolution costs unpaid
+- `DeckFormat` — rejects a lone Background commander while preserving legal Choose a Background pairs
+- `GameRules` / `MulliganService` — allow a game host to grant a first free mulligan alongside multiplayer and Brawl defaults
+- `LondonMulligan.keep()` — defers bottom-card selection until the kept hand, preserving full-size redraw decisions and the controller's final-hand-size calculation
+- `GameAction` — dispatches replacements for cards found searching a library even when the destination is that same library, preserving ordinary reorder suppression
+- `AiController` — keeps diagnostic stack-sampling failures inside AI timeout recovery
+- `ComputerUtilMana` — uses actual paid activation mana costs, reserves filter startup mana without stranding colors those filters cannot produce, recognizes executable net-positive filter chains during affordability checks, reserves activation mana only for those chains, and prefers reusable source modes without sacrificing required-color preference
+- `ComputerUtilMana` — predicts pool-doubling output after reserving activation funding, preserves floating mana for the multiplier, and restores original pool objects after affordability checks
+- `CardDb.contains()` — resolves named cards through lazy loading so cold deck imports accept exact printings
+- `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
+- `InvestigateEffect` — token-created events contain only tokens from the current player iteration
+- `MagicStack.peekAbility()` — returns no ability when the stack is empty
+- `MagicStack` — synchronizes an existing stack-item view with its spell ability before publishing a stack-entry event
+- `DiscoverEffect` — treats a declined play-effect cast as the hand fallback

@@ -45,6 +45,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     public final static String FlagPrefix = "#";
     public static final String FlagSeparator = "\t";
     public static final Comparator<CardRules> CARD_RULES_NAME_COMPARATOR = Comparator.comparing(CardRules::getPreInitName, String.CASE_INSENSITIVE_ORDER);
+    public static boolean quietInit = false;
 
     // need this to obtain cardReference by name+set+artindex
     // Lazy card loading appends to these maps mid-game, serialized by StaticData's load
@@ -681,7 +682,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
     }
 
     private void addUnassignedCardPrints(boolean enableUnknownCards, CardEdition upcomingSet) {
-        if (upcomingSet != null) {
+        if (upcomingSet != null && !quietInit) {
             System.err.println("Upcoming set " + upcomingSet + " dated in the future. All `upcoming` cards will be added to this set with unknown rarity.");
         }
 
@@ -692,12 +693,16 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
                         addCard(new PaperCard(cr, upcomingSet.getCode(), CardRarity.Unknown));
                         reIndex(cr);
                     } else if (enableUnknownCards && !this.filtered.contains(cr.getName())) {
-                        System.err.println("The card " + cr.getName() + " was not assigned to any set. Adding it to UNKNOWN set... to fix see res/editions/ folder. ");
+                        if (!quietInit) {
+                            System.err.println("The card " + cr.getName() + " was not assigned to any set. Adding it to UNKNOWN set... to fix see res/editions/ folder. ");
+                        }
                         addCard(new PaperCard(cr, CardEdition.UNKNOWN_CODE, CardRarity.Special));
                         reIndex(cr);
                     }
                 } else {
-                    System.err.println("The custom card " + cr.getName() + " was not assigned to any set. Adding it to custom USER set, and will try to load custom art from USER edition.");
+                    if (!quietInit) {
+                        System.err.println("The custom card " + cr.getName() + " was not assigned to any set. Adding it to custom USER set, and will try to load custom art from USER edition.");
+                    }
                     addCard(new PaperCard(cr, "USER", CardRarity.Special));
                     reIndex(cr);
                 }
@@ -1472,7 +1477,7 @@ public final class CardDb implements ICardDatabase, IDeckGenPool {
 
     @Override
     public boolean contains(String name) {
-        return allCardsByName.containsKey(getNormalizedName(name));
+        return !getAllCards(name).isEmpty();
     }
 
     @Override

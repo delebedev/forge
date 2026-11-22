@@ -136,6 +136,8 @@ public class DiscoverEffect extends SpellAbilityEffect {
                                     trigList.put(origin.getZoneType(), zone.getZoneType(), game.getCardState(found));
                                     trigList.triggerChangesZoneAll(game, sa);
                                 }
+                            } else {
+                                cancel = true;
                             }
                         }
                     }

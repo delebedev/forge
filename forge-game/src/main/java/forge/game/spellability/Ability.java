@@ -39,6 +39,9 @@ public abstract class Ability extends SpellAbility {
     protected Ability(final Card sourceCard, final ManaCost manaCost, final CardState state) {
         super(sourceCard, new Cost(manaCost, true), null, state);
     }
+    protected Ability(final Card sourceCard, final ManaCost manaCost, int definitionId) {
+        super(sourceCard, new Cost(manaCost, true), null, null, definitionId);
+    }
     protected Ability(final Card sourceCard, final ManaCost manaCost, SpellAbilityView view0) {
         this(sourceCard, new Cost(manaCost, true), view0);
     }

@@ -378,7 +378,24 @@ public abstract class PlayerController {
     }
     public abstract boolean payManaCost(ManaCost toPay, CostPartMana costPartMana, SpellAbility sa, String prompt, ManaConversionMatrix matrix, boolean effect);
     public abstract boolean applyManaToCost(ManaCostBeingPaid toPay, SpellAbility ability, String prompt, ManaConversionMatrix matrix, boolean effect);
-    public abstract CardCollectionView chooseCardsForCost(CardCollectionView optionList, SpellAbility sa, CostPartWithList cpl, int amount, boolean isOptional, String prompt);
+    public abstract CardCollectionView chooseCardsForCost(CardCollectionView optionList, SpellAbility sa, CostPart cpl, int amount, boolean isOptional, String prompt);
+    public CardCollectionView chooseCardsForCollectEvidence(CardCollectionView optionList, SpellAbility sa,
+            int total, String prompt) {
+        return null;
+    }
+    public CardCollectionView chooseCardsForTapCost(CardCollectionView optionList, SpellAbility sa,
+            CostTapType cost, int min, int max, Integer totalPowerNeeded, String prompt) {
+        return null;
+    }
+    public CardCollectionView chooseCardsForExileCost(CardCollectionView optionList, SpellAbility sa,
+            CostExile cost, int min, int max, String aggregateHint, Integer aggregateGoal,
+            boolean sharedCardType, boolean cancelAllowed, String prompt) {
+        return null;
+    }
+    public CardCollectionView chooseCardsForRevealCost(CardCollectionView optionList, SpellAbility sa,
+            CostPartWithList cost, int amount, boolean optional, boolean sameColor, String prompt) {
+        return chooseCardsForCost(optionList, sa, cost, amount, optional, prompt);
+    }
 
     public CostDecisionMakerBase getCostDecisionMaker(Player player, SpellAbility ability, boolean effect) {
         return this.getCostDecisionMaker(player, ability, effect, null);

@@ -441,6 +441,10 @@ public class UntapAi extends SpellAbilityAi {
         return false;
     }
 
+    private static boolean isAttackingAi(final Card card, final Player ai, final Combat combat) {
+        return ai.equals(combat.getDefenderPlayerByAttacker(card));
+    }
+
     private static boolean alreadyAssignedTarget(final SpellAbility sa) {
         if (sa.hasParam("AILogic")) {
             String aiLogic = sa.getParam("AILogic");

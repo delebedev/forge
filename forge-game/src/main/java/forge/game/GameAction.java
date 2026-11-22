@@ -61,12 +61,9 @@ import forge.util.collect.FCollectionView;
 import io.sentry.Breadcrumb;
 import io.sentry.Sentry;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.jgrapht.alg.cycle.SzwarcfiterLauerSimpleCycles;
-import org.jgrapht.graph.DefaultDirectedGraph;
-import org.jgrapht.graph.DefaultEdge;
-
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Methods for common actions performed during a game.
@@ -111,7 +108,7 @@ public class GameAction {
             zoneTo.add(c, position, CardCopyService.getLKICopy(c));
             checkStaticAbilities();
             game.getTriggerHandler().registerActiveTrigger(c, true);
-            game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo));
+            game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo, cause, params, game.costPaymentStack.peek()));
             return c;
         }
 
@@ -309,7 +306,8 @@ public class GameAction {
             table = new GameEntityCounterTable();
         }
 
-        if (!suppress) {
+        if (!suppress || (zoneFrom.is(ZoneType.Library) && params != null
+                && Boolean.TRUE.equals(params.get(AbilityKey.FoundSearchingLibrary)))) {
             // Temporary disable commander replacement effect
             // 903.9a
             if (fromBattlefield && !toBattlefield && c.isCommander() && c.hasMergedCard()) {
@@ -594,7 +592,7 @@ public class GameAction {
         }
 
         // play the change zone sound
-        game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo));
+        game.fireEvent(new GameEventCardChangeZone(c, zoneFrom, zoneTo, cause, params, game.costPaymentStack.peek()));
 
         game.getTriggerHandler().clearActiveTriggers(copied, null);
         game.getTriggerHandler().registerActiveTrigger(copied, false);
@@ -1013,7 +1011,6 @@ public class GameAction {
     }
 
     public final void controllerChangeZoneCorrection(final Card c) {
-        System.out.println("Correcting zone for " + c.toString());
         final Zone oldBattlefield = game.getZoneOf(c);
 
         if (oldBattlefield == null || oldBattlefield.is(ZoneType.Stack)) {
@@ -1053,6 +1050,8 @@ public class GameAction {
 
         c.setCameUnderControlSinceLastUpkeep(true);
         c.handleChangedControllerSprocketReset();
+
+        game.fireEvent(new GameEventControllerChanged(c, original, controller));
 
         final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(c);
         runParams.put(AbilityKey.OriginalController, original);
@@ -1309,10 +1308,10 @@ public class GameAction {
             return first;
         }
 
-        DefaultDirectedGraph<StaticAbility, DefaultEdge> dependencyGraph = new DefaultDirectedGraph<>(DefaultEdge.class);
+        Map<StaticAbility, Set<StaticAbility>> dependencyGraph = new LinkedHashMap<>();
 
         for (StaticAbility stAb : staticsForLayer) {
-            dependencyGraph.addVertex(stAb);
+            dependencyGraph.putIfAbsent(stAb, new LinkedHashSet<>());
 
             if (isResolved.test(stAb)) {
                 continue;
@@ -1361,8 +1360,8 @@ public class GameAction {
                 }
 
                 if (dependency) {
-                    dependencyGraph.addVertex(otherStAb);
-                    dependencyGraph.addEdge(stAb, otherStAb);
+                    dependencyGraph.computeIfAbsent(otherStAb, ignored -> new LinkedHashSet<>());
+                    dependencyGraph.get(stAb).add(otherStAb);
                     if (dependencies != null) {
                         if (dependencies.contains(stAb, otherStAb)) {
                             dependencies.get(stAb, otherStAb).add(layer);
@@ -1378,35 +1377,34 @@ public class GameAction {
             // when lucky the effect with the earliest timestamp has no dependency
             // then we can safely return it - otherwise we need to build the whole graph
             // because it might still be part of a loop
-            if (dependencyGraph.edgeSet().isEmpty() && stAb == first) {
+            if (dependencyGraph.values().stream().allMatch(Set::isEmpty) && stAb == first) {
                 return stAb;
             }
         }
 
         // CR 613.8b If several dependent effects form a dependency loop, then this rule is ignored
-        List<List<StaticAbility>> cycles = new SzwarcfiterLauerSimpleCycles<>(dependencyGraph).findSimpleCycles();
-        for (List<StaticAbility> cyc : cycles) {
-            for (int i = 0 ; i < cyc.size() - 1 ; i++) {
-                dependencyGraph.removeEdge(cyc.get(i), cyc.get(i + 1));
-            }
-            // remove final edge
-            dependencyGraph.removeEdge(cyc.get(cyc.size() - 1), cyc.get(0));
-        }
-
-        // remove all effects that are still dependent on another
-        Set<StaticAbility> toRemove = Sets.newHashSet();
-        for (StaticAbility stAb : dependencyGraph.vertexSet()) {
-            if (dependencyGraph.outDegreeOf(stAb) > 0) {
-                toRemove.add(stAb);
-            }
-        }
-        dependencyGraph.removeAllVertices(toRemove);
-
-        // now the earliest one left is the correct choice
-        List<StaticAbility> statics = Lists.newArrayList(dependencyGraph.vertexSet());
+        List<StaticAbility> statics = dependencyGraph.entrySet().stream()
+                .filter(entry -> entry.getValue().stream().allMatch(dependency ->
+                        hasDependencyPath(dependencyGraph, dependency, entry.getKey(), new HashSet<>())))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
         statics.sort(Comparator.comparing(StaticAbility::getTimestamp));
 
         return statics.get(0);
+    }
+
+    private static boolean hasDependencyPath(Map<StaticAbility, Set<StaticAbility>> graph,
+                                             StaticAbility current, StaticAbility target,
+                                             Set<StaticAbility> visited) {
+        if (!visited.add(current)) {
+            return false;
+        }
+        for (StaticAbility next : graph.getOrDefault(current, Collections.emptySet())) {
+            if (next.equals(target) || hasDependencyPath(graph, next, target, visited)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Iterable<Object> generateContinuousEffectChanges(StaticAbilityLayer layer, StaticAbility stAb) {
@@ -2193,7 +2191,7 @@ public class GameAction {
         }
 
         // Play the Destroy sound
-        game.fireEvent(new GameEventCardDestroyed());
+        game.fireEvent(new GameEventCardDestroyed(c, sa));
 
         final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(c);
         runParams.put(AbilityKey.Causer, activator);

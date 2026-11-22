@@ -190,6 +190,9 @@ public class TokenEffect extends TokenEffectBase {
             return;
         }
 
+        // Shared zone tables accumulate across resolutions; report only tokens from this resolve.
+        final int tokensBefore = triggerList.getCreatedTokens().size();
+
         makeTokenTable(getDefinedPlayersOrTargeted(sa, "TokenOwner"), sa.getParam("TokenScript").split(","),
                 amount, false, triggerList, combatChanged, sa);
 
@@ -198,7 +201,16 @@ public class TokenEffect extends TokenEffectBase {
             triggerList.clear();
         }
 
-        game.fireEvent(new GameEventTokenCreated());
+        final List<Card> newTokens = new java.util.ArrayList<>();
+        int i = 0;
+        for (Card c : triggerList.getCreatedTokens()) {
+            if (i++ >= tokensBefore) {
+                newTokens.add(c);
+            }
+        }
+        if (!newTokens.isEmpty()) {
+            game.fireEvent(new GameEventTokenCreated(List.copyOf(newTokens)));
+        }
 
         if (combatChanged.isTrue()) {
             game.updateCombatForView();

@@ -1411,7 +1411,12 @@ public class FDeckChooser extends FScreen {
                     NetDeckArchiveCommander = NetDeckArchiveCommander.selectAndLoad(lstDecks.getGameType(), deckType.substring(NetDeckArchiveCommander.PREFIX.length()));
                     return DeckType.NET_ARCHIVE_COMMANDER_DECK;
                 }
-                return DeckType.valueOf(deckType);
+                DeckType resolved = DeckType.valueOf(deckType);
+                // TODO: remove when network draft/sealed support is added to mobile.
+                if (resolved == DeckType.NET_EVENT_DECK) {
+                    return selectedDeckType;
+                }
+                return resolved;
             }
         }
         catch (IllegalArgumentException ex) {

@@ -62,6 +62,7 @@ public class BoosterDraft implements IBoosterDraft {
     int podSize;
     private final List<LimitedPlayer> players = new ArrayList<>();
     private LimitedPlayer localPlayer;
+    private final DraftPickStrategy draftPickStrategy;
     private boolean readyForComputerPick = false;
 
     /** Whether this draft uses Commander-format deck-building rules. */
@@ -356,8 +357,13 @@ public class BoosterDraft implements IBoosterDraft {
     }
 
     protected BoosterDraft(final LimitedPoolType draftType, int numPlayers) {
+        this(draftType, numPlayers, new DefaultDraftPickStrategy());
+    }
+
+    protected BoosterDraft(final LimitedPoolType draftType, int numPlayers, DraftPickStrategy draftPickStrategy) {
         this.draftFormat = draftType;
         this.podSize = numPlayers;
+        this.draftPickStrategy = draftPickStrategy;
 
         localPlayer = new LimitedPlayer(0, this);
         players.add(localPlayer);
@@ -374,7 +380,7 @@ public class BoosterDraft implements IBoosterDraft {
         if (isCommanderDraft) {
             return new CommanderLimitedPlayerAI(seatingOrder, this);
         }
-        return new LimitedPlayerAI(seatingOrder, this);
+        return new LimitedPlayerAI(seatingOrder, this, draftPickStrategy);
     }
 
     /**
@@ -431,7 +437,7 @@ public class BoosterDraft implements IBoosterDraft {
             if (shouldBeHuman && current instanceof LimitedPlayerAI) {
                 players.set(seat, new LimitedPlayer(seat, this));
             } else if (!shouldBeHuman && !(current instanceof LimitedPlayerAI)) {
-                players.set(seat, new LimitedPlayerAI(seat, this));
+                players.set(seat, new LimitedPlayerAI(seat, this, draftPickStrategy));
             }
         }
         // Keep localPlayer consistent with whatever occupies seat 0 now.

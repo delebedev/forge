@@ -680,6 +680,7 @@ public class GameState {
             }
         }
 
+        beforeStateEffects(game);
         game.getAction().checkStateEffects(true); //ensure state based effects and triggers are updated
 
         // prevent interactions with objects from old state
@@ -696,6 +697,10 @@ public class GameState {
                 game.getPlayers().get(i).setLife(life, null);
             }
         }
+    }
+
+    /** Complete specialized state imports before the imported position is settled. */
+    protected void beforeStateEffects(final Game game) {
     }
 
     private String processManaPool(ManaPool manaPool) {
@@ -1156,6 +1161,15 @@ public class GameState {
     }
 
     private void applyCountersToGameEntity(GameEntity entity, String counterString) {
+        if (entity instanceof Player) {
+            final Multiset<CounterType> counters = HashMultiset.create();
+            for (final String counterPair : counterString.split(",")) {
+                final String[] pair = counterPair.split("=", 2);
+                counters.add(CounterType.getType(pair[0]), Integer.parseInt(pair[1]));
+            }
+            entity.setCounters(counters);
+            return;
+        }
         entity.setCounters(HashMultiset.create());
         String[] allCounterStrings = counterString.split(",");
         for (final String counterPair : allCounterStrings) {
@@ -1383,6 +1397,11 @@ public class GameState {
                     c.setExiledBy(c.getController());
                 } else if (info.startsWith("IsCommander")) {
                     player.addCommander(c);
+                } else if (info.startsWith("CommanderCast:")) {
+                    int castCount = Integer.parseInt(info.substring("CommanderCast:".length()));
+                    for (int i = 0; i < castCount; i++) {
+                        player.incCommanderCast(c);
+                    }
                 } else if (info.startsWith("IsRingBearer")) {
                     c.setRingBearer(true);
                     player.setRingBearer(c);
