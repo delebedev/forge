@@ -870,7 +870,7 @@ public class AiAttackController {
         // predicting a HUMAN player's attack must not light up that player's timer bar
         final boolean trackTimer = ai.getController().isAI();
         if (trackTimer) {
-            AITimeoutTracker.begin(id, timeoutNanos);
+            AITimeoutTracker.begin(id, timeoutNanos, AITimeoutTracker.Decision.ATTACK);
         }
         try {
             // something prevents attacking, try another

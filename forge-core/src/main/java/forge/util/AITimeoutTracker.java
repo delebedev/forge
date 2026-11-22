@@ -21,9 +21,25 @@ public final class AITimeoutTracker {
     /** How long past its timeout a session may stay open before it is treated as leaked (package-private for tests). */
     static volatile long staleGraceNanos = TimeUnit.SECONDS.toNanos(2);
 
+    /** The AI decision an outermost session belongs to, reported when its deadline passes. */
+    public enum Decision {
+        ATTACK, BLOCK, SPELL, OTHER;
+
+        String label() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    /** Receives every session whose deadline passed before its outermost end(). */
+    @FunctionalInterface
+    public interface ExpiryListener {
+        void expired(int gameId, int playerId, Decision decision, long elapsedNanos, long timeoutNanos);
+    }
+
     private static final class Slot {
         volatile long startNanos;
         volatile long timeoutNanos;
+        Decision decision = Decision.OTHER;
         volatile int depth;
         /** Set (under the slot's lock) once purged from SLOTS; a racing begin() must then fetch a fresh slot. */
         boolean removed;
@@ -54,6 +70,7 @@ public final class AITimeoutTracker {
 
     private static final ConcurrentHashMap<Long, Slot> SLOTS = new ConcurrentHashMap<>();
     private static volatile Runnable repaintHook;
+    private static volatile ExpiryListener expiryListener;
 
     private AITimeoutTracker() { }
 
@@ -62,11 +79,21 @@ public final class AITimeoutTracker {
         repaintHook = hook;
     }
 
+    /** Registers the listener for expired sessions; null removes it. Every expiry is also logged. */
+    public static void setExpiryListener(final ExpiryListener listener) {
+        expiryListener = listener;
+    }
+
     private static boolean isStale(final Slot s, final long now) {
         return s.depth > 0 && now - s.startNanos - s.timeoutNanos > staleGraceNanos;
     }
 
     public static void begin(final long key, final long timeoutNanos) {
+        begin(key, timeoutNanos, Decision.OTHER);
+    }
+
+    /** Opens or nests a session; the outermost begin() fixes the deadline and the reported decision. */
+    public static void begin(final long key, final long timeoutNanos, final Decision decision) {
         boolean outermost = false;
         long sessionStart = 0;
         Slot s;
@@ -95,6 +122,7 @@ public final class AITimeoutTracker {
                     // publish start/timeout BEFORE depth so lock free readers never pair a live depth with old times
                     s.startNanos = now;
                     s.timeoutNanos = timeoutNanos;
+                    s.decision = decision;
                     outermost = true;
                 }
                 sessionStart = s.startNanos;
@@ -121,14 +149,38 @@ public final class AITimeoutTracker {
             return;
         }
         boolean barMayBeVisible = false;
+        boolean expired = false;
+        long elapsed = 0;
+        long timeout = 0;
+        Decision decision = Decision.OTHER;
         synchronized (s) {
             if (s.depth > 0 && --s.depth == 0) {
-                barMayBeVisible = System.nanoTime() - s.startNanos >= SHOW_AFTER_NANOS;
+                elapsed = System.nanoTime() - s.startNanos;
+                timeout = s.timeoutNanos;
+                decision = s.decision;
+                barMayBeVisible = elapsed >= SHOW_AFTER_NANOS;
+                expired = elapsed >= timeout;
             }
+        }
+        if (expired) {
+            reportExpired(key, decision, elapsed, timeout);
         }
         final Runnable hook = repaintHook;
         if (barMayBeVisible && hook != null) {
             hook.run(); // one last repaint so the bar disappears immediately (not needed if it never showed)
+        }
+    }
+
+    private static void reportExpired(final long key, final Decision decision, final long elapsedNanos, final long timeoutNanos) {
+        final int gameId = (int) (key >>> 32);
+        final int playerId = (int) key;
+        // one key=value line per expired session, stable for log parsers
+        IHasForgeLog.aiLog.warn("AI_TIMEOUT decision={} elapsed_ms={} timeout_ms={} game={} player={}",
+                decision.label(), TimeUnit.NANOSECONDS.toMillis(elapsedNanos), TimeUnit.NANOSECONDS.toMillis(timeoutNanos),
+                gameId, playerId);
+        final ExpiryListener listener = expiryListener;
+        if (listener != null) {
+            listener.expired(gameId, playerId, decision, elapsedNanos, timeoutNanos);
         }
     }
 

@@ -33,6 +33,7 @@ accessors to mutable `Card` references require migration.
 - `DiscardEffect` — routes revealed empty valid-card choices through the controller callback while the default human controller auto-resolves zero-card selections
 - `TargetSelectionResult` — result type for the seam
 - `Game.unsubscribeFromEvents()` — removes a subscriber from the game event bus so hosts can detach listeners from a running game
+- `AITimeoutTracker` — labels each AI session with its decision (attack, block, spell), logs one `AI_TIMEOUT decision=… elapsed_ms=… timeout_ms=… game=… player=…` line when a session ends past its deadline, and notifies an optional expiry listener
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
 - `HumanCostDecision` sacrifice, discard, return, unattach, ordinary tap, untap, ordinary exile, enlist, forage, exert, gain-control, remove-counter, and hand-to-library selection — routes exact-count choices through `PlayerController.chooseCardsForCost()`, widened from `CostPartWithList` to `CostPart` for the remove-counter choice
 - `HumanCostDecision` reveal and behold selection — routes constrained reveal choices through `PlayerController.chooseCardsForRevealCost()`
