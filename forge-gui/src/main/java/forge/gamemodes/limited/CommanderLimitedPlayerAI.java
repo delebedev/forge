@@ -58,8 +58,9 @@ public class CommanderLimitedPlayerAI extends LimitedPlayerAI {
      * @param seatingOrder      seat index in the draft pod
      * @param draft             the owning {@link BoosterDraft}
      */
-    public CommanderLimitedPlayerAI(final int seatingOrder, final BoosterDraft draft) {
-        super(seatingOrder, draft);
+    public CommanderLimitedPlayerAI(final int seatingOrder, final BoosterDraft draft,
+            final DraftPickStrategy draftPickStrategy) {
+        super(seatingOrder, draft, draftPickStrategy);
         // Replace the base DeckColors with a commander-identity-aware variant
         this.deckCols = new CommanderDeckColors();
     }

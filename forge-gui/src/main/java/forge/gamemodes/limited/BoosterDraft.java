@@ -378,7 +378,7 @@ public class BoosterDraft implements IBoosterDraft {
      */
     protected LimitedPlayer createAIPlayer(final int seatingOrder) {
         if (isCommanderDraft) {
-            return new CommanderLimitedPlayerAI(seatingOrder, this);
+            return new CommanderLimitedPlayerAI(seatingOrder, this, draftPickStrategy);
         }
         return new LimitedPlayerAI(seatingOrder, this, draftPickStrategy);
     }
