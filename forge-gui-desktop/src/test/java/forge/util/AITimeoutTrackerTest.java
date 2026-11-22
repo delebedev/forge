@@ -164,6 +164,22 @@ public class AITimeoutTrackerTest {
     }
 
     @Test
+    public void failingListenerDoesNotEscapeEnd() throws InterruptedException {
+        AITimeoutTracker.setExpiryListener((game, player, decision, elapsed, timeout) -> {
+            throw new IllegalStateException("listener failure");
+        });
+        final long key = AITimeoutTracker.key(79, 1);
+        try {
+            AITimeoutTracker.begin(key, TimeUnit.MILLISECONDS.toNanos(1), AITimeoutTracker.Decision.ATTACK);
+            Thread.sleep(5);
+            AITimeoutTracker.end(key);
+        } finally {
+            AITimeoutTracker.setExpiryListener(null);
+        }
+        Assert.assertFalse(AITimeoutTracker.isActive(key));
+    }
+
+    @Test
     public void sessionEndingBeforeDeadlineIsNotReported() {
         final java.util.List<String> reports = new java.util.ArrayList<>();
         AITimeoutTracker.setExpiryListener((game, player, decision, elapsed, timeout) -> reports.add("expired"));

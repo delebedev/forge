@@ -180,7 +180,12 @@ public final class AITimeoutTracker {
                 gameId, playerId);
         final ExpiryListener listener = expiryListener;
         if (listener != null) {
-            listener.expired(gameId, playerId, decision, elapsedNanos, timeoutNanos);
+            // the report is diagnostic: a failing listener must not change the AI decision path
+            try {
+                listener.expired(gameId, playerId, decision, elapsedNanos, timeoutNanos);
+            } catch (RuntimeException e) {
+                IHasForgeLog.aiLog.warn("AI_TIMEOUT listener failed: {}", e.toString());
+            }
         }
     }
 
