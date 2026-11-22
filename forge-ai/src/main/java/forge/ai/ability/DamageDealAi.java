@@ -40,6 +40,9 @@ import java.util.Map;
 import forge.util.IterableUtil;
 
 public class DamageDealAi extends DamageAiBase {
+    public static final String[] OPTIONAL_PARAMS = {
+        "AIExpectAmount", "AITgts", "AITgtsStrict",
+    };
 
     @Override
     public AiAbilityDecision chkDrawback(Player ai, SpellAbility sa) {
@@ -247,7 +250,7 @@ public class DamageDealAi extends DamageAiBase {
         }
 
         if (ComputerUtil.preventRunAwayActivations(sa)) {
-            return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
+            return new AiAbilityDecision(0, AiPlayDecision.StopRunawayActivations);
         }
 
         // Try to chain damage/debuff effects
@@ -350,6 +353,9 @@ public class DamageDealAi extends DamageAiBase {
 
         // Filter AI-specific targets if provided
         killables = ComputerUtil.filterAITgts(sa, ai, killables, true);
+        if (!mandatory) {
+            killables = ComputerUtilCard.withoutHarmlessCreatures(ai, killables);
+        }
 
         // Try not to target anything which will already be dead by the time the spell resolves
         killables = ComputerUtil.filterCreaturesThatWillDieThisTurn(ai, killables);
@@ -468,7 +474,36 @@ public class DamageDealAi extends DamageAiBase {
             return false;
         }
 
-        return damageChoosingTargets(ai, saMe, tgt, dmg, saMe.isMandatory(), immediately);
+        // The last suspend counter has already been removed when PlayEffect builds this spell.
+        final Card host = saMe.getHostCard();
+        final boolean castFromSuspend = saMe.isCastFromPlayEffect() && host != null
+                && host.isInZone(ZoneType.Exile) && host.hasKeyword(Keyword.SUSPEND)
+                && host.getCounters(CounterEnumType.TIME) == 0;
+        return damageChoosingTargets(ai, saMe, tgt, dmg, saMe.isMandatory() || castFromSuspend,
+                immediately || castFromSuspend);
+    }
+
+    /** Aim the simultaneous Valakut triggers at an opponent when the full batch is lethal. */
+    private boolean chooseLethalValakutBatchTarget(final Player ai, final SpellAbility sa,
+                                                   final TargetRestrictions restrictions, final int damage) {
+        final Card source = sa.getHostCard();
+        if (!sa.isTrigger() || source == null || !"Valakut, the Molten Pinnacle".equals(source.getName())
+                || sa.getApi() != ApiType.DealDamage || restrictions == null || !restrictions.canTgtPlayer()) {
+            return false;
+        }
+        final int triggers = Math.max(1,
+                ((PlayerControllerAi) ai.getController()).getAi().getSimultaneousValakutDamageTriggers());
+        for (final Player opponent : ai.getOpponents()) {
+            if (!opponent.canLoseLife() || opponent.cantLoseForZeroOrLessLife() || !sa.canTarget(opponent)) {
+                continue;
+            }
+            final int damagePerTrigger = ComputerUtilCombat.predictDamageTo(opponent, damage, source, false);
+            if (damagePerTrigger > 0 && (long) damagePerTrigger * triggers >= opponent.getLife()) {
+                sa.getTargets().add(opponent);
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -520,6 +555,10 @@ public class DamageDealAi extends DamageAiBase {
         sa.resetTargets();
         TargetChoices tcs = sa.getTargets();
 
+        if (chooseLethalValakutBatchTarget(ai, sa, tgt, dmg)) {
+            return true;
+        }
+
         // Do not use if would kill self
         if ("SelfDamage".equals(logic) && ai.getLife() <= Integer.parseInt(source.getSVar("SelfDamageAmount"))) {
             return false;
@@ -551,7 +590,8 @@ public class DamageDealAi extends DamageAiBase {
                 }
             }
             if (dmg > 0 && lastTgt != null) {
-                sa.addDividedAllocation(lastTgt, sa.getDividedValue(lastTgt) + dmg);
+                final Integer already = sa.getDividedValue(lastTgt);
+                sa.addDividedAllocation(lastTgt, (already == null ? 0 : already) + dmg); // a target without a share yet is 0, not a crash
                 dmg = 0;
                 return true;
             }
@@ -698,6 +738,7 @@ public class DamageDealAi extends DamageAiBase {
                 if ((freePing && !avoidTargetP(ai, sa))
                         || (((phase.is(PhaseType.END_OF_TURN) && phase.isPlayerNextTurn(ai))
                         || (isSorcerySpeed(sa, ai) && phase.is(PhaseType.MAIN2))
+                        || ProwessTiming.worthBeforeCombat(ai, sa) // before combat, so the prowess trigger counts
                         || isFaceBurnWorthCasting(ai, sa) // an instant that can only hit the player (Skullcrack)
                         || ("BurnCreatures".equals(logic) && !enemy.getCreaturesInPlay().isEmpty()))
                         && ((sa.isPwAbility() && sa.getPayCosts().hasSpecificCostType(CostPutCounter.class))
@@ -801,7 +842,7 @@ public class DamageDealAi extends DamageAiBase {
         }
         if (!urgent && !playReusable(ai, saMe)) {
             // a spell that can only hurt the opponent has no other use, so it is not kept for later (Boltwave at 6+ life)
-            return positive && isFaceBurnWorthCasting(ai, saMe);
+            return positive && (isFaceBurnWorthCasting(ai, saMe) || ProwessTiming.worthBeforeCombat(ai, saMe));
         }
         return true;
     }
@@ -935,7 +976,12 @@ public class DamageDealAi extends DamageAiBase {
             return new AiAbilityDecision(0, AiPlayDecision.CantPlayAi);
         }
 
-        if (!damageChoosingTargets(ai, sa, sa.getTargetRestrictions(), dmg, mandatory, true) && !mandatory) {
+        // Suspend's Play effect is optional, but the spell is lost if it is not cast after the last TIME counter.
+        final boolean castFromSuspend = sa.isCastFromPlayEffect() && source != null && source.isInZone(ZoneType.Exile)
+                && source.hasKeyword(Keyword.SUSPEND) && source.getCounters(CounterEnumType.TIME) == 0;
+        final boolean mustChooseTarget = mandatory || castFromSuspend;
+        final boolean targetsChosen = damageChoosingTargets(ai, sa, sa.getTargetRestrictions(), dmg, mustChooseTarget, true);
+        if ((!targetsChosen && !mustChooseTarget) || (castFromSuspend && !sa.isTargetNumberValid())) {
             return new AiAbilityDecision(0, AiPlayDecision.TargetingFailed);
         }
 
