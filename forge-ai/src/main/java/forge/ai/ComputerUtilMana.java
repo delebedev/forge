@@ -797,6 +797,7 @@ public class ComputerUtilMana {
         int testLifeSpent = 0;
         ManaCostShard toPay = null;
         String lastProducedMana = "";
+        final CardCollection reservedSacrifices = new CardCollection();
         List<SpellAbility> saExcludeList = new ArrayList<>();
         // the lands that cost life to tap (Manabarbs and its kin): none in nearly every game
         final List<TapDamageSource> painSources = ai.canLoseLife() && !ai.cantLoseForZeroOrLessLife()
@@ -936,6 +937,12 @@ public class ComputerUtilMana {
                 continue;
             }
 
+            final CardCollection sacrifices = test ? planManaSacrifices(saPayment, ai, reservedSacrifices, effect) : null;
+            if (test && sacrifices == null) {
+                saExcludeList.add(saPayment);
+                continue;
+            }
+
             final int manaCostToActivate = getManaToActivate(saPayment);
             if (manaCostToActivate > 0) {
                 if (test && !paymentList.isEmpty()) {
@@ -970,6 +977,9 @@ public class ComputerUtilMana {
                 }
                 manaSpentToPay.addAll(funding);
             }
+            if (test) {
+                reservedSacrifices.addAll(sacrifices);
+            }
             paymentList.add(saPayment);
             if (saPayment.getPayCosts().hasTapCost()) {
                 AiCardMemory.rememberCard(ai, saPayment.getHostCard(), MemorySet.PAYS_TAP_COST);
@@ -998,9 +1008,20 @@ public class ComputerUtilMana {
                     cost.addManaCost(getManaCostToActivate(saPayment));
                 }
 
-                // remove to prevent re-usage since resources don't get consumed, unless a sacrifice source has fodder left
-                if (!ManaSacrifice.canUseAgainInTest(ai, saPayment)) {
-                    sourcesForShards.values().removeIf(CardTraitPredicates.isHostCard(saPayment.getHostCard()));
+                final boolean sacrificeCost = saPayment.getPayCosts().getCostParts().stream()
+                        .anyMatch(CostSacrifice.class::isInstance);
+                if (!sacrificeCost) {
+                    // non-sacrifice sources keep their earlier repeat rule
+                    if (!ManaSacrifice.canUseAgainInTest(ai, saPayment)) {
+                        sourcesForShards.values().removeIf(CardTraitPredicates.isHostCard(saPayment.getHostCard()));
+                    }
+                } else {
+                    // Only sacrifice-only activations can repeat without simulating other resource costs.
+                    final boolean repeatable = hasRepeatableSacrificeCost(saPayment);
+                    final Card paymentHost = saPayment.getHostCard();
+                    // a reserved victim keeps ordinary tap abilities, but cannot spend itself twice
+                    sourcesForShards.values().removeIf(s -> (!repeatable && s.getHostCard().equals(paymentHost))
+                            || (reservedSacrifices.contains(s.getHostCard()) && sacrificesItself(s)));
                 }
                 floatingManaToReserve = minimumActivationMana(sourcesForShards, manapool);
             } else {
@@ -1115,6 +1136,65 @@ public class ComputerUtilMana {
     private static boolean hasReusableManaActivation(final SpellAbility ability) {
         final Cost cost = ability.getPayCosts();
         return cost.isReusuableResource() && cost.isUndoable() && ability.getSubAbility() == null;
+    }
+
+    /** Whether this mana ability sacrifices its own host as part of its cost. */
+    private static boolean sacrificesItself(final SpellAbility ability) {
+        return ability.getPayCosts().getCostParts().stream()
+                .filter(CostSacrifice.class::isInstance)
+                .map(CostSacrifice.class::cast)
+                .anyMatch(CostSacrifice::payCostFromSource);
+    }
+
+    private static boolean hasRepeatableSacrificeCost(final SpellAbility ability) {
+        final List<CostPart> parts = ability.getPayCosts().getCostParts();
+        final List<CostPart> sacrifices = parts.stream().filter(CostSacrifice.class::isInstance).toList();
+        // a mana ability's own tap is inherent, so only the sacrifice decides whether it can repeat
+        final boolean onlyTapAndOneSacrifice = sacrifices.size() == 1
+                && parts.stream().allMatch(p -> p instanceof CostTap || p instanceof CostSacrifice);
+        if (!onlyTapAndOneSacrifice) {
+            return false;
+        }
+        final CostSacrifice sacrifice = (CostSacrifice) sacrifices.get(0);
+        return !sacrifice.payCostFromSource() && sacrifice.getAmount().matches("[1-9][0-9]*") &&
+                !sacrifice.getType().contains("WithDifferentNames") &&
+                !sacrifice.getType().equals("OriginalHost") && ability.getSubAbility() == null &&
+                ability.getRestrictions().getLimitToCheck() == null &&
+                ability.getRestrictions().getGameLimitToCheck() == null &&
+                !ability.isPwAbility() && !ability.isBoast() && !ability.isExhaust() && !ability.isPowerUp();
+    }
+
+    /** Plan distinct sacrifices without paying costs or changing the live battlefield. */
+    private static CardCollection planManaSacrifices(final SpellAbility ability, final Player player,
+            final CardCollection reserved, final boolean effect) {
+        final CardCollection selected = new CardCollection();
+        for (final CostPart part : ability.getPayCosts().getCostParts()) {
+            if (!(part instanceof CostSacrifice sacrifice)) {
+                continue;
+            }
+            // Other sacrifice shapes retain the one-activation estimate.
+            if (!sacrifice.getAmount().matches("[1-9][0-9]*") ||
+                    sacrifice.getType().contains("WithDifferentNames") ||
+                    sacrifice.getType().equals("OriginalHost")) {
+                continue;
+            }
+            final Card host = ability.getHostCard();
+            CardCollection choices = sacrifice.payCostFromSource() ? new CardCollection(host) :
+                    CardLists.getValidCards(player.getCardsIn(ZoneType.Battlefield),
+                            sacrifice.getType().split(";"), player, host, ability);
+            choices = CardLists.filter(choices, c -> !reserved.contains(c) && !selected.contains(c) &&
+                    c.canBeSacrificedBy(ability, effect));
+            // Preserve the activator while other payment resources remain.
+            if (choices.remove(host)) {
+                choices.add(host);
+            }
+            final int amount = sacrifice.getAbilityAmount(ability);
+            if (choices.size() < amount) {
+                return null;
+            }
+            selected.addAll(choices.subList(0, amount));
+        }
+        return selected;
     }
 
     private static int getActivationManaCost(final SpellAbility ability) {

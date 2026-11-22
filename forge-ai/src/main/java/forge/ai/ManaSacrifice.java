@@ -86,7 +86,7 @@ public final class ManaSacrifice {
             for (final Card c : given) {
                 cost += sacrificeValue(ai, c);
             }
-            if (cost <= FODDER_MAX * given.size()) {
+            if (cost <= FODDER_MAX * given.size() || given.stream().allMatch(Card::isToken)) {
                 return true;
             }
             return worth(ai, paidFor) >= cost + MARGIN;
