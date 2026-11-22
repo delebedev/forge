@@ -31,8 +31,8 @@ accessors to mutable `Card` references require migration.
 - `PlayerControllerHuman.selectTargetsInteractively()` — overridable target selection
 - `TargetSelection` — routes single-candidate triggered targets through the controller callback
 - `DiscardEffect` — routes revealed empty valid-card choices through the controller callback while the default human controller auto-resolves zero-card selections
-- `TriggerHandler.getDelayedTriggersSnapshot()` — read-only delayed trigger inspection
 - `TargetSelectionResult` — result type for the seam
+- `Game.unsubscribeFromEvents()` — removes a subscriber from the game event bus so hosts can detach listeners from a running game
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
 - `HumanCostDecision` sacrifice, discard, return, unattach, ordinary tap, untap, ordinary exile, enlist, forage, exert, gain-control, and hand-to-library selection — routes exact-count choices through `PlayerController.chooseCardsForCost()`
 - `HumanCostDecision` reveal and behold selection — routes constrained reveal choices through `PlayerController.chooseCardsForRevealCost()`
@@ -47,7 +47,7 @@ accessors to mutable `Card` references require migration.
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
 - `FileSection.getInt()` — returns the configured default for absent optional values without exception-driven parsing
 - `GameState` puzzle cards support `CommanderCast:N` — seed prior command-zone cast counts for commander-tax fixtures
-- `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries
+- `SpellAbilityChoicesIterator` and `GameAction` — use JDK combination iteration and dependency-cycle handling so headless runtimes do not require general-purpose math and graph libraries; `forge-ai` and `forge-game` drop commons-math3 and jgrapht, and `forge-lda`, which still uses commons-math3, declares it directly
 
 ## Fixes
 - `PlaySpellAbility` — declined or incomplete card selections leave resolution costs unpaid
@@ -65,3 +65,9 @@ accessors to mutable `Card` references require migration.
 - `MagicStack.peekAbility()` — returns no ability when the stack is empty
 - `MagicStack` — synchronizes an existing stack-item view with its spell ability before publishing a stack-entry event
 - `DiscoverEffect` — treats a declined play-effect cast as the hand fallback
+- `TrackableSerializer` — keeps fork-added events that carry engine objects (`GameEventCardSurveiled`, `GameEventControllerChanged`, `GameEventExtrinsicKeywordAdded`, `GameEventTokenCreated`) on the hosting side instead of serializing them to network clients
+- `viconia_nightsingers_disciple.txt` — combines duplicate `AddKeyword$` parameters into one `Haste & Prismatic` grant so the card keeps both keywords
+
+## Build
+- `CLAUDE.md` and `.claude/rules/` — fork contributor and agent instructions
+- Root `pom.xml` `versionCode` — held at the version downstream builds consume; upstream version bumps are adopted deliberately
