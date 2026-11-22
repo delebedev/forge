@@ -73,6 +73,41 @@ public class AiAttackControllerOrderTest extends AITest {
     }
 
     @Test
+    public void resultsComeBackInTaskOrderWhenTasksFinishInReverse() {
+        final int count = 4;
+        List<CountDownLatch> finished = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            finished.add(new CountDownLatch(1));
+        }
+        List<Integer> completionOrder = new ArrayList<>();
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            final int index = i;
+            tasks.add(() -> {
+                if (index + 1 < count) {
+                    finished.get(index + 1).await(10, TimeUnit.SECONDS);
+                }
+                synchronized (completionOrder) {
+                    completionOrder.add(index);
+                }
+                finished.get(index).countDown();
+                return index;
+            });
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(count);
+        List<Integer> results;
+        try {
+            results = AiAttackController.invokeAllInOrder(executor, tasks, TimeUnit.SECONDS.toNanos(30));
+        } finally {
+            executor.shutdownNow();
+        }
+
+        AssertJUnit.assertEquals(List.of(3, 2, 1, 0), completionOrder);
+        AssertJUnit.assertEquals(List.of(0, 1, 2, 3), results);
+    }
+
+    @Test
     public void unfinishedTasksForceNoAttack() {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         List<Callable<String>> tasks = List.of(() -> "done", () -> {
