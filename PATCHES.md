@@ -34,14 +34,17 @@ accessors to mutable `Card` references require migration.
 - `TriggerHandler.getDelayedTriggersSnapshot()` — read-only delayed trigger inspection
 - `TargetSelectionResult` — result type for the seam
 - `DraftPickStrategy` — injectable booster-draft bot pick strategy
-- `HumanCostDecision` sacrifice, discard, return, unattach, ordinary tap, untap, ordinary exile, enlist, forage, exert, gain-control, and hand-to-library selection — routes exact-count choices through `PlayerController.chooseCardsForCost()`
+- `HumanCostDecision` sacrifice, discard, return, unattach, ordinary tap, untap, ordinary exile, enlist, forage, exert, gain-control, remove-counter, and hand-to-library selection — routes exact-count choices through `PlayerController.chooseCardsForCost()`, widened from `CostPartWithList` to `CostPart` for the remove-counter choice
 - `HumanCostDecision` reveal and behold selection — routes constrained reveal choices through `PlayerController.chooseCardsForRevealCost()`
 - `HumanCostDecision` collect-evidence selection — routes weighted mana-value choices through `PlayerController.chooseCardsForCollectEvidence()`
+- `HumanCostDecision` aggregate exile and tap-power selection — routes mana-value, mana-symbol, card-type, shared-type and total-power choices through `PlayerController.chooseCardsForExileCost()` and `chooseCardsForTapCost()`
+
+The `HumanCostDecision` entries already use upstream's `chooseCardsForCost()` wherever the choice is an exact count. The other hooks carry aggregate constraints that hook cannot express, and the desktop overrides reproduce the previous prompts. They are kept until upstream takes the routing; a smaller fork-only form would still replace each inline prompt.
 
 ## Utilities
 - `FCollection.get` and `anyMatch` — scan the backing list without iterator or stream allocation
 - `SpellAbility.getRootAbility()` — reads each parent once, avoiding malformed loop output in the browser JIT
-- `Card.keywordsToText()` — splits keyword details into a helper to avoid local-variable collisions in the browser JIT
+- `Card.keywordsToText()` — splits keyword details into a helper to avoid local-variable collisions in the browser JIT. Kept for correctness, not speed: CheerpJ 4.3 generated code for the unsplit method that nulled a live string builder, and a seeded browser game stalled in it. Retire once a browser runtime without that fault runs a full seeded game through the unsplit method without the `Cannot set properties of null` error
 - `CardStorageReader` — accepts a verified build-generated ZIP name index, with ordinary lazy scan fallback
 - Card text newline formatting — uses literal replacement without regex compilation
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
@@ -59,6 +62,8 @@ accessors to mutable `Card` references require migration.
 - `ComputerUtilMana` — uses actual paid activation mana costs, reserves filter startup mana without stranding colors those filters cannot produce, and prefers reusable source modes without sacrificing required-color preference
 - `ComputerUtilMana` — predicts pool-doubling output after reserving activation funding, preserves floating mana for the multiplier, and restores original pool objects after affordability checks
 - `ComputerUtilMana` — reuses sacrifice-only mana abilities while reserving distinct eligible permanents across predictive activations and source abilities
+
+The `ComputerUtilMana` entries were rechecked against upstream's redesigned payment at `b04e750a377e`. With upstream's `ComputerUtilMana` and `ManaSacrifice`, 9 of the 49 mana tests fail: seeded and chained net-positive filters, the free-mode filter choice, floating-mana pool doubling, and repeatable sacrifice sources. Upstream has no floating-mana reservation, so the required-color guard (`floatingRequiredColorIsNotReservedForAnUnrelatedFilter`) only protects the fork's own reservation and still fails when disabled. Retire an entry when its tests in `ReserveManaSourcesTest`, `ComputerUtilManaFilterTest` or `ComputerUtilManaSacrificeTest` pass on upstream's `ComputerUtilMana`.
 - `CardDb.contains()` — resolves named cards through lazy loading so cold deck imports accept exact printings
 - `AbstractMulligan.mulligan()` — dropped unconditional 100ms pacing sleep (GUI animation pacing; headless callers paid it per mulligan)
 - `InvestigateEffect` — token-created events contain only tokens from the current player iteration
