@@ -66,6 +66,7 @@ accessors to mutable `Card` references require migration.
 - `MagicStack` — synchronizes an existing stack-item view with its spell ability before publishing a stack-entry event
 - `DiscoverEffect` — treats a declined play-effect cast as the hand fallback
 - `TrackableSerializer` — keeps fork-added events that carry engine objects (`GameEventCardSurveiled`, `GameEventControllerChanged`, `GameEventExtrinsicKeywordAdded`, `GameEventTokenCreated`) on the hosting side instead of serializing them to network clients
+- `viconia_nightsingers_disciple.txt` — combines duplicate `AddKeyword$` parameters into one `Haste & Prismatic` grant so the card keeps both keywords
 
 ## Build
 - Root `pom.xml` `versionCode` — held at the version downstream builds consume; upstream version bumps are adopted deliberately
