@@ -1607,7 +1607,7 @@ public class AiController {
     public void declareBlockersFor(Player defender, Combat combat) {
         final long id = AITimeoutTracker.key(game.getId(), player.getId());
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
-        AITimeoutTracker.begin(id, timeoutNanos);
+        AITimeoutTracker.begin(id, timeoutNanos, AITimeoutTracker.Decision.BLOCK);
         Object limit = null;
         try {
             // constructed before arming and inside the try: a throwing constructor can no longer leak begin()/arm()
@@ -1765,7 +1765,7 @@ public class AiController {
         final AiAttackController aiAtk = new AiAttackController(attacker);
         final long id = AITimeoutTracker.key(game.getId(), player.getId());
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
-        AITimeoutTracker.begin(id, timeoutNanos);
+        AITimeoutTracker.begin(id, timeoutNanos, AITimeoutTracker.Decision.ATTACK);
         Object limit = null;
         try {
             limit = AITimeoutTracker.arm(AITimeoutTracker.deadlineNanos(id, timeoutNanos), false);
@@ -1840,7 +1840,7 @@ public class AiController {
     public List<SpellAbility> chooseSpellAbilityToPlay() {
         final long id = AITimeoutTracker.key(game.getId(), player.getId());
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
-        AITimeoutTracker.begin(id, timeoutNanos);
+        AITimeoutTracker.begin(id, timeoutNanos, AITimeoutTracker.Decision.SPELL);
         final Object limit = AITimeoutTracker.arm(AITimeoutTracker.deadlineNanos(id, timeoutNanos), false);
         try {
             if (SimAudit.ENABLED) {
@@ -3259,7 +3259,7 @@ public class AiController {
         final boolean darkDepths = combos.has(ComboPlan.Kind.DARK_DEPTHS);
         final long aiId = AITimeoutTracker.key(game.getId(), player.getId());
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
-        AITimeoutTracker.begin(aiId, timeoutNanos);
+        AITimeoutTracker.begin(aiId, timeoutNanos, AITimeoutTracker.Decision.SPELL);
         final long deadlineNanos = AITimeoutTracker.deadlineNanos(aiId, timeoutNanos);
         FutureTask<List<SpellAbility>> future = new FutureTask<>(() -> {
             final List<SpellAbility> approvedPlays = new ArrayList<>();
