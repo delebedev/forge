@@ -47,6 +47,7 @@ The `HumanCostDecision` entries already use upstream's `chooseCardsForCost()` wh
 - `FCollection.get` and `anyMatch` — scan the backing list without iterator or stream allocation
 - `SpellAbility.getRootAbility()` — reads each parent once, avoiding malformed loop output in the browser JIT
 - `Card.keywordsToText()` — splits keyword details into a helper to avoid local-variable collisions in the browser JIT. Kept for correctness, not speed: CheerpJ 4.3 generated code for the unsplit method that nulled a live string builder, and a seeded browser game stalled in it. Retire once a browser runtime without that fault runs a full seeded game through the unsplit method without the `Cannot set properties of null` error
+- `CardProperty.cardHasProperty()` — checks its ordered property chain through five chained helper groups. Kept for correctness: CheerpJ 4.3 compiles the unsplit 263-branch chain into one deeply nested function, and on WebKit a hot call from a deep stack exhausts the native stack during that compile, surfacing as a message-less `ArithmeticException`. Pure refactor; upstream candidate. Retire if upstream adopts it or a browser runtime compiles the unsplit method from a deep stack without the fault
 - `CardStorageReader` — accepts a verified build-generated ZIP name index, with ordinary lazy scan fallback
 - Card text newline formatting — uses literal replacement without regex compilation
 - `CardDb.quietInit` — suppress card-init warnings in test harnesses
