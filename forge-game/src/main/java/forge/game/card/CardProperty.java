@@ -56,6 +56,29 @@ public class CardProperty {
             }
         }
 
+        // Properties are checked in order in chained groups; the first matching property decides.
+        // Splitting the chain keeps each compiled method small enough for runtimes with limited native stack.
+        Boolean result1 = cardHasPropertyGroup1(card, property, sourceController, source, spellAbility, game, combat, controller);
+        if (result1 != null) {
+            return result1;
+        }
+        Boolean result2 = cardHasPropertyGroup2(card, property, sourceController, source, spellAbility, game);
+        if (result2 != null) {
+            return result2;
+        }
+        Boolean result3 = cardHasPropertyGroup3(card, property, sourceController, source, spellAbility, game, controller);
+        if (result3 != null) {
+            return result3;
+        }
+        Boolean result4 = cardHasPropertyGroup4(card, property, sourceController, source, spellAbility, game, combat, lki, controller);
+        if (result4 != null) {
+            return result4;
+        }
+        return cardHasPropertyGroup5(card, property, sourceController, source, spellAbility, lki, controller);
+    }
+
+    /** Returns null when no property in this group matches. */
+    private static Boolean cardHasPropertyGroup1(Card card, String property, Player sourceController, Card source, CardTraitBase spellAbility, final Game game, final Combat combat, final Player controller) {
         if (property.equals("noName")) {
             if (!card.hasNoName()) {
                 return false;
@@ -395,7 +418,15 @@ public class CardProperty {
             if (!lkiExiled.getExiledWith().equalsWithGameTimestamp(host)) {
                 return false;
             }
-        } else if (property.startsWith("ExiledWithSource")) {
+        } else {
+            return null;
+        }
+        return true;
+    }
+
+    /** Returns null when no property in this group matches. */
+    private static Boolean cardHasPropertyGroup2(Card card, String property, Player sourceController, Card source, CardTraitBase spellAbility, final Game game) {
+        if (property.startsWith("ExiledWithSource")) {
             if (card.getExiledWith() == null) {
                 return false;
             }
@@ -999,7 +1030,15 @@ public class CardProperty {
             if (!card.wasMilled()) {
                 return false;
             }
-        } else if (property.equals("hasABasicLandType")) {
+        } else {
+            return null;
+        }
+        return true;
+    }
+
+    /** Returns null when no property in this group matches. */
+    private static Boolean cardHasPropertyGroup3(Card card, String property, Player sourceController, Card source, CardTraitBase spellAbility, final Game game, final Player controller) {
+        if (property.equals("hasABasicLandType")) {
             if (!card.hasABasicLandType()) {
                 return false;
             }
@@ -1320,7 +1359,15 @@ public class CardProperty {
             if (!card.isEquipped()) {
                 return false;
             }
-        } else if (property.startsWith("equipping")) {
+        } else {
+            return null;
+        }
+        return true;
+    }
+
+    /** Returns null when no property in this group matches. */
+    private static Boolean cardHasPropertyGroup4(Card card, String property, Player sourceController, Card source, CardTraitBase spellAbility, final Game game, final Combat combat, final Card lki, final Player controller) {
+        if (property.startsWith("equipping")) {
             if (!card.isEquipping()) {
                 return false;
             }
@@ -1750,7 +1797,14 @@ public class CardProperty {
                 return false;
             }
             return card.getCastSA().isEscape();
-        } else if (property.equals("evoked")) {
+        } else {
+            return null;
+        }
+        return true;
+    }
+
+    private static boolean cardHasPropertyGroup5(Card card, String property, Player sourceController, Card source, CardTraitBase spellAbility, final Card lki, final Player controller) {
+        if (property.equals("evoked")) {
             if (card.getCastSA() == null) {
                 return false;
             }
