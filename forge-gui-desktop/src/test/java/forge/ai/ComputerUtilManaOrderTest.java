@@ -272,6 +272,26 @@ public class ComputerUtilManaOrderTest extends SimulationTest {
     }
 
     @Test
+    public void requiredSelfDamagingMultiManaSourceStaysFirstUnderManabarbs() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+
+        addCard("Manabarbs", game.getPlayers().get(0));
+        Card mountain = addCard("Mountain", p);
+        Card wastes = addCard("Wastes", p);
+        Card tomb = addCard("Ancient Tomb", p);
+        SpellAbility sa = castableFrom(game, p, "Dragon's Hoard"); // {3}
+
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), p, sa, false));
+
+        // tapping the Tomb costs the most life, but it is needed either way, so only one more land is tapped
+        AssertJUnit.assertTrue(tomb.isTapped());
+        AssertJUnit.assertTrue(wastes.isTapped());
+        AssertJUnit.assertTrue(mountain.isUntapped());
+        assertEquals(p.getManaPool().totalMana(), 0);
+    }
+
+    @Test
     public void soleMultiManaSourceStillOverpaysASmallerCost() {
         Game game = initAndCreateGame();
         Player p = game.getPlayers().get(1);

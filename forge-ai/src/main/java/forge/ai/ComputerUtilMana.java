@@ -873,12 +873,14 @@ public class ComputerUtilMana {
             final boolean ordinaryOrder = !hasConverge && !sa.hasParam("AIManaPref") && !sa.getHostCard().hasSVar("AIManaPref");
             if (ordinaryOrder) {
                 saList = sparingSourcesFirst(saList, sourcesForShards, sa, ai);
-                if (toPay == ManaCostShard.GENERIC) {
-                    saList = requiredSourcesFirst(saList, cost, sa);
-                }
             }
-            // Manabarbs and its kin: this is the final ordering, after mana preferences and multi-mana requirements
+            // Manabarbs and its kin: life cost overrides the mana preferences
             saList = painfulSourcesLast(saList, ai, painSources);
+            // a required multi-mana source hurts whichever other sources pay beside it, so it stays first;
+            // the promotion is stable, so life cost still orders the required and the remaining sources
+            if (ordinaryOrder && toPay == ManaCostShard.GENERIC) {
+                saList = requiredSourcesFirst(saList, cost, sa);
+            }
 
             SpellAbility saPayment = saList.isEmpty() ? null : chooseManaAbility(cost, sa, ai, toPay, saList, checkPlayable || !test, paymentList);
 
