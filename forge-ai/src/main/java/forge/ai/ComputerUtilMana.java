@@ -873,12 +873,14 @@ public class ComputerUtilMana {
             final boolean ordinaryOrder = !hasConverge && !sa.hasParam("AIManaPref") && !sa.getHostCard().hasSVar("AIManaPref");
             if (ordinaryOrder) {
                 saList = sparingSourcesFirst(saList, sourcesForShards, sa, ai);
-                if (toPay == ManaCostShard.GENERIC) {
-                    saList = requiredSourcesFirst(saList, cost, sa);
-                }
             }
-            // Manabarbs and its kin: this is the final ordering, after mana preferences and multi-mana requirements
+            // Manabarbs and its kin: life cost overrides the mana preferences
             saList = painfulSourcesLast(saList, ai, painSources);
+            // a required multi-mana source hurts whichever other sources pay beside it, so it stays first;
+            // the promotion is stable, so life cost still orders the required and the remaining sources
+            if (ordinaryOrder && toPay == ManaCostShard.GENERIC) {
+                saList = requiredSourcesFirst(saList, cost, sa);
+            }
 
             SpellAbility saPayment = saList.isEmpty() ? null : chooseManaAbility(cost, sa, ai, toPay, saList, checkPlayable || !test, paymentList);
 
@@ -1256,10 +1258,12 @@ public class ComputerUtilMana {
 
         // Only sources that cost nothing and consume nothing are "needed either way".
         // Paid filter abilities and sources that sacrifice a permanent are ordered by the
-        // ordinary reusable-source scoring instead.
+        // ordinary reusable-source scoring instead. A side effect of the activation itself
+        // (Ancient Tomb's damage) does not disqualify a source: a required source applies it anyway.
         final List<SpellAbility> eligible = new ArrayList<>();
         for (final SpellAbility ma : shardProducers) {
-            if (!ma.getPayCosts().hasManaCost() && hasReusableManaActivation(ma)) {
+            final Cost activationCost = ma.getPayCosts();
+            if (!activationCost.hasManaCost() && activationCost.isReusuableResource() && activationCost.isUndoable()) {
                 eligible.add(ma);
             }
         }

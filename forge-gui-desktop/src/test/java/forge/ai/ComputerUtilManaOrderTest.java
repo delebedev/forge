@@ -242,6 +242,89 @@ public class ComputerUtilManaOrderTest extends SimulationTest {
         AssertJUnit.assertTrue(ring.isUntapped());
     }
 
+    private SpellAbility castableFrom(final Game game, final Player p, final String spell) {
+        final Card host = addCardToZone(spell, p, ZoneType.Hand);
+        game.getPhaseHandler().devModeSet(PhaseType.MAIN1, p);
+        game.getAction().checkStateEffects(true);
+        final SpellAbility sa = host.getFirstSpellAbility();
+        sa.setActivatingPlayer(p);
+        return sa;
+    }
+
+    @Test
+    public void requiredSelfDamagingMultiManaSourcePaysWithoutAnExtraLand() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+
+        Card mountain = addCard("Mountain", p);
+        Card wastes = addCard("Wastes", p);
+        Card tomb = addCard("Ancient Tomb", p);
+        SpellAbility sa = castableFrom(game, p, "Dragon's Hoard"); // {3}
+
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), p, sa, false));
+
+        // the Tomb's damage does not make it optional: the other lands make only two mana
+        AssertJUnit.assertTrue(tomb.isTapped());
+        AssertJUnit.assertTrue(wastes.isTapped());
+        AssertJUnit.assertTrue(mountain.isUntapped());
+        assertEquals(p.getManaPool().totalMana(), 0);
+        assertEquals(p.getLife(), 18);
+    }
+
+    @Test
+    public void requiredSelfDamagingMultiManaSourceStaysFirstUnderManabarbs() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+
+        addCard("Manabarbs", game.getPlayers().get(0));
+        Card mountain = addCard("Mountain", p);
+        Card wastes = addCard("Wastes", p);
+        Card tomb = addCard("Ancient Tomb", p);
+        SpellAbility sa = castableFrom(game, p, "Dragon's Hoard"); // {3}
+
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), p, sa, false));
+
+        // tapping the Tomb costs the most life, but it is needed either way, so only one more land is tapped
+        AssertJUnit.assertTrue(tomb.isTapped());
+        AssertJUnit.assertTrue(wastes.isTapped());
+        AssertJUnit.assertTrue(mountain.isUntapped());
+        assertEquals(p.getManaPool().totalMana(), 0);
+    }
+
+    @Test
+    public void soleMultiManaSourceStillOverpaysASmallerCost() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+
+        Card tomb = addCard("Ancient Tomb", p);
+        SpellAbility sa = castableFrom(game, p, "Sol Ring"); // {1}
+
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), p, sa, false));
+
+        AssertJUnit.assertTrue(tomb.isTapped());
+        assertEquals(p.getManaPool().totalMana(), 1);
+        assertEquals(p.getLife(), 18);
+    }
+
+    @Test
+    public void requiredMultiManaSourceKeepsTheOnlySourceOfAHeldColor() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(1);
+
+        Card mountain = addCard("Mountain", p);
+        Card terrain = addCard("Terrain Generator", p);
+        Card ring = addCard("Sol Ring", p);
+        addCardToZone("Shock", p, ZoneType.Hand);
+        SpellAbility sa = castableFrom(game, p, "Dragon's Hoard"); // {3}
+
+        AssertJUnit.assertTrue(ComputerUtilMana.payManaCost(sa.getPayCosts(), p, sa, false));
+
+        AssertJUnit.assertTrue(ring.isTapped());
+        AssertJUnit.assertTrue(terrain.isTapped());
+        AssertJUnit.assertTrue(mountain.isUntapped());
+        assertEquals(p.getManaPool().totalMana(), 0);
+    }
+
     @Test
     public void cavernOfSoulsPaysColorlessWhenNoOtherSourceCan() {
         Game game = initAndCreateGame();
