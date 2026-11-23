@@ -1256,10 +1256,12 @@ public class ComputerUtilMana {
 
         // Only sources that cost nothing and consume nothing are "needed either way".
         // Paid filter abilities and sources that sacrifice a permanent are ordered by the
-        // ordinary reusable-source scoring instead.
+        // ordinary reusable-source scoring instead. A side effect of the activation itself
+        // (Ancient Tomb's damage) does not disqualify a source: a required source applies it anyway.
         final List<SpellAbility> eligible = new ArrayList<>();
         for (final SpellAbility ma : shardProducers) {
-            if (!ma.getPayCosts().hasManaCost() && hasReusableManaActivation(ma)) {
+            final Cost activationCost = ma.getPayCosts();
+            if (!activationCost.hasManaCost() && activationCost.isReusuableResource() && activationCost.isUndoable()) {
                 eligible.add(ma);
             }
         }
