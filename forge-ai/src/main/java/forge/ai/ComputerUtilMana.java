@@ -1531,6 +1531,8 @@ public class ComputerUtilMana {
 
         final ManaCost toActivate = getManaCostToActivate(filter);
         final Set<SpellAbility> tried = new HashSet<>();
+        // the filter's paying abilities describe its coming activation, not an earlier one
+        filter.getPayingManaAbilities().clear();
         while (true) {
             // what the floating mana leaves of the filter's cost; it stays in the pool to pay that cost
             final ManaCostBeingPaid toFloat = new ManaCostBeingPaid(toActivate);
@@ -1597,6 +1599,8 @@ public class ComputerUtilMana {
             }
             ai.getGame().getStack().addAndUnfreeze(chosen);
             paymentList.add(chosen);
+            // the floated mana pays the filter's cost, so reversing the filter reverses this source too
+            filter.getPayingManaAbilities().add(chosen);
             final SpellAbility used = chosen;
             if (!used.canPlay()) {
                 sourcesForShards.values().removeIf(s -> s == used || (s.getHostCard().equals(used.getHostCard()) && !s.canPlay()));

@@ -77,6 +77,7 @@ The `ComputerUtilMana` entries were rechecked against upstream's redesigned paym
 - `DiscoverEffect` — treats a declined play-effect cast as the hand fallback
 - `TrackableSerializer` — keeps fork-added events that carry engine objects (`GameEventCardSurveiled`, `GameEventControllerChanged`, `GameEventExtrinsicKeywordAdded`, `GameEventTokenCreated`) on the hosting side instead of serializing them to network clients
 - `viconia_nightsingers_disciple.txt` — combines duplicate `AddKeyword$` parameters into one `Haste & Prismatic` grant so the card keeps both keywords
+- `ManaRefundService`, `ManaPool` and `ComputerUtilMana` — a reversed payment refunds what paid for each mana ability before reversing an earlier one, removes the exact mana an ability produced from the pool, and records the source floated for a Signet-like cost as paying for that ability, so a failed automatic payment untaps a Signet, its land and a filter paid with its mana. Retire when the failed-payment tests in `ManaRefundServiceTest` pass on upstream
 
 ## Build
 - `CLAUDE.md` and `.claude/rules/` — fork contributor and agent instructions
