@@ -1185,7 +1185,7 @@ public class ComputerUtilMana {
 
     private static boolean hasRepeatableSacrificeCost(final SpellAbility ability) {
         final List<CostPart> parts = ability.getPayCosts().getCostParts();
-        final List<CostPart> sacrifices = parts.stream().filter(CostSacrifice.class::isInstance).toList();
+        final List<CostPart> sacrifices = parts.stream().filter(CostSacrifice.class::isInstance).collect(Collectors.toList());
         // a mana ability's own tap is inherent, so only the sacrifice decides whether it can repeat
         final boolean onlyTapAndOneSacrifice = sacrifices.size() == 1
                 && parts.stream().allMatch(p -> p instanceof CostTap || p instanceof CostSacrifice);
