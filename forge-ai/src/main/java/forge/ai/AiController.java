@@ -1621,7 +1621,7 @@ public class AiController {
     public void declareBlockersFor(Player defender, Combat combat) {
         final long id = AITimeoutTracker.key(game.getId(), player.getId());
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
-        AITimeoutTracker.begin(id, timeoutNanos);
+        AITimeoutTracker.begin(id, timeoutNanos, AITimeoutTracker.Decision.BLOCK);
         Object limit = null;
         try {
             // constructed before arming and inside the try: a throwing constructor can no longer leak begin()/arm()
@@ -1785,7 +1785,7 @@ public class AiController {
         final AiAttackController aiAtk = new AiAttackController(attacker);
         final long id = AITimeoutTracker.key(game.getId(), player.getId());
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
-        AITimeoutTracker.begin(id, timeoutNanos);
+        AITimeoutTracker.begin(id, timeoutNanos, AITimeoutTracker.Decision.ATTACK);
         Object limit = null;
         try {
             limit = AITimeoutTracker.arm(AITimeoutTracker.deadlineNanos(id, timeoutNanos), false);
@@ -1860,7 +1860,7 @@ public class AiController {
     public List<SpellAbility> chooseSpellAbilityToPlay() {
         final long id = AITimeoutTracker.key(game.getId(), player.getId());
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
-        AITimeoutTracker.begin(id, timeoutNanos);
+        AITimeoutTracker.begin(id, timeoutNanos, AITimeoutTracker.Decision.SPELL);
         final Object limit = AITimeoutTracker.arm(AITimeoutTracker.deadlineNanos(id, timeoutNanos), false);
         try {
             if (SimAudit.ENABLED) {
@@ -3318,7 +3318,7 @@ public class AiController {
         final boolean darkDepths = combos.has(ComboPlan.Kind.DARK_DEPTHS);
         final long aiId = AITimeoutTracker.key(game.getId(), player.getId());
         final long timeoutNanos = TimeUnit.SECONDS.toNanos(game.getAITimeout());
-        AITimeoutTracker.begin(aiId, timeoutNanos);
+        AITimeoutTracker.begin(aiId, timeoutNanos, AITimeoutTracker.Decision.SPELL);
         final long deadlineNanos = AITimeoutTracker.deadlineNanos(aiId, timeoutNanos);
         FutureTask<List<SpellAbility>> future = new FutureTask<>(() -> {
             final List<SpellAbility> approvedPlays = new ArrayList<>();
@@ -3436,12 +3436,16 @@ public class AiController {
             if (e instanceof TimeoutException) {
                 // log where the eval thread currently is - each timeout doubles as a
                 // profiler sample for diagnosing remaining AI slowdowns from user logs
-                StringBuilder sb = new StringBuilder("AI eval thread at timeout:");
-                StackTraceElement[] evalStack = t.getStackTrace();
-                for (int i = 0; i < Math.min(30, evalStack.length); i++) {
-                    sb.append("\n\tat ").append(evalStack[i]);
+                try {
+                    StringBuilder sb = new StringBuilder("AI eval thread at timeout:");
+                    StackTraceElement[] evalStack = t.getStackTrace();
+                    for (int i = 0; i < Math.min(30, evalStack.length); i++) {
+                        sb.append("\n\tat ").append(evalStack[i]);
+                    }
+                    System.out.println(sb);
+                } catch (RuntimeException ex) {
+                    System.out.println("AI eval thread stack unavailable: " + ex);
                 }
-                System.out.println(sb);
             }
             // ask the eval thread to exit at the next SpellAbility check first: a brutal
             // Thread.stop() mid-evaluation can leave partially mutated shared state behind

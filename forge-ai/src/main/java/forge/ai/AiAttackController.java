@@ -55,7 +55,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -962,7 +961,7 @@ public class AiAttackController {
         // predicting a HUMAN player's attack must not light up that player's timer bar
         final boolean trackTimer = ai.getController().isAI();
         if (trackTimer) {
-            AITimeoutTracker.begin(id, timeoutNanos);
+            AITimeoutTracker.begin(id, timeoutNanos, AITimeoutTracker.Decision.ATTACK);
         }
         try {
             // something prevents attacking, try another
@@ -1047,9 +1046,10 @@ public class AiAttackController {
                         return t;
                     }
                 );
-                List<Callable<Integer>> tasks = new ArrayList<>();
+                // workers only read combat; their results are applied in attacker order below so the
+                // forced attackers and their insertion order do not depend on thread scheduling
+                final List<Callable<GameEntity>> tasks = new ArrayList<>();
                 final long deadline = AITimeoutTracker.deadlineNanos(id, timeoutNanos);
-                final AtomicBoolean combatClosed = new AtomicBoolean(false);
 
                 for (final Card attacker : this.attackers) {
                     final GameEntity finalDefender = defender;
@@ -1064,7 +1064,7 @@ public class AiAttackController {
                             //TODO: if there are other ways to tap this creature (like mana creature), then don't need to attack
                             mustAttackDef = finalDefender;
                         } else {
-                            if (combat.getAttackConstraints().getRequirements().get(attacker) == null) return 0;
+                            if (combat.getAttackConstraints().getRequirements().get(attacker) == null) return null;
                             // check defenders in order of maximum requirements
                             List<Pair<GameEntity, Integer>> reqs = combat.getAttackConstraints().getRequirements().get(attacker).getSortedRequirements();
                             final GameEntity def = finalDefender;
@@ -1100,33 +1100,18 @@ public class AiAttackController {
                                 }
                             }
                         }
-                        if (mustAttackDef != null) {
-                            // combat is shared across these parallel futures and its attacker
-                            // multimap is not thread-safe; unsynchronized addAttacker calls
-                            // collide (ConcurrentModificationException, dropped attackers)
-                            synchronized (combat) {
-                                if (combatClosed.get()) {
-                                    return 0; // timed out: the caller already moved on, never touch combat after that
-                                }
-                                combat.addAttacker(attacker, mustAttackDef);
-                                attackersLeft.remove(attacker);
-                                numForcedAttackers.incrementAndGet();
-                            }
-                        }
-                        return 0;
+                        return mustAttackDef;
                     }));
                 }
 
+                final List<GameEntity> mustAttackDefs;
                 try {
-                    executor.invokeAll(tasks, Math.max(1L, AITimeoutTracker.remainingNanos(id, timeoutNanos)), TimeUnit.NANOSECONDS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                    mustAttackDefs = invokeAllInOrder(executor, tasks,
+                            Math.max(1L, AITimeoutTracker.remainingNanos(id, timeoutNanos)));
                 } finally {
-                    synchronized (combat) {
-                        combatClosed.set(true); // late workers must not add attackers after we move on
-                    }
                     executor.shutdownNow();
                 }
+                numForcedAttackers.addAndGet(addForcedAttackers(combat, this.attackers, mustAttackDefs, attackersLeft));
 
                 if (attackersLeft.isEmpty()) {
                     return aiAggression;
@@ -1542,13 +1527,55 @@ public class AiAttackController {
     }
 
     /** Runs a worker task armed with the AI deadline (and interrupt), so pool threads stop instead of running on as zombies. */
-    private static Callable<Integer> withDeadline(final long deadlineNanos, final Callable<Integer> task) {
+    /**
+     * Runs the tasks and returns their results in task order. A task that did not finish before the timeout,
+     * failed, or was cancelled yields null.
+     */
+    static <T> List<T> invokeAllInOrder(final ExecutorService executor, final List<Callable<T>> tasks, final long timeoutNanos) {
+        final List<T> results = new ArrayList<>(Collections.nCopies(tasks.size(), null));
+        try {
+            final List<Future<T>> futures = executor.invokeAll(tasks, timeoutNanos, TimeUnit.NANOSECONDS);
+            for (int i = 0; i < futures.size(); i++) {
+                final Future<T> future = futures.get(i);
+                if (future.isDone() && !future.isCancelled()) {
+                    try {
+                        results.set(i, future.get());
+                    } catch (ExecutionException e) {
+                        // a failed check forces nothing, as when the task never ran
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return results;
+    }
+
+    /**
+     * Adds each attacker with a non-null forced defender to combat, in attacker order.
+     * @return the number of attackers added
+     */
+    static int addForcedAttackers(final Combat combat, final List<Card> attackers, final List<GameEntity> defenders,
+            final Collection<Card> attackersLeft) {
+        int added = 0;
+        for (int i = 0; i < attackers.size(); i++) {
+            final GameEntity defender = defenders.get(i);
+            if (defender != null) {
+                combat.addAttacker(attackers.get(i), defender);
+                attackersLeft.remove(attackers.get(i));
+                added++;
+            }
+        }
+        return added;
+    }
+
+    private static <T> Callable<T> withDeadline(final long deadlineNanos, final Callable<T> task) {
         return () -> {
             final Object limit = AITimeoutTracker.arm(deadlineNanos, true);
             try {
                 return task.call();
             } catch (AITimeoutTracker.Expired e) {
-                return 0;
+                return null;
             } finally {
                 AITimeoutTracker.disarm(limit); // pooled threads must not inherit the limit
             }
