@@ -143,4 +143,53 @@ public class AITimeoutTrackerTest {
             AITimeoutTracker.end(live);
         }
     }
+
+    @Test
+    public void expiredSessionIsReportedOnceWithOutermostDecision() throws InterruptedException {
+        final java.util.List<String> reports = new java.util.ArrayList<>();
+        AITimeoutTracker.setExpiryListener((game, player, decision, elapsed, timeout) ->
+                reports.add(game + "/" + player + "/" + decision + "/" + (elapsed >= timeout)));
+        final long key = AITimeoutTracker.key(77, 1);
+        try {
+            AITimeoutTracker.begin(key, TimeUnit.MILLISECONDS.toNanos(5), AITimeoutTracker.Decision.SPELL);
+            AITimeoutTracker.begin(key, 10 * SEC, AITimeoutTracker.Decision.ATTACK);
+            Thread.sleep(20);
+            AITimeoutTracker.end(key);
+            Assert.assertTrue(reports.isEmpty(), "a nested end() closes no session");
+            AITimeoutTracker.end(key);
+        } finally {
+            AITimeoutTracker.setExpiryListener(null);
+        }
+        Assert.assertEquals(reports, java.util.List.of("77/1/SPELL/true"));
+    }
+
+    @Test
+    public void failingListenerDoesNotEscapeEnd() throws InterruptedException {
+        AITimeoutTracker.setExpiryListener((game, player, decision, elapsed, timeout) -> {
+            throw new IllegalStateException("listener failure");
+        });
+        final long key = AITimeoutTracker.key(79, 1);
+        try {
+            AITimeoutTracker.begin(key, TimeUnit.MILLISECONDS.toNanos(1), AITimeoutTracker.Decision.ATTACK);
+            Thread.sleep(5);
+            AITimeoutTracker.end(key);
+        } finally {
+            AITimeoutTracker.setExpiryListener(null);
+        }
+        Assert.assertFalse(AITimeoutTracker.isActive(key));
+    }
+
+    @Test
+    public void sessionEndingBeforeDeadlineIsNotReported() {
+        final java.util.List<String> reports = new java.util.ArrayList<>();
+        AITimeoutTracker.setExpiryListener((game, player, decision, elapsed, timeout) -> reports.add("expired"));
+        final long key = AITimeoutTracker.key(78, 1);
+        try {
+            AITimeoutTracker.begin(key, 10 * SEC, AITimeoutTracker.Decision.BLOCK);
+            AITimeoutTracker.end(key);
+        } finally {
+            AITimeoutTracker.setExpiryListener(null);
+        }
+        Assert.assertTrue(reports.isEmpty());
+    }
 }

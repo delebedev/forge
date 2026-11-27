@@ -1,6 +1,7 @@
 package forge.game.mana;
 
 import forge.ai.ComputerUtil;
+import forge.ai.ComputerUtilMana;
 import forge.ai.simulation.SimulationTest;
 import forge.card.mana.ManaAtom;
 import forge.game.Game;
@@ -11,6 +12,9 @@ import forge.game.spellability.SpellAbility;
 import forge.game.zone.ZoneType;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ManaRefundServiceTest extends SimulationTest {
 
@@ -83,5 +87,69 @@ public class ManaRefundServiceTest extends SimulationTest {
         AssertJUnit.assertTrue(coffers.isTapped());
         AssertJUnit.assertTrue(swampA.isTapped());
         AssertJUnit.assertTrue(swampB.isTapped());
+    }
+
+    /** Starts a real automatic payment for the card in hand that cannot complete, then reverses it as a cancelled cast does. */
+    private static void failPaymentAndRefund(Card card, Player p) {
+        SpellAbility cast = card.getFirstSpellAbility();
+        cast.setActivatingPlayer(p);
+        ManaCostBeingPaid cost = new ManaCostBeingPaid(cast.getPayCosts().getTotalMana());
+        AssertJUnit.assertFalse(ComputerUtilMana.payManaCost(cost, cast, p, false));
+        new ManaRefundService(cast).refundManaPaid();
+    }
+
+    /**
+     * A failed payment that activated a Signet, paid the Signet with a land and spent a Signet mana on a
+     * filter land reverses all of them: every source untaps and no mana is left floating.
+     */
+    @Test
+    public void testFailedPaymentThroughSignetAndFilterReversesEverySource() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        game.getPhaseHandler().devModeSet(PhaseType.MAIN1, p);
+
+        List<Card> sources = new ArrayList<>();
+        sources.add(addCard("Orzhov Signet", p));
+        sources.add(addCard("Wastes", p));
+        sources.add(addCard("Fetid Heath", p));
+        sources.add(addCard("Nomad Outpost", p));
+        Card zurgo = addCardToZone("Zurgo Helmsmasher", p, ZoneType.Hand); // {2}{R}{W}{B}
+        game.getAction().checkStateEffects(true);
+
+        failPaymentAndRefund(zurgo, p);
+
+        AssertJUnit.assertEquals(0, p.getManaPool().totalMana());
+        for (Card source : sources) {
+            AssertJUnit.assertFalse(source.getName() + " stays tapped", source.isTapped());
+        }
+    }
+
+    /** Mana floating before a failed payment is back in the pool afterwards, still attributed to its source. */
+    @Test
+    public void testFailedPaymentKeepsFloatingManaAndItsSource() {
+        Game game = initAndCreateGame();
+        Player p = game.getPlayers().get(0);
+        game.getPhaseHandler().devModeSet(PhaseType.MAIN1, p);
+
+        addCard("Wastes", p);
+        Card signet = addCard("Orzhov Signet", p);
+        Card heath = addCard("Fetid Heath", p);
+        Card outpost = addCard("Nomad Outpost", p);
+        Card zurgo = addCardToZone("Zurgo Helmsmasher", p, ZoneType.Hand); // {2}{R}{W}{B}
+        game.getAction().checkStateEffects(true);
+
+        SpellAbility signetMana = signet.getManaAbilities().get(0);
+        signetMana.setActivatingPlayer(p);
+        AssertJUnit.assertTrue(ComputerUtil.playNoStack(p, signetMana, game, false));
+        AssertJUnit.assertEquals(2, p.getManaPool().totalMana());
+
+        failPaymentAndRefund(zurgo, p);
+
+        AssertJUnit.assertEquals(2, p.getManaPool().totalMana());
+        for (Mana mana : p.getManaPool()) {
+            AssertJUnit.assertEquals(signet.getName(), mana.getSourceCard().getName());
+        }
+        AssertJUnit.assertFalse(heath.isTapped());
+        AssertJUnit.assertFalse(outpost.isTapped());
     }
 }

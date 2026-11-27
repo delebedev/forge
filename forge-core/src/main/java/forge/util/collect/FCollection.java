@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -1043,6 +1044,7 @@ public class FCollection<T> implements List<T>, RandomAccess, FCollectionView<T>
 
     @Override
     public boolean anyMatch(final Predicate<? super T> test) {
+        Objects.requireNonNull(test);
         for (int i = 0; i < list.size(); i++) {
             if (test.test(list.get(i))) {
                 return true;

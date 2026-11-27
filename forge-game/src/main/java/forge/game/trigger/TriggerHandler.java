@@ -18,6 +18,7 @@
 package forge.game.trigger;
 
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.google.common.collect.*;
 
@@ -45,7 +46,8 @@ public class TriggerHandler {
     private boolean allSuppressed = false;
     private final List<Trigger> activeTriggers = new ArrayList<>();
 
-    private final List<Trigger> delayedTriggers = new ArrayList<>();
+    // copy-on-write so hosts can snapshot delayed triggers while the game thread changes them
+    private final List<Trigger> delayedTriggers = new CopyOnWriteArrayList<>();
     private final List<Trigger> thisTurnDelayedTriggers = new ArrayList<>();
     private final ListMultimap<Player, Trigger> playerDefinedDelayedTriggers = ArrayListMultimap.create();
     private final List<TriggerWaiting> waitingTriggers = new ArrayList<>();
@@ -57,6 +59,10 @@ public class TriggerHandler {
 
     public final void registerDelayedTrigger(final Trigger trig) {
         delayedTriggers.add(trig);
+    }
+
+    public final List<Trigger> getDelayedTriggersSnapshot() {
+        return List.copyOf(delayedTriggers);
     }
 
     public final void clearDelayedTrigger() {

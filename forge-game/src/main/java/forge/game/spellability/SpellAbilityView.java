@@ -11,7 +11,9 @@ import forge.trackable.TrackableProperty;
 import forge.trackable.Tracker;
 
 public class SpellAbilityView extends TrackableObject implements IHasCardView {
-    private static final long serialVersionUID = 2514234930798754769L;
+    private static final long serialVersionUID = 2514234930798754770L;
+    private final int definitionId;
+    private int sourceTriggerDefinitionId;
 
     public static SpellAbilityView get(SpellAbility spab) {
         return spab == null ? null : spab.getView();
@@ -30,6 +32,8 @@ public class SpellAbilityView extends TrackableObject implements IHasCardView {
     }
     SpellAbilityView(final SpellAbility sa, Tracker tracker) {
         super(sa.getId(), tracker);
+        definitionId = sa.getDefinitionId();
+        updateSourceTriggerDefinitionId(sa);
         updateHostCard(sa);
         updateDescription(sa);
         updatePromptIfOnlyPossibleAbility(sa);
@@ -52,6 +56,15 @@ public class SpellAbilityView extends TrackableObject implements IHasCardView {
 
     public String getDescription() {
         return get(TrackableProperty.Description);
+    }
+    public int getDefinitionId() {
+        return definitionId;
+    }
+    public int getSourceTriggerDefinitionId() {
+        return sourceTriggerDefinitionId;
+    }
+    void updateSourceTriggerDefinitionId(SpellAbility sa) {
+        sourceTriggerDefinitionId = sa.getSourceTriggerDefinitionId();
     }
     void updateDescription(SpellAbility sa) {
         set(TrackableProperty.Description, sa.toUnsuppressedString());

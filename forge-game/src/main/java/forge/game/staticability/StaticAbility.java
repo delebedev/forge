@@ -56,6 +56,7 @@ public class StaticAbility extends CardTraitBase implements IIdentifiable, Clone
     private static int nextId() { return ++maxId; }
 
     private int id;
+    private final int definitionId;
 
     protected EnumSet<ZoneType> validHostZones;
     private Set<StaticAbilityMode> modes;
@@ -70,6 +71,9 @@ public class StaticAbility extends CardTraitBase implements IIdentifiable, Clone
     @Override
     public final int getId() {
         return id;
+    }
+    public final int getDefinitionId() {
+        return definitionId;
     }
 
     @Override
@@ -247,6 +251,7 @@ public class StaticAbility extends CardTraitBase implements IIdentifiable, Clone
      */
     private StaticAbility(final Map<String, String> params, final Card host, CardState state) {
         this.id = nextId();
+        this.definitionId = id;
         this.originalMapParams.putAll(params);
         this.mapParams.putAll(params);
         this.hostCard = host;

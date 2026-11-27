@@ -26,11 +26,16 @@ import static org.testng.Assert.assertTrue;
  */
 public class GameEventSerializationTest {
 
-    // Known exceptions: events that intentionally hold non-serializable engine
-    // objects (e.g. Game) because they are never sent over the network.
+    // Known exceptions: events that hold engine objects instead of their immutable
+    // views. TrackableSerializer keeps them on the hosting side; remote clients
+    // learn the same results from the following delta state.
     private static final Set<Class<?>> EXCLUDED_EVENTS = Set.of(
+            GameEventCardSurveiled.class,
+            GameEventControllerChanged.class,
+            GameEventExtrinsicKeywordAdded.class,
             GameEventSubgameStart.class,
-            GameEventSubgameEnd.class
+            GameEventSubgameEnd.class,
+            GameEventTokenCreated.class
     );
 
     @Test

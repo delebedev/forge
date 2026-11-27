@@ -42,6 +42,8 @@ import forge.game.ability.effects.ReplaceManaEffect;
 import forge.game.card.Card;
 import forge.game.card.CardCopyService;
 import forge.game.card.CardUtil;
+import forge.game.card.CardView;
+import forge.game.event.GameEventManaAbilityActivated;
 import forge.game.cost.Cost;
 import forge.game.cost.CostPartMana;
 import forge.game.cost.CostTap;
@@ -207,6 +209,7 @@ public class AbilityManaPart implements java.io.Serializable {
         }
 
         manaPool.addMana(this.lastManaProduced);
+        game.fireEvent(new GameEventManaAbilityActivated(CardView.get(source), afterReplace));
 
         final Map<AbilityKey, Object> runParams = AbilityKey.mapFromCard(source);
         runParams.put(AbilityKey.Player, player);

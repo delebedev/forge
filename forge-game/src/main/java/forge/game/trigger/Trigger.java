@@ -68,6 +68,7 @@ public abstract class Trigger extends TriggerReplacementBase {
 
     /** The ID. */
     private int id;
+    private final int definitionId;
 
     private TriggerType mode;
 
@@ -95,6 +96,7 @@ public abstract class Trigger extends TriggerReplacementBase {
      */
     public Trigger(final Map<String, String> params, final Card host, final boolean intrinsic) {
         this.id = nextId();
+        this.definitionId = id;
         this.intrinsic = intrinsic;
 
         this.originalMapParams.putAll(params);
@@ -514,6 +516,10 @@ public abstract class Trigger extends TriggerReplacementBase {
      */
     public int getId() {
         return this.id;
+    }
+
+    public int getDefinitionId() {
+        return this.definitionId;
     }
 
     /**

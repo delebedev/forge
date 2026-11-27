@@ -1146,6 +1146,9 @@ public class Game {
     public void subscribeToEvents(final Object subscriber) {
         events.register(subscriber);
     }
+    public void unsubscribeFromEvents(final Object subscriber) {
+        events.unregister(subscriber);
+    }
 
     public GameRules getRules() {
         return rules;

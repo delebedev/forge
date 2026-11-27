@@ -186,7 +186,19 @@ public class ManaPool extends ManaConversionMatrix implements Iterable<Mana> {
     }
 
     public boolean removeManaNoEvent(final Mana mana) {
-        return floatingMana.remove(mana.getColor(), mana);
+        return removeFloating(mana);
+    }
+
+    /** Removes this exact mana when it floats, otherwise an equal one, so the pool keeps each remaining mana's source. */
+    private boolean removeFloating(final Mana mana) {
+        final List<Mana> lane = floatingMana.get(mana.getColor());
+        for (final Iterator<Mana> it = lane.iterator(); it.hasNext();) {
+            if (it.next() == mana) {
+                it.remove();
+                return true;
+            }
+        }
+        return lane.remove(mana);
     }
 
     public boolean removeMana(Mana... manaList) {
@@ -195,7 +207,7 @@ public class ManaPool extends ManaConversionMatrix implements Iterable<Mana> {
     public boolean removeMana(final Iterable<Mana> manaList) {
         Set<MagicColor.Color> colors = EnumSet.noneOf(MagicColor.Color.class);
         for (Mana m : manaList) {
-            if (floatingMana.remove(m.getColor(), m)) {
+            if (removeFloating(m)) {
                 colors.add(MagicColor.Color.fromByte(m.getColor()));
             }
         }

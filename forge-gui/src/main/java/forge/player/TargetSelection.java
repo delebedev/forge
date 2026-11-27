@@ -32,7 +32,6 @@ import forge.game.staticability.StaticAbilityMustTarget;
 import forge.game.zone.Zone;
 import forge.game.zone.ZoneType;
 import forge.gamemodes.match.input.InputSelectStackItems;
-import forge.gamemodes.match.input.InputSelectTargets;
 import forge.util.Aggregates;
 import forge.util.IterableUtil;
 import forge.util.TextUtil;
@@ -168,20 +167,11 @@ public class TargetSelection {
                 }
             }
         }
-        else if (validTargets.size() == 1 && minTargets != 0 && ability.isTrigger() && !tgt.canTgtPlayer()) {
-            //if only one valid target card for triggered ability, auto-target that card
-            //only do this for triggered abilities to prevent auto-targeting when user chooses
-            //to play a spell or activate an ability
-            if (ability.isDividedAsYouChoose()) {
-                ability.addDividedAllocation(validTargets.get(0), ability.getStillToDivide());
-            }
-            return ability.getTargets().add(validTargets.get(0));
-        }
         if (!zones.contains(ZoneType.Stack) || controller.getGui().canPickStackTargets()) {
-            InputSelectTargets inp = new InputSelectTargets(controller, validTargets, ability, mandatory, numTargets, divisionValues, filter, mustTargetFiltered);
-            inp.showAndWait();
-            choiceResult = !inp.hasCancelled();
-            bTargetingDone = inp.hasPressedOk();
+            TargetSelectionResult result = controller.selectTargetsInteractively(
+                    validTargets, ability, mandatory, numTargets, divisionValues, filter, mustTargetFiltered);
+            choiceResult = result.isChosen();
+            bTargetingDone = result.isDone();
         } else {
             // for every other case an all-purpose GuiChoose
             choiceResult = this.chooseCardFromList(validTargets, true, mandatory);

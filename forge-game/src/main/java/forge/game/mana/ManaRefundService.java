@@ -1,6 +1,5 @@
 package forge.game.mana;
 
-import com.google.common.collect.Lists;
 import forge.game.event.EventValueChangeType;
 import forge.game.event.GameEventZone;
 import forge.game.player.Player;
@@ -38,18 +37,13 @@ public class ManaRefundService {
         // start with the most recent
         Collections.reverse(payingAbilities);
 
-        final List<SpellAbility> undone = Lists.newArrayList();
+        final MagicStack stack = sa.getHostCard().getGame().getStack();
         for (final SpellAbility am : payingAbilities) {
             // What if am is owned by a different player?
             if (am.undo()) {
-                undone.add(am);
-            }
-        }
-
-        final MagicStack stack = sa.getHostCard().getGame().getStack();
-        for (final SpellAbility am : payingAbilities) {
-            if (undone.contains(am)) {
-                // Recursively refund abilities that were used
+                // Refund what paid for this ability before reversing an earlier one: the earlier
+                // ability's mana may have paid this one's cost (a Signet paying a filter land)
+                // and must be back in the pool for that ability to account for it.
                 new ManaRefundService(am).refundManaPaid();
             } else {
                 // CR 733.1: a mana ability that could not be reversed keeps the mana
