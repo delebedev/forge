@@ -6265,8 +6265,8 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
         return total;
     }
 
-    public final boolean canDamagePrevented(final boolean isCombat) {
-        return !StaticAbilityCantPreventDamage.cantPreventDamage(this, isCombat);
+    public final boolean canDamagePrevented(final GameEntity target, final boolean isCombat) {
+        return !StaticAbilityCantPreventDamage.cantPreventDamage(this, target, isCombat);
     }
 
     // This is used by the AI to forecast an effect (so it must not change the game state)
@@ -6333,6 +6333,8 @@ public class Card extends GameEntity implements Comparable<Card>, IHasSVars, ITr
                 if (c.getController().equals(source.getController())) {
                     restDamage *= 2;
                 }
+            } else if (c.getName().equals("Stronghold Furnace")) {
+                restDamage *= 2;
             } else if (c.getName().equals("Mishra")) {
                 if (c.isCreature() && c.getController().equals(source.getController())) {
                     restDamage *= 2;
